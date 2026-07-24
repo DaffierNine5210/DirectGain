@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useState } from 'react';
 import {
   FlatList,
@@ -12,15 +13,19 @@ import {
 } from 'react-native';
 
 import MarketListingCard from '../components/MarketListingCard';
-
 import {
   MarketListing,
   marketListings,
 } from '../data/marketMockData';
-
+import type { MarketStackParamList } from '../navigation/MarketStack';
 import { colors } from '../theme/colors';
 
-type MarketFeedTab = 'forYou' | 'nearby';
+type Props = NativeStackScreenProps<
+  MarketStackParamList,
+  'MarketHome'
+>;
+
+type MarketTab = 'forYou' | 'nearby';
 
 const categories = [
   {
@@ -57,22 +62,22 @@ const categories = [
   },
 ] as const;
 
-export default function MarketScreen() {
-  const [searchQuery, setSearchQuery] =
-    useState('');
-
+export default function MarketScreen({
+  navigation,
+}: Props) {
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] =
     useState('All');
-
   const [selectedTab, setSelectedTab] =
-    useState<MarketFeedTab>('forYou');
-
-  const [favouriteIds, setFavouriteIds] =
-    useState<string[]>([]);
+    useState<MarketTab>('forYou');
+  const [favouriteIds, setFavouriteIds] = useState<
+    string[]
+  >([]);
 
   const filteredListings = useMemo(() => {
-    const normalizedSearch =
-      searchQuery.trim().toLowerCase();
+    const normalizedSearch = searchQuery
+      .trim()
+      .toLowerCase();
 
     return marketListings.filter((listing) => {
       const matchesCategory =
@@ -97,9 +102,6 @@ export default function MarketScreen() {
         listing.category
           .toLowerCase()
           .includes(normalizedSearch) ||
-        listing.subcategory
-          .toLowerCase()
-          .includes(normalizedSearch) ||
         listing.location
           .toLowerCase()
           .includes(normalizedSearch);
@@ -107,35 +109,6 @@ export default function MarketScreen() {
       return matchesCategory && matchesSearch;
     });
   }, [searchQuery, selectedCategory]);
-
-  const trendingListings = useMemo(
-    () =>
-      filteredListings
-        .filter(
-          (listing) =>
-            listing.listingType !== 'job' &&
-            listing.listingType !== 'service',
-        )
-        .slice(0, 4),
-    [filteredListings],
-  );
-
-  const trustedListings = useMemo(
-    () =>
-      filteredListings
-        .filter(
-          (listing) =>
-            listing.sellerVerified ||
-            listing.sellerGainScore >= 90,
-        )
-        .slice(4, 8),
-    [filteredListings],
-  );
-
-  const recommendedListings = useMemo(
-    () => filteredListings.slice(8),
-    [filteredListings],
-  );
 
   function toggleFavourite(listingId: string) {
     setFavouriteIds((currentIds) => {
@@ -149,15 +122,17 @@ export default function MarketScreen() {
     });
   }
 
-  function renderListingCard(
-    item: MarketListing,
-  ) {
+  function renderListing({
+    item,
+  }: {
+    item: MarketListing;
+  }) {
     const isFavourite =
       favouriteIds.includes(item.id) ||
       item.favourite;
 
     return (
-      <View style={styles.gridItem}>
+      <View style={styles.gridColumn}>
         <MarketListingCard
           id={item.id}
           title={item.title}
@@ -179,10 +154,9 @@ export default function MarketScreen() {
           category={item.category}
           auctionLabel={item.auctionLabel}
           onPress={() => {
-            console.log(
-              'Open listing:',
-              item.id,
-            );
+            navigation.navigate('ListingDetail', {
+              listingId: item.id,
+            });
           }}
           onFavouritePress={() => {
             toggleFavourite(item.id);
@@ -204,86 +178,14 @@ export default function MarketScreen() {
     );
   }
 
-  function renderGridSection(
-    listings: MarketListing[],
-    title: string,
-    subtitle: string,
-    icon: React.ComponentProps<
-      typeof Ionicons
-    >['name'],
-  ) {
-    if (listings.length === 0) {
-      return null;
-    }
-
-    return (
-      <View style={styles.discoverySection}>
-        <View style={styles.sectionHeading}>
-          <View style={styles.sectionTitleGroup}>
-            <View style={styles.sectionIcon}>
-              <Ionicons
-                name={icon}
-                size={16}
-                color={colors.primary}
-              />
-            </View>
-
-            <View>
-              <Text style={styles.sectionTitle}>
-                {title}
-              </Text>
-
-              <Text style={styles.sectionSubtitle}>
-                {subtitle}
-              </Text>
-            </View>
-          </View>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`See all ${title}`}
-            style={({ pressed }) => [
-              styles.seeAllButton,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Text style={styles.seeAllText}>
-              See all
-            </Text>
-
-            <Ionicons
-              name="chevron-forward"
-              size={14}
-              color={colors.primary}
-            />
-          </Pressable>
-        </View>
-
-        <View style={styles.grid}>
-          {listings.map((listing) => (
-            <View
-              key={listing.id}
-              style={styles.gridColumn}
-            >
-              {renderListingCard(listing)}
-            </View>
-          ))}
-        </View>
-      </View>
-    );
-  }
-
-  const hasResults =
-    filteredListings.length > 0;
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <FlatList
-        data={[]}
-        renderItem={() => null}
-        keyExtractor={(_, index) =>
-          String(index)
-        }
+        data={filteredListings}
+        renderItem={renderListing}
+        keyExtractor={(item) => item.id}
+        numColumns={2}
+        columnWrapperStyle={styles.columnWrapper}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
@@ -293,7 +195,7 @@ export default function MarketScreen() {
         }
         ListHeaderComponent={
           <View>
-            <View style={styles.topHeader}>
+            <View style={styles.header}>
               <View style={styles.brandArea}>
                 <View style={styles.logoMark}>
                   <Text style={styles.logoText}>
@@ -353,14 +255,10 @@ export default function MarketScreen() {
                   />
 
                   <View
-                    style={
-                      styles.notificationBadge
-                    }
+                    style={styles.notificationBadge}
                   >
                     <Text
-                      style={
-                        styles.notificationText
-                      }
+                      style={styles.notificationText}
                     >
                       3
                     </Text>
@@ -379,7 +277,7 @@ export default function MarketScreen() {
               <TextInput
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                placeholder="Search for anything..."
+                placeholder="Search the Market..."
                 placeholderTextColor={
                   colors.textMuted
                 }
@@ -392,11 +290,8 @@ export default function MarketScreen() {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Clear search"
+                  onPress={() => setSearchQuery('')}
                   hitSlop={10}
-                  onPress={() =>
-                    setSearchQuery('')
-                  }
-                  style={styles.searchAction}
                 >
                   <Ionicons
                     name="close-circle"
@@ -407,9 +302,8 @@ export default function MarketScreen() {
               ) : (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Open market filters"
+                  accessibilityLabel="Open filters"
                   hitSlop={10}
-                  style={styles.searchAction}
                 >
                   <Ionicons
                     name="options-outline"
@@ -513,16 +407,13 @@ export default function MarketScreen() {
               horizontal
               data={categories}
               keyExtractor={(item) => item.label}
-              showsHorizontalScrollIndicator={
-                false
-              }
+              showsHorizontalScrollIndicator={false}
               contentContainerStyle={
                 styles.categoryList
               }
               renderItem={({ item }) => {
                 const isSelected =
-                  selectedCategory ===
-                  item.label;
+                  selectedCategory === item.label;
 
                 return (
                   <Pressable
@@ -566,115 +457,72 @@ export default function MarketScreen() {
               }}
             />
 
-            {hasResults ? (
-              <>
-                {renderGridSection(
-                  trendingListings,
-                  selectedTab === 'nearby'
-                    ? 'Trending Nearby'
-                    : 'Trending Near You',
-                  selectedTab === 'nearby'
-                    ? 'Popular listings close to your location'
-                    : 'Popular opportunities selected for you',
-                  'flame-outline',
-                )}
-
-                {renderGridSection(
-                  trustedListings,
-                  'Trusted Sellers',
-                  'Highly rated and verified local members',
-                  'shield-checkmark-outline',
-                )}
-
-                <View style={styles.trustBanner}>
-                  <View
-                    style={styles.trustBannerIcon}
-                  >
-                    <Ionicons
-                      name="shield-checkmark"
-                      size={24}
-                      color={colors.primary}
-                    />
-                  </View>
-
-                  <View
-                    style={styles.trustBannerText}
-                  >
-                    <Text
-                      style={
-                        styles.trustBannerTitle
-                      }
-                    >
-                      Buy with confidence
-                    </Text>
-
-                    <Text
-                      style={
-                        styles.trustBannerDescription
-                      }
-                    >
-                      Gain Scores, seller
-                      verification and reviews help
-                      you make safer decisions.
-                    </Text>
-                  </View>
-
+            <View style={styles.sectionHeading}>
+              <View style={styles.sectionTitleArea}>
+                <View style={styles.sectionIcon}>
                   <Ionicons
-                    name="chevron-forward"
-                    size={18}
+                    name={
+                      selectedTab === 'nearby'
+                        ? 'location-outline'
+                        : 'sparkles-outline'
+                    }
+                    size={17}
                     color={colors.primary}
                   />
                 </View>
 
-                {renderGridSection(
-                  recommendedListings.length > 0
-                    ? recommendedListings
-                    : filteredListings.slice(0, 4),
-                  'Recommended For You',
-                  `${filteredListings.length} local opportunities available`,
-                  'heart-outline',
-                )}
-              </>
-            ) : (
-              <View style={styles.emptyState}>
-                <View style={styles.emptyIcon}>
-                  <Ionicons
-                    name="search-outline"
-                    size={31}
-                    color={colors.primary}
-                  />
-                </View>
-
-                <Text style={styles.emptyTitle}>
-                  No opportunities found
-                </Text>
-
-                <Text
-                  style={styles.emptyDescription}
-                >
-                  Try another search or choose a
-                  different category.
-                </Text>
-
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => {
-                    setSearchQuery('');
-                    setSelectedCategory('All');
-                  }}
-                  style={({ pressed }) => [
-                    styles.resetButton,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <Text
-                    style={styles.resetButtonText}
-                  >
-                    Reset filters
+                <View>
+                  <Text style={styles.sectionTitle}>
+                    {selectedTab === 'nearby'
+                      ? 'Nearby Market'
+                      : 'Recommended For You'}
                   </Text>
-                </Pressable>
+
+                  <Text
+                    style={styles.sectionSubtitle}
+                  >
+                    {filteredListings.length}{' '}
+                    opportunities available
+                  </Text>
+                </View>
               </View>
-            )}
+            </View>
+          </View>
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <View style={styles.emptyIcon}>
+              <Ionicons
+                name="search-outline"
+                size={32}
+                color={colors.primary}
+              />
+            </View>
+
+            <Text style={styles.emptyTitle}>
+              No opportunities found
+            </Text>
+
+            <Text style={styles.emptyDescription}>
+              Try another search or choose a
+              different category.
+            </Text>
+
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                setSearchQuery('');
+                setSelectedCategory('All');
+              }}
+              style={({ pressed }) => [
+                styles.resetButton,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text style={styles.resetButtonText}>
+                Reset filters
+              </Text>
+            </Pressable>
           </View>
         }
       />
@@ -704,7 +552,7 @@ const styles = StyleSheet.create({
     paddingBottom: 130,
   },
 
-  topHeader: {
+  header: {
     paddingTop: 14,
     flexDirection: 'row',
     alignItems: 'center',
@@ -723,8 +571,7 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor:
-      'rgba(158, 246, 90, 0.24)',
+    borderColor: 'rgba(158, 246, 90, 0.24)',
     backgroundColor:
       'rgba(158, 246, 90, 0.08)',
     alignItems: 'center',
@@ -778,8 +625,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor:
-      'rgba(255, 255, 255, 0.09)',
+    borderColor: 'rgba(255, 255, 255, 0.09)',
     backgroundColor: colors.cardRaised,
     alignItems: 'center',
     justifyContent: 'center',
@@ -810,8 +656,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 17,
     borderWidth: 1,
-    borderColor:
-      'rgba(255, 255, 255, 0.09)',
+    borderColor: 'rgba(255, 255, 255, 0.09)',
     backgroundColor: colors.cardRaised,
     flexDirection: 'row',
     alignItems: 'center',
@@ -820,14 +665,10 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     height: '100%',
-    marginLeft: 10,
+    marginHorizontal: 10,
     color: colors.text,
     fontSize: 13,
     fontWeight: '600',
-  },
-
-  searchAction: {
-    paddingLeft: 8,
   },
 
   locationRow: {
@@ -904,8 +745,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 13,
     borderWidth: 1,
-    borderColor:
-      'rgba(255, 255, 255, 0.09)',
+    borderColor: 'rgba(255, 255, 255, 0.09)',
     backgroundColor:
       'rgba(255, 255, 255, 0.035)',
     flexDirection: 'row',
@@ -929,28 +769,21 @@ const styles = StyleSheet.create({
     color: '#10150D',
   },
 
-  discoverySection: {
-    marginTop: 23,
-  },
-
   sectionHeading: {
+    marginTop: 22,
     marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
   },
 
-  sectionTitleGroup: {
-    flex: 1,
+  sectionTitleArea: {
     flexDirection: 'row',
     alignItems: 'center',
   },
 
   sectionIcon: {
-    width: 31,
-    height: 31,
-    marginRight: 9,
-    borderRadius: 11,
+    width: 34,
+    height: 34,
+    marginRight: 10,
+    borderRadius: 12,
     backgroundColor:
       'rgba(158, 246, 90, 0.09)',
     alignItems: 'center',
@@ -959,91 +792,25 @@ const styles = StyleSheet.create({
 
   sectionTitle: {
     color: colors.text,
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '900',
-    letterSpacing: -0.2,
+    letterSpacing: -0.3,
   },
 
   sectionSubtitle: {
     marginTop: 2,
     color: colors.textMuted,
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '600',
   },
 
-  seeAllButton: {
-    marginLeft: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  seeAllText: {
-    marginRight: 1,
-    color: colors.primary,
-    fontSize: 10,
-    fontWeight: '800',
-  },
-
-  grid: {
-    marginHorizontal: -5,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  columnWrapper: {
+    justifyContent: 'space-between',
   },
 
   gridColumn: {
-    width: '50%',
-    paddingHorizontal: 5,
-    marginBottom: 10,
-  },
-
-  gridItem: {
-    width: '100%',
-  },
-
-  trustBanner: {
-    minHeight: 94,
-    marginTop: 18,
-    padding: 14,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor:
-      'rgba(158, 246, 90, 0.22)',
-    backgroundColor:
-      'rgba(158, 246, 90, 0.055)',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  trustBannerIcon: {
-    width: 45,
-    height: 45,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor:
-      'rgba(158, 246, 90, 0.28)',
-    backgroundColor:
-      'rgba(158, 246, 90, 0.09)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  trustBannerText: {
-    flex: 1,
-    marginHorizontal: 12,
-  },
-
-  trustBannerTitle: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: '900',
-  },
-
-  trustBannerDescription: {
-    marginTop: 4,
-    color: colors.textMuted,
-    fontSize: 10,
-    lineHeight: 15,
-    fontWeight: '600',
+    width: '48.7%',
+    marginBottom: 12,
   },
 
   emptyState: {
@@ -1052,8 +819,7 @@ const styles = StyleSheet.create({
     paddingVertical: 42,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor:
-      'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     backgroundColor: colors.cardRaised,
     alignItems: 'center',
   },
