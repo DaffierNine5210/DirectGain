@@ -79,10 +79,12 @@ export default function ListingDetailScreen({
   };
 
   const handleSellerPress = () => {
-    Alert.alert(
-      'Seller profile',
-      'The full seller profile will be connected later.',
-    );
+  navigation.navigate('SellerProfile', {
+    sellerId: listing.seller.id,
+  });
+
+    
+    
   };
 
   return (

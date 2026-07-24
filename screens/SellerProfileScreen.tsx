@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import {
   Alert,
@@ -10,14 +11,24 @@ import {
   View,
 } from 'react-native';
 
-import GainJourneyTimeline from '../components/Seller-Profile/GainJourneyTimeline';
-import GainScoreCard from '../components/Seller-Profile/GainScoreCard';
-import SellerProfileHeader from '../components/Seller-Profile/SellerProfileHeader';
-import { sellers } from '../data/sellers';
+import GainJourneyTimeline from '../components/seller-profile/GainJourneyTimeline';
+import GainScoreCard from '../components/seller-profile/GainScoreCard';
+import SellerProfileHeader from '../components/seller-profile/SellerProfileHeader';
+import { getSellerById, sellers } from '../data/sellers';
+import type { MarketStackParamList } from '../navigation/MarketStack';
 import { colors } from '../theme/colors';
 
-export default function SellerProfileScreen() {
-  const seller = sellers[0];
+type Props = NativeStackScreenProps<
+  MarketStackParamList,
+  'SellerProfile'
+>;
+
+export default function SellerProfileScreen({
+  navigation,
+  route,
+}: Props) {
+  const seller =
+    getSellerById(route.params.sellerId) ?? sellers[0];
 
   const [isFollowing, setIsFollowing] = useState(
     seller.isFollowing,
@@ -56,23 +67,41 @@ export default function SellerProfileScreen() {
           contentContainerStyle={styles.scrollContent}
         >
           <View style={styles.topBar}>
-            <View style={styles.topBarTitleArea}>
-              <View style={styles.logoMark}>
+            <View style={styles.topBarLeft}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Go back"
+                onPress={() => navigation.goBack()}
+                style={({ pressed }) => [
+                  styles.backButton,
+                  pressed && styles.pressed,
+                ]}
+              >
                 <Ionicons
-                  name="trending-up"
-                  size={18}
-                  color={colors.primary}
+                  name="chevron-back"
+                  size={22}
+                  color={colors.text}
                 />
-              </View>
+              </Pressable>
 
-              <View>
-                <Text style={styles.topBarEyebrow}>
-                  DIRECT GAIN
-                </Text>
+              <View style={styles.topBarTitleArea}>
+                <View style={styles.logoMark}>
+                  <Ionicons
+                    name="trending-up"
+                    size={18}
+                    color={colors.primary}
+                  />
+                </View>
 
-                <Text style={styles.topBarTitle}>
-                  Seller Profile
-                </Text>
+                <View>
+                  <Text style={styles.topBarEyebrow}>
+                    DIRECT GAIN
+                  </Text>
+
+                  <Text style={styles.topBarTitle}>
+                    Seller Profile
+                  </Text>
+                </View>
               </View>
             </View>
 
@@ -188,7 +217,12 @@ export default function SellerProfileScreen() {
                 </Text>
               </View>
 
-              <View style={styles.activityItem}>
+              <View
+                style={[
+                  styles.activityItem,
+                  styles.lastActivityItem,
+                ]}
+              >
                 <View style={styles.activityItemIcon}>
                   <Ionicons
                     name="hammer-outline"
@@ -254,7 +288,7 @@ const styles = StyleSheet.create({
 
   topBar: {
     minHeight: 68,
-    paddingHorizontal: 18,
+    paddingHorizontal: 14,
     paddingVertical: 11,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.07)',
@@ -262,6 +296,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+
+  topBarLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  backButton: {
+    width: 42,
+    height: 42,
+    marginRight: 9,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.10)',
+    backgroundColor: 'rgba(255, 255, 255, 0.045)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   topBarTitleArea: {
@@ -297,7 +349,7 @@ const styles = StyleSheet.create({
   },
 
   topBarActions: {
-    marginLeft: 12,
+    marginLeft: 10,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -395,6 +447,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  lastActivityItem: {
+    marginRight: 0,
   },
 
   activityItemIcon: {

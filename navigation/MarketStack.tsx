@@ -2,12 +2,17 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import ListingDetailScreen from '../screens/ListingDetailScreen';
 import MarketScreen from '../screens/MarketScreen';
+import SellerProfileScreen from '../screens/SellerProfileScreen';
 
 export type MarketStackParamList = {
   MarketHome: undefined;
 
   ListingDetail: {
     listingId: string;
+  };
+
+  SellerProfile: {
+    sellerId: string;
   };
 };
 
@@ -34,6 +39,15 @@ export default function MarketStack() {
       <Stack.Screen
         name="ListingDetail"
         component={ListingDetailScreen}
+        options={{
+          animation: 'slide_from_right',
+          gestureDirection: 'horizontal',
+        }}
+      />
+
+      <Stack.Screen
+        name="SellerProfile"
+        component={SellerProfileScreen}
         options={{
           animation: 'slide_from_right',
           gestureDirection: 'horizontal',
