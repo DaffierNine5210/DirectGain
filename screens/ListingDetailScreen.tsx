@@ -14,6 +14,7 @@ import {
 
 import ListingHeroGallery from '../components/listing-detail/ListingHeroGallery';
 import SellerTrustCard from '../components/listing-detail/SellerTrustCard';
+import OpportunityScoreCard from '../components/listing-detail/OpportunityScoreCard';
 import { listings } from '../data/listings';
 import type { MarketStackParamList } from '../navigation/MarketStack';
 import { colors } from '../theme/colors';
@@ -125,6 +126,9 @@ export default function ListingDetailScreen({
                 </View>
               )}
             </View>
+            <OpportunityScoreCard
+  score={listing.opportunityScore ?? 0}
+/>
 
             <View style={styles.divider} />
 
