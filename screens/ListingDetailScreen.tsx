@@ -12,9 +12,10 @@ import {
   View,
 } from 'react-native';
 
+import ListingDetailsGrid from '../components/listing-detail/ListingDetailsGrid';
 import ListingHeroGallery from '../components/listing-detail/ListingHeroGallery';
-import SellerTrustCard from '../components/listing-detail/SellerTrustCard';
 import OpportunityScoreCard from '../components/listing-detail/OpportunityScoreCard';
+import SellerTrustCard from '../components/listing-detail/SellerTrustCard';
 import { listings } from '../data/listings';
 import type { MarketStackParamList } from '../navigation/MarketStack';
 import { colors } from '../theme/colors';
@@ -46,7 +47,11 @@ export default function ListingDetailScreen({
     maximumFractionDigits: 0,
   }).format(listing.price);
 
-  const handleShare = async () => {
+  const handleFavouritePress = () => {
+    setIsFavourite(current => !current);
+  };
+
+  const handleSharePress = async () => {
     try {
       await Share.share({
         message: `${listing.title} — ${formattedPrice}`,
@@ -57,6 +62,27 @@ export default function ListingDetailScreen({
         'Please try again shortly.',
       );
     }
+  };
+
+  const handleMessagePress = () => {
+    Alert.alert(
+      'Message seller',
+      'Messaging will be connected in a later stage.',
+    );
+  };
+
+  const handleOfferPress = () => {
+    Alert.alert(
+      'Make an offer',
+      'The offer flow will be added in a later stage.',
+    );
+  };
+
+  const handleSellerPress = () => {
+    Alert.alert(
+      'Seller profile',
+      'The full seller profile will be connected later.',
+    );
   };
 
   return (
@@ -72,10 +98,8 @@ export default function ListingDetailScreen({
             currentImage={1}
             favourite={isFavourite}
             onBackPress={() => navigation.goBack()}
-            onFavouritePress={() =>
-              setIsFavourite(current => !current)
-            }
-            onSharePress={handleShare}
+            onFavouritePress={handleFavouritePress}
+            onSharePress={handleSharePress}
           />
 
           <View style={styles.content}>
@@ -87,17 +111,17 @@ export default function ListingDetailScreen({
               {listing.title}
             </Text>
 
-            <View style={styles.metaRow}>
+            <View style={styles.locationRow}>
               <Ionicons
                 name="location-outline"
                 size={16}
                 color={colors.primary}
               />
 
-              <Text style={styles.metaText}>
+              <Text style={styles.locationText}>
                 {listing.location.suburb},{' '}
                 {listing.location.state}
-                {listing.location.distanceKm
+                {listing.location.distanceKm !== undefined
                   ? ` • ${listing.location.distanceKm} km away`
                   : ''}
                 {' • '}
@@ -125,10 +149,19 @@ export default function ListingDetailScreen({
                   </Text>
                 </View>
               )}
+
+              {listing.deliveryAvailable && (
+                <View style={styles.chip}>
+                  <Text style={styles.chipText}>
+                    Delivery
+                  </Text>
+                </View>
+              )}
             </View>
+
             <OpportunityScoreCard
-  score={listing.opportunityScore ?? 0}
-/>
+              score={listing.opportunityScore ?? 0}
+            />
 
             <View style={styles.divider} />
 
@@ -140,60 +173,71 @@ export default function ListingDetailScreen({
               {listing.description}
             </Text>
 
+            <Text style={styles.detailsTitle}>
+              Key details
+            </Text>
+
+            <ListingDetailsGrid
+              items={[
+                {
+                  label: 'Condition',
+                  value: listing.condition,
+                  icon: 'sparkles-outline',
+                },
+                {
+                  label: 'Category',
+                  value: listing.category,
+                  icon: 'grid-outline',
+                },
+                {
+                  label: 'Collection',
+                  value: listing.pickupAvailable
+                    ? 'Local pickup'
+                    : 'Not available',
+                  icon: 'location-outline',
+                },
+                {
+                  label: 'Delivery',
+                  value: listing.deliveryAvailable
+                    ? 'Available'
+                    : 'Not available',
+                  icon: 'car-outline',
+                },
+              ]}
+            />
+
             <View style={styles.divider} />
 
             <Text style={styles.sectionTitle}>
               Seller
             </Text>
 
-            <Pressable
-              style={({ pressed }) => [
-                styles.sellerCard,
-                pressed && styles.pressed,
-              ]}
-            >
-              <View style={styles.sellerAvatar}>
-                <Text style={styles.sellerInitial}>
-                  {listing.seller.name.charAt(0)}
-                </Text>
+            <SellerTrustCard
+              seller={listing.seller}
+              onPress={handleSellerPress}
+            />
+
+            <View style={styles.safetyCard}>
+              <View style={styles.safetyIcon}>
+                <Ionicons
+                  name="shield-checkmark-outline"
+                  size={21}
+                  color={colors.primary}
+                />
               </View>
 
-              <View style={styles.sellerContent}>
-                <View style={styles.sellerNameRow}>
-                  <Text style={styles.sellerName}>
-                    {listing.seller.name}
-                  </Text>
-
-                  <Ionicons
-                    name="shield-checkmark"
-                    size={17}
-                    color={colors.primary}
-                  />
-                </View>
-
-                <Text style={styles.sellerMeta}>
-                  Gain Score {listing.seller.gainScore}
-                  {' • '}
-                  {listing.seller.rating.toFixed(1)} ★
+              <View style={styles.safetyContent}>
+                <Text style={styles.safetyTitle}>
+                  Buy with confidence
                 </Text>
 
-                <Text style={styles.sellerMeta}>
-                  {listing.seller.reviewCount} reviews
-                  {' • '}
-                  {listing.seller.completedSales} sales
-                </Text>
-
-                <Text style={styles.responseTime}>
-                  {listing.seller.responseTime}
+                <Text style={styles.safetyText}>
+                  Keep messages and payments inside Direct Gain.
+                  Review seller history before completing a
+                  transaction.
                 </Text>
               </View>
-
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={colors.textMuted}
-              />
-            </Pressable>
+            </View>
 
             <View style={styles.bottomSpacer} />
           </View>
@@ -202,16 +246,12 @@ export default function ListingDetailScreen({
         <View style={styles.actionBar}>
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel="Message seller"
+            onPress={handleMessagePress}
             style={({ pressed }) => [
               styles.secondaryButton,
               pressed && styles.pressed,
             ]}
-            onPress={() =>
-              Alert.alert(
-                'Message seller',
-                'Messaging will be connected in a later stage.',
-              )
-            }
           >
             <Ionicons
               name="chatbubble-outline"
@@ -226,16 +266,12 @@ export default function ListingDetailScreen({
 
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel="Make an offer"
+            onPress={handleOfferPress}
             style={({ pressed }) => [
               styles.primaryButton,
               pressed && styles.pressed,
             ]}
-            onPress={() =>
-              Alert.alert(
-                'Make an offer',
-                'The offer flow will be added in a later stage.',
-              )
-            }
           >
             <Text style={styles.primaryButtonText}>
               Make Offer
@@ -258,7 +294,7 @@ const styles = StyleSheet.create({
   },
 
   scrollContent: {
-    paddingBottom: 96,
+    paddingBottom: 104,
   },
 
   content: {
@@ -281,13 +317,13 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 
-  metaRow: {
+  locationRow: {
     marginTop: 12,
     flexDirection: 'row',
     alignItems: 'center',
   },
 
-  metaText: {
+  locationText: {
     flex: 1,
     marginLeft: 7,
     color: colors.textMuted,
@@ -339,67 +375,56 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  sellerCard: {
-    marginTop: 14,
+  detailsTitle: {
+    marginTop: 22,
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+
+  safetyCard: {
+    marginTop: 18,
     padding: 16,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.09)',
-    backgroundColor: 'rgba(255, 255, 255, 0.045)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.035)',
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
 
-  sellerAvatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 18,
-    backgroundColor: 'rgba(158, 246, 90, 0.12)',
+  safetyIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(158, 246, 90, 0.24)',
+    borderColor: 'rgba(158, 246, 90, 0.18)',
+    backgroundColor: 'rgba(158, 246, 90, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  sellerInitial: {
-    color: colors.primary,
-    fontSize: 20,
-    fontWeight: '900',
-  },
-
-  sellerContent: {
+  safetyContent: {
     flex: 1,
-    marginLeft: 13,
+    marginLeft: 12,
   },
 
-  sellerNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  sellerName: {
-    marginRight: 6,
+  safetyTitle: {
     color: colors.text,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '900',
   },
 
-  sellerMeta: {
-    marginTop: 4,
+  safetyText: {
+    marginTop: 5,
     color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-
-  responseTime: {
-    marginTop: 6,
-    color: colors.primary,
     fontSize: 11,
-    fontWeight: '800',
+    lineHeight: 17,
+    fontWeight: '600',
   },
 
   bottomSpacer: {
-    height: 24,
+    height: 28,
   },
 
   actionBar: {
