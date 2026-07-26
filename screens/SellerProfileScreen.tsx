@@ -11,14 +11,18 @@ import {
   View,
 } from 'react-native';
 
+import ActiveListingsSection from '../components/seller-profile/ActiveListingsSection';
 import GainJourneyTimeline from '../components/seller-profile/GainJourneyTimeline';
 import GainScoreCard from '../components/seller-profile/GainScoreCard';
+import ReviewsSection from '../components/seller-profile/ReviewsSection';
 import SellerProfileHeader from '../components/seller-profile/SellerProfileHeader';
+import VerificationHub from '../components/seller-profile/VerificationHub';
+import { listings } from '../data/listings';
 import { getSellerById, sellers } from '../data/sellers';
 import type { MarketStackParamList } from '../navigation/MarketStack';
 import { colors } from '../theme/colors';
-import ActiveListingsSection from '../components/seller-profile/ActiveListingsSection';
-import { listings } from '../data/listings';
+import type { VerificationType } from '../types/Listing';
+
 type Props = NativeStackScreenProps<
   MarketStackParamList,
   'SellerProfile'
@@ -42,7 +46,7 @@ export default function SellerProfileScreen({
   const handleMessagePress = () => {
     Alert.alert(
       `Message ${seller.name}`,
-      'Direct messaging will be connected after the profile navigation is complete.',
+      'Direct messaging will be connected in a later stage.',
     );
   };
 
@@ -59,11 +63,50 @@ export default function SellerProfileScreen({
       'Reporting, blocking and additional profile options will be added later.',
     );
   };
-const handleListingPress = (listingId: string) => {
-  navigation.navigate('ListingDetail', {
-    listingId,
-  });
-};
+
+  const handleListingPress = (listingId: string) => {
+    navigation.navigate('ListingDetail', {
+      listingId,
+    });
+  };
+
+  const handleVerificationPress = (
+    verification: VerificationType,
+  ) => {
+    const titles: Record<VerificationType, string> = {
+      identity: 'Identity verified',
+      business: 'Business verified',
+      professional: 'Professional verified',
+      community: 'Community trusted',
+    };
+
+    const descriptions: Record<
+      VerificationType,
+      string
+    > = {
+      identity:
+        'This member has completed Direct Gain identity checks using verified personal information.',
+      business:
+        'This member has provided business information that has been reviewed by Direct Gain.',
+      professional:
+        'This member has supplied relevant professional licences, qualifications or trade credentials.',
+      community:
+        'This badge is earned through strong reviews, verified activity and positive community conduct.',
+    };
+
+    Alert.alert(
+      titles[verification],
+      descriptions[verification],
+    );
+  };
+
+  const handleViewAllReviewsPress = () => {
+    Alert.alert(
+      'All reviews',
+      'The full reviews screen will be connected in a later stage.',
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.screen}>
@@ -157,12 +200,28 @@ const handleListingPress = (listingId: string) => {
 
           <GainScoreCard seller={seller} />
 
+          <VerificationHub
+            seller={seller}
+            onVerificationPress={
+              handleVerificationPress
+            }
+          />
+
           <GainJourneyTimeline seller={seller} />
-<ActiveListingsSection
-  seller={seller}
-  listings={listings}
-  onListingPress={handleListingPress}
-/>
+
+          <ActiveListingsSection
+            seller={seller}
+            listings={listings}
+            onListingPress={handleListingPress}
+          />
+
+          <ReviewsSection
+            seller={seller}
+            onViewAllPress={
+              handleViewAllReviewsPress
+            }
+          />
+
           <View style={styles.activitySummary}>
             <View style={styles.activityHeader}>
               <View style={styles.activityIcon}>
@@ -254,7 +313,7 @@ const handleListingPress = (listingId: string) => {
           <View style={styles.comingNextCard}>
             <View style={styles.comingNextIcon}>
               <Ionicons
-                name="layers-outline"
+                name="images-outline"
                 size={21}
                 color={colors.primary}
               />
@@ -262,13 +321,13 @@ const handleListingPress = (listingId: string) => {
 
             <View style={styles.comingNextContent}>
               <Text style={styles.comingNextTitle}>
-                More profile sections are coming
+                Portfolio coming next
               </Text>
 
               <Text style={styles.comingNextText}>
-                Skills, portfolio work, reviews and active
-                listings will be added as reusable profile
-                components next.
+                Completed work, sold items and professional
+                projects will soon appear as a visual
+                portfolio on this profile.
               </Text>
             </View>
           </View>
@@ -300,7 +359,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 11,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.07)',
+    borderBottomColor:
+      'rgba(255, 255, 255, 0.07)',
     backgroundColor: '#080B09',
     flexDirection: 'row',
     alignItems: 'center',
@@ -319,8 +379,10 @@ const styles = StyleSheet.create({
     marginRight: 9,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
-    backgroundColor: 'rgba(255, 255, 255, 0.045)',
+    borderColor:
+      'rgba(255, 255, 255, 0.10)',
+    backgroundColor:
+      'rgba(255, 255, 255, 0.045)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -337,8 +399,10 @@ const styles = StyleSheet.create({
     marginRight: 11,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(158, 246, 90, 0.20)',
-    backgroundColor: 'rgba(158, 246, 90, 0.08)',
+    borderColor:
+      'rgba(158, 246, 90, 0.20)',
+    backgroundColor:
+      'rgba(158, 246, 90, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -369,8 +433,10 @@ const styles = StyleSheet.create({
     marginRight: 8,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
-    backgroundColor: 'rgba(255, 255, 255, 0.045)',
+    borderColor:
+      'rgba(255, 255, 255, 0.10)',
+    backgroundColor:
+      'rgba(255, 255, 255, 0.045)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -383,7 +449,8 @@ const styles = StyleSheet.create({
     height: 1,
     marginHorizontal: 20,
     marginBottom: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    backgroundColor:
+      'rgba(255, 255, 255, 0.07)',
   },
 
   activitySummary: {
@@ -392,7 +459,8 @@ const styles = StyleSheet.create({
     padding: 18,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor:
+      'rgba(255, 255, 255, 0.08)',
     backgroundColor: '#101511',
   },
 
@@ -407,8 +475,10 @@ const styles = StyleSheet.create({
     marginRight: 12,
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: 'rgba(158, 246, 90, 0.18)',
-    backgroundColor: 'rgba(158, 246, 90, 0.08)',
+    borderColor:
+      'rgba(158, 246, 90, 0.18)',
+    backgroundColor:
+      'rgba(158, 246, 90, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -452,8 +522,10 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderColor:
+      'rgba(255, 255, 255, 0.07)',
+    backgroundColor:
+      'rgba(255, 255, 255, 0.03)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -467,7 +539,8 @@ const styles = StyleSheet.create({
     height: 38,
     marginBottom: 9,
     borderRadius: 13,
-    backgroundColor: 'rgba(158, 246, 90, 0.07)',
+    backgroundColor:
+      'rgba(158, 246, 90, 0.07)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -493,8 +566,10 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 21,
     borderWidth: 1,
-    borderColor: 'rgba(158, 246, 90, 0.13)',
-    backgroundColor: 'rgba(158, 246, 90, 0.045)',
+    borderColor:
+      'rgba(158, 246, 90, 0.13)',
+    backgroundColor:
+      'rgba(158, 246, 90, 0.045)',
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
@@ -503,7 +578,8 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: 'rgba(158, 246, 90, 0.08)',
+    backgroundColor:
+      'rgba(158, 246, 90, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
