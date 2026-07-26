@@ -4,11 +4,11 @@ import {
 } from '@react-navigation/bottom-tabs';
 
 import MarketStack from './MarketStack';
+import MessagesStack from './MessagesStack';
 
 import CreateScreen from '../screens/CreateScreen';
 import DiscoverScreen from '../screens/DiscoverScreen';
 import LiveBidScreen from '../screens/LiveBidScreen';
-import MessagesInboxScreen from '../screens/MessagesInboxScreen';
 import MyGainScreen from '../screens/MyGainScreen';
 
 import { colors } from '../theme/colors';
@@ -175,7 +175,7 @@ export default function BottomTabs() {
 
       <Tab.Screen
         name="Messages"
-        component={MessagesInboxScreen}
+        component={MessagesStack}
       />
 
       <Tab.Screen

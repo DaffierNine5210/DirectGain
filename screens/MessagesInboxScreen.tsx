@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useState } from 'react';
 import {
   Alert,
@@ -13,11 +14,17 @@ import {
 
 import ConversationCard from '../components/messaging/ConversationCard';
 import { conversations } from '../data/conversations';
+import type { MessagesStackParamList } from '../navigation/MessagesStack';
 import { colors } from '../theme/colors';
 import {
   createConversationSummary,
   type Conversation,
 } from '../types/Messaging';
+
+type Props = NativeStackScreenProps<
+  MessagesStackParamList,
+  'Inbox'
+>;
 
 type InboxFilter =
   | 'all'
@@ -76,7 +83,9 @@ function getLastMessageTime(
   return lastMessage?.createdAt ?? '';
 }
 
-export default function MessagesInboxScreen() {
+export default function MessagesInboxScreen({
+  navigation,
+}: Props) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] =
     useState<InboxFilter>('all');
@@ -102,14 +111,17 @@ export default function MessagesInboxScreen() {
           activeFilter === 'all' ||
           conversation.context.type === activeFilter;
 
+        const lastMessage =
+          conversation.messages[
+            conversation.messages.length - 1
+          ];
+
         const searchableText = [
           conversation.participant.name,
           conversation.participant.username ?? '',
           conversation.context.title,
           conversation.context.location ?? '',
-          conversation.messages[
-            conversation.messages.length - 1
-          ]?.text ?? '',
+          lastMessage?.text ?? '',
         ]
           .join(' ')
           .toLowerCase();
@@ -121,17 +133,11 @@ export default function MessagesInboxScreen() {
         return matchesFilter && matchesSearch;
       })
       .sort((first, second) => {
-        if (
-          first.isPinned &&
-          !second.isPinned
-        ) {
+        if (first.isPinned && !second.isPinned) {
           return -1;
         }
 
-        if (
-          !first.isPinned &&
-          second.isPinned
-        ) {
+        if (!first.isPinned && second.isPinned) {
           return 1;
         }
 
@@ -156,15 +162,9 @@ export default function MessagesInboxScreen() {
   const handleConversationPress = (
     conversationId: string,
   ) => {
-    const conversation = conversations.find(
-      item => item.id === conversationId,
-    );
-
-    Alert.alert(
-      conversation?.participant.name ??
-        'Conversation',
-      'The complete conversation screen will be connected next.',
-    );
+    navigation.navigate('Conversation', {
+      conversationId,
+    });
   };
 
   const handleComposePress = () => {
