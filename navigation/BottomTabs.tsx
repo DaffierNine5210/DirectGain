@@ -8,6 +8,7 @@ import MarketStack from './MarketStack';
 import CreateScreen from '../screens/CreateScreen';
 import DiscoverScreen from '../screens/DiscoverScreen';
 import LiveBidScreen from '../screens/LiveBidScreen';
+import MessagesInboxScreen from '../screens/MessagesInboxScreen';
 import MyGainScreen from '../screens/MyGainScreen';
 
 import { colors } from '../theme/colors';
@@ -15,6 +16,7 @@ import { colors } from '../theme/colors';
 export type BottomTabParamList = {
   Discover: undefined;
   Market: undefined;
+  Messages: undefined;
   Create: undefined;
   Auctions: undefined;
   'My Gain': undefined;
@@ -23,14 +25,26 @@ export type BottomTabParamList = {
 const Tab =
   createBottomTabNavigator<BottomTabParamList>();
 
+type TabIconName =
+  | 'home'
+  | 'home-outline'
+  | 'storefront'
+  | 'storefront-outline'
+  | 'chatbubbles'
+  | 'chatbubbles-outline'
+  | 'add'
+  | 'hammer'
+  | 'hammer-outline'
+  | 'person'
+  | 'person-outline';
+
 export default function BottomTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
 
-        tabBarActiveTintColor:
-          colors.primary,
+        tabBarActiveTintColor: colors.primary,
 
         tabBarInactiveTintColor:
           colors.textSecondary,
@@ -46,8 +60,12 @@ export default function BottomTabs() {
           borderTopColor: colors.border,
         },
 
+        tabBarItemStyle: {
+          minWidth: 0,
+        },
+
         tabBarLabelStyle: {
-          fontSize: 10,
+          fontSize: 9,
           fontWeight: '700',
         },
 
@@ -56,16 +74,7 @@ export default function BottomTabs() {
           size,
           focused,
         }) => {
-          let iconName:
-            | 'home'
-            | 'home-outline'
-            | 'storefront'
-            | 'storefront-outline'
-            | 'add'
-            | 'hammer'
-            | 'hammer-outline'
-            | 'person'
-            | 'person-outline';
+          let iconName: TabIconName;
 
           switch (route.name) {
             case 'Discover':
@@ -78,6 +87,12 @@ export default function BottomTabs() {
               iconName = focused
                 ? 'storefront'
                 : 'storefront-outline';
+              break;
+
+            case 'Messages':
+              iconName = focused
+                ? 'chatbubbles'
+                : 'chatbubbles-outline';
               break;
 
             case 'Create':
@@ -95,6 +110,9 @@ export default function BottomTabs() {
                 ? 'person'
                 : 'person-outline';
               break;
+
+            default:
+              iconName = 'home-outline';
           }
 
           const isCreate =
@@ -103,7 +121,11 @@ export default function BottomTabs() {
           return (
             <Ionicons
               name={iconName}
-              size={isCreate ? 31 : size}
+              size={
+                isCreate
+                  ? 29
+                  : Math.min(size, 23)
+              }
               color={
                 isCreate
                   ? colors.background
@@ -112,13 +134,13 @@ export default function BottomTabs() {
               style={
                 isCreate
                   ? {
-                      width: 52,
-                      height: 46,
-                      borderRadius: 16,
+                      width: 48,
+                      height: 44,
+                      borderRadius: 15,
                       backgroundColor:
                         colors.primary,
                       textAlign: 'center',
-                      lineHeight: 46,
+                      lineHeight: 44,
                       shadowColor:
                         colors.primary,
                       shadowOpacity: 0.22,
@@ -149,6 +171,11 @@ export default function BottomTabs() {
       <Tab.Screen
         name="Market"
         component={MarketStack}
+      />
+
+      <Tab.Screen
+        name="Messages"
+        component={MessagesInboxScreen}
       />
 
       <Tab.Screen
