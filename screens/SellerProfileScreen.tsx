@@ -17,7 +17,8 @@ import SellerProfileHeader from '../components/seller-profile/SellerProfileHeade
 import { getSellerById, sellers } from '../data/sellers';
 import type { MarketStackParamList } from '../navigation/MarketStack';
 import { colors } from '../theme/colors';
-
+import ActiveListingsSection from '../components/seller-profile/ActiveListingsSection';
+import { listings } from '../data/listings';
 type Props = NativeStackScreenProps<
   MarketStackParamList,
   'SellerProfile'
@@ -58,7 +59,11 @@ export default function SellerProfileScreen({
       'Reporting, blocking and additional profile options will be added later.',
     );
   };
-
+const handleListingPress = (listingId: string) => {
+  navigation.navigate('ListingDetail', {
+    listingId,
+  });
+};
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.screen}>
@@ -153,7 +158,11 @@ export default function SellerProfileScreen({
           <GainScoreCard seller={seller} />
 
           <GainJourneyTimeline seller={seller} />
-
+<ActiveListingsSection
+  seller={seller}
+  listings={listings}
+  onListingPress={handleListingPress}
+/>
           <View style={styles.activitySummary}>
             <View style={styles.activityHeader}>
               <View style={styles.activityIcon}>
