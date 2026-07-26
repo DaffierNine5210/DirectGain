@@ -14,6 +14,7 @@ import {
 import ActiveListingsSection from '../components/seller-profile/ActiveListingsSection';
 import GainJourneyTimeline from '../components/seller-profile/GainJourneyTimeline';
 import GainScoreCard from '../components/seller-profile/GainScoreCard';
+import PortfolioSection from '../components/seller-profile/PortfolioSection';
 import ReviewsSection from '../components/seller-profile/ReviewsSection';
 import SellerProfileHeader from '../components/seller-profile/SellerProfileHeader';
 import VerificationHub from '../components/seller-profile/VerificationHub';
@@ -22,6 +23,7 @@ import { getSellerById, sellers } from '../data/sellers';
 import type { MarketStackParamList } from '../navigation/MarketStack';
 import { colors } from '../theme/colors';
 import type { VerificationType } from '../types/Listing';
+import type { SellerPortfolioItem } from '../types/SellerProfile';
 
 type Props = NativeStackScreenProps<
   MarketStackParamList,
@@ -97,6 +99,23 @@ export default function SellerProfileScreen({
     Alert.alert(
       titles[verification],
       descriptions[verification],
+    );
+  };
+
+  const handlePortfolioItemPress = (
+    item: SellerPortfolioItem,
+  ) => {
+    Alert.alert(
+      item.title,
+      item.description ??
+        'More portfolio details will be available later.',
+    );
+  };
+
+  const handleViewAllPortfolioPress = () => {
+    Alert.alert(
+      'Complete portfolio',
+      'The full portfolio screen will be connected in a later stage.',
     );
   };
 
@@ -215,6 +234,16 @@ export default function SellerProfileScreen({
             onListingPress={handleListingPress}
           />
 
+          <PortfolioSection
+            seller={seller}
+            onPortfolioItemPress={
+              handlePortfolioItemPress
+            }
+            onViewAllPress={
+              handleViewAllPortfolioPress
+            }
+          />
+
           <ReviewsSection
             seller={seller}
             onViewAllPress={
@@ -307,28 +336,6 @@ export default function SellerProfileScreen({
                   Auctions completed
                 </Text>
               </View>
-            </View>
-          </View>
-
-          <View style={styles.comingNextCard}>
-            <View style={styles.comingNextIcon}>
-              <Ionicons
-                name="images-outline"
-                size={21}
-                color={colors.primary}
-              />
-            </View>
-
-            <View style={styles.comingNextContent}>
-              <Text style={styles.comingNextTitle}>
-                Portfolio coming next
-              </Text>
-
-              <Text style={styles.comingNextText}>
-                Completed work, sold items and professional
-                projects will soon appear as a visual
-                portfolio on this profile.
-              </Text>
             </View>
           </View>
 
@@ -558,49 +565,6 @@ const styles = StyleSheet.create({
     lineHeight: 12,
     fontWeight: '700',
     textAlign: 'center',
-  },
-
-  comingNextCard: {
-    marginHorizontal: 20,
-    marginTop: 18,
-    padding: 16,
-    borderRadius: 21,
-    borderWidth: 1,
-    borderColor:
-      'rgba(158, 246, 90, 0.13)',
-    backgroundColor:
-      'rgba(158, 246, 90, 0.045)',
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-
-  comingNextIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor:
-      'rgba(158, 246, 90, 0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  comingNextContent: {
-    flex: 1,
-    marginLeft: 12,
-  },
-
-  comingNextTitle: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: '900',
-  },
-
-  comingNextText: {
-    marginTop: 5,
-    color: colors.textMuted,
-    fontSize: 10,
-    lineHeight: 16,
-    fontWeight: '600',
   },
 
   bottomSpacer: {
