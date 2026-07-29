@@ -1,27 +1,46 @@
-import { NavigationContainer, DarkTheme } from '@react-navigation/native';
-import { StatusBar } from 'expo-status-bar';
+import { NavigationContainer } from '@react-navigation/native';
+import { ActivityIndicator, SafeAreaView, StyleSheet } from 'react-native';
 
-import BottomTabs from './navigation/BottomTabs';
-import { colors } from './theme/colors';
+import AppNavigator from './navigation/AppNavigator';
+import AuthProvider from './providers/AuthProvider';
+import { useAuth } from './hooks/useAuth';
 
-const directGainTheme = {
-  ...DarkTheme,
-  colors: {
-    ...DarkTheme.colors,
-    primary: colors.primary,
-    background: colors.background,
-    card: colors.surface,
-    text: colors.text,
-    border: colors.border,
-    notification: colors.primary,
-  },
-};
+function RootNavigator() {
+  const { loading, isAuthenticated } = useAuth();
 
-export default function App() {
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <ActivityIndicator
+          size="large"
+          color="#9EF65A"
+        />
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <NavigationContainer theme={directGainTheme}>
-      <StatusBar style="light" />
-      <BottomTabs />
+    <NavigationContainer>
+      <AppNavigator
+        isAuthenticated={isAuthenticated}
+      />
     </NavigationContainer>
   );
 }
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <RootNavigator />
+    </AuthProvider>
+  );
+}
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#080B09',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});
