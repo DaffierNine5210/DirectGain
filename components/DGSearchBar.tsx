@@ -1,6 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
 import {
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
+import {
+  Animated,
   Pressable,
   StyleProp,
   StyleSheet,
@@ -10,7 +15,18 @@ import {
   ViewStyle,
 } from 'react-native';
 
-import { colors } from '../theme/colors';
+import {
+  alpha,
+  iconSize,
+  motion,
+  palette,
+  radius,
+  shadow,
+  spacing,
+  surface,
+  textColor,
+  typography,
+} from '../theme/designSystem';
 
 type DGSearchBarProps = Omit<
   TextInputProps,
@@ -50,11 +66,58 @@ export default function DGSearchBar({
 
   ...textInputProps
 }: DGSearchBarProps) {
-  const [isFocused, setIsFocused] = useState(false);
+  const [isFocused, setIsFocused] =
+    useState(false);
+
+  const focusAnimation =
+    useRef(
+      new Animated.Value(0),
+    ).current;
+
+  const filterScale =
+    useRef(
+      new Animated.Value(1),
+    ).current;
+
+  useEffect(() => {
+    Animated.timing(
+      focusAnimation,
+      {
+        toValue:
+          isFocused ? 1 : 0,
+        duration:
+          motion.standard,
+        useNativeDriver: false,
+      },
+    ).start();
+  }, [
+    focusAnimation,
+    isFocused,
+  ]);
 
   function handleClear() {
     onChangeText('');
     onClear?.();
+  }
+
+  function animateFilter(
+    value: number,
+  ) {
+    Animated.spring(
+      filterScale,
+      {
+        toValue: value,
+        speed:
+          value === 1
+            ? 24
+            : 32,
+        bounciness:
+          value === 1
+            ? 5
+            : 0,
+        useNativeDriver: true,
+      },
+    ).start();
   }
 
   return (
@@ -64,34 +127,83 @@ export default function DGSearchBar({
         containerStyle,
       ]}
     >
-      <View
+      <Animated.View
         style={[
           styles.searchContainer,
-          isFocused && styles.focusedSearchContainer,
+          {
+            borderColor:
+              focusAnimation.interpolate(
+                {
+                  inputRange: [0, 1],
+                  outputRange: [
+                    alpha.white08,
+                    alpha.green40,
+                  ],
+                },
+              ),
+
+            shadowOpacity:
+              focusAnimation.interpolate(
+                {
+                  inputRange: [0, 1],
+                  outputRange: [
+                    0,
+                    0.14,
+                  ],
+                },
+              ),
+          },
         ]}
       >
-        <Ionicons
-          name="search"
-          size={20}
-          color={
-            isFocused
-              ? colors.primary
-              : colors.textMuted
-          }
-          style={styles.searchIcon}
+        <View
+          pointerEvents="none"
+          style={styles.internalGlow}
         />
+
+        <View
+          style={[
+            styles.searchIconContainer,
+            isFocused &&
+              styles.searchIconContainerFocused,
+          ]}
+        >
+          <Ionicons
+            name="search"
+            size={iconSize.md}
+            color={
+              isFocused
+                ? palette.opportunityGreen
+                : textColor.muted
+            }
+          />
+        </View>
 
         <TextInput
           value={value}
           placeholder={placeholder}
-          placeholderTextColor={colors.textMuted}
-          selectionColor={colors.primary}
-          returnKeyType={returnKeyType}
+          placeholderTextColor={
+            textColor.muted
+          }
+          selectionColor={
+            palette.opportunityGreen
+          }
+          cursorColor={
+            palette.opportunityGreen
+          }
+          returnKeyType={
+            returnKeyType
+          }
           autoCorrect={false}
           accessibilityLabel="Search Direct Gain"
           style={styles.input}
-          onChangeText={onChangeText}
-          onSubmitEditing={() => onSubmit?.(value.trim())}
+          onChangeText={
+            onChangeText
+          }
+          onSubmitEditing={() =>
+            onSubmit?.(
+              value.trim(),
+            )
+          }
           onFocus={(event) => {
             setIsFocused(true);
             onFocus?.(event);
@@ -111,46 +223,89 @@ export default function DGSearchBar({
             onPress={handleClear}
             style={({ pressed }) => [
               styles.clearButton,
-              pressed && styles.pressed,
+              pressed &&
+                styles.pressed,
             ]}
           >
             <Ionicons
               name="close-circle"
-              size={20}
-              color={colors.textMuted}
+              size={iconSize.md}
+              color={
+                textColor.muted
+              }
             />
           </Pressable>
         ) : null}
-      </View>
+      </Animated.View>
 
       {showFilter ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Open search filters"
-          accessibilityState={{
-            selected: filterActive,
-          }}
-          onPress={onFilterPress}
-          style={({ pressed }) => [
-            styles.filterButton,
-            filterActive && styles.activeFilterButton,
-            pressed && styles.pressed,
+        <Animated.View
+          style={[
+            styles.filterWrapper,
+            {
+              transform: [
+                {
+                  scale:
+                    filterScale,
+                },
+              ],
+            },
           ]}
         >
-          <Ionicons
-            name="options-outline"
-            size={21}
-            color={
-              filterActive
-                ? '#071004'
-                : colors.text
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open search filters"
+            accessibilityState={{
+              selected:
+                filterActive,
+            }}
+            onPress={
+              onFilterPress
             }
-          />
+            onPressIn={() =>
+              animateFilter(
+                motion.iconPressedScale,
+              )
+            }
+            onPressOut={() =>
+              animateFilter(1)
+            }
+            style={({ pressed }) => [
+              styles.filterButton,
+              filterActive &&
+                styles.activeFilterButton,
+              pressed &&
+                styles.filterPressed,
+            ]}
+          >
+            <View
+              pointerEvents="none"
+              style={[
+                styles.filterGlow,
+                filterActive &&
+                  styles.filterGlowActive,
+              ]}
+            />
 
-          {filterActive ? (
-            <View style={styles.activeDot} />
-          ) : null}
-        </Pressable>
+            <Ionicons
+              name="options-outline"
+              size={iconSize.md}
+              color={
+                filterActive
+                  ? textColor.inverse
+                  : textColor.primary
+              }
+            />
+
+            {filterActive ? (
+              <View
+                style={
+                  styles.activeDot
+                }
+              />
+            ) : null}
+          </Pressable>
+        </Animated.View>
       ) : null}
     </View>
   );
@@ -164,93 +319,156 @@ const styles = StyleSheet.create({
   },
 
   searchContainer: {
+    position: 'relative',
     flex: 1,
-    minHeight: 52,
-    paddingHorizontal: 15,
-    borderRadius: 19,
+    minHeight: 56,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceSoft,
+    backgroundColor:
+      surface.input,
     flexDirection: 'row',
     alignItems: 'center',
-  },
+    overflow: 'hidden',
 
-  focusedSearchContainer: {
-    borderColor: colors.primary,
+    shadowColor:
+      palette.opportunityGreen,
 
-    shadowColor: colors.primary,
-    shadowOpacity: 0.15,
     shadowRadius: 10,
+
     shadowOffset: {
       width: 0,
       height: 0,
     },
+
+    elevation: 3,
   },
 
-  searchIcon: {
-    marginRight: 10,
+  internalGlow: {
+    position: 'absolute',
+    top: -75,
+    right: -55,
+
+    width: 155,
+    height: 155,
+
+    borderRadius: 78,
+
+    backgroundColor:
+      alpha.green04,
+  },
+
+  searchIconContainer: {
+    width: 36,
+    height: 36,
+    marginRight: spacing.xs,
+    borderRadius: radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor:
+      alpha.white03,
+  },
+
+  searchIconContainerFocused: {
+    backgroundColor:
+      alpha.green08,
   },
 
   input: {
     flex: 1,
-    minHeight: 50,
-    paddingVertical: 11,
-    color: colors.text,
-    fontSize: 15,
+    minHeight: 54,
+    paddingVertical: spacing.sm,
+    color: textColor.primary,
+    fontSize:
+      typography.bodyMedium
+        .fontSize,
+    lineHeight:
+      typography.bodyMedium
+        .lineHeight,
     fontWeight: '600',
   },
 
   clearButton: {
-    width: 34,
-    height: 34,
-    marginLeft: 5,
+    width: 36,
+    height: 36,
+    marginLeft: spacing.xxs,
+    borderRadius: radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  filterWrapper: {
+    marginLeft: spacing.sm,
   },
 
   filterButton: {
-    width: 52,
-    height: 52,
-    marginLeft: 10,
-    borderRadius: 19,
+    position: 'relative',
+    width: 56,
+    height: 56,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceSoft,
+    borderColor:
+      alpha.white08,
+    backgroundColor:
+      surface.input,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+    ...shadow.card,
   },
 
   activeFilterButton: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary,
+    borderColor:
+      alpha.green40,
+    backgroundColor:
+      palette.opportunityGreen,
+    ...shadow.greenSoft,
+  },
 
-    shadowColor: colors.primary,
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
+  filterGlow: {
+    position: 'absolute',
+    top: -28,
+    right: -28,
 
-    elevation: 4,
+    width: 72,
+    height: 72,
+
+    borderRadius: 36,
+
+    backgroundColor:
+      alpha.green04,
+  },
+
+  filterGlowActive: {
+    backgroundColor:
+      'rgba(255, 255, 255, 0.16)',
   },
 
   activeDot: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 9,
+    right: 9,
+
     width: 7,
     height: 7,
-    borderRadius: 4,
-    backgroundColor: '#071004',
+
+    borderRadius:
+      radius.pill,
+
+    backgroundColor:
+      textColor.inverse,
   },
 
   pressed: {
-    opacity: 0.78,
+    opacity: 0.74,
     transform: [
       {
         scale: 0.94,
       },
     ],
+  },
+
+  filterPressed: {
+    opacity: 0.9,
   },
 });

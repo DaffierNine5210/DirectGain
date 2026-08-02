@@ -2,6 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   createBottomTabNavigator,
 } from '@react-navigation/bottom-tabs';
+import {
+  Platform,
+  StyleSheet,
+  View,
+} from 'react-native';
 
 import MarketStack from './MarketStack';
 import MessagesStack from './MessagesStack';
@@ -11,190 +16,428 @@ import DiscoverScreen from '../screens/DiscoverScreen';
 import LiveBidScreen from '../screens/LiveBidScreen';
 import MyGainScreen from '../screens/MyGainScreen';
 
+import useTabBarVisibility from '../hooks/useTabBarVisibility';
+import TabBarVisibilityProvider from '../providers/TabBarVisibilityProvider';
 import { colors } from '../theme/colors';
 
 export type BottomTabParamList = {
   Discover: undefined;
   Market: undefined;
-  Messages: undefined;
   Create: undefined;
   Auctions: undefined;
   'My Gain': undefined;
+  Messages: undefined;
 };
 
 const Tab =
   createBottomTabNavigator<BottomTabParamList>();
 
+type VisibleTabName =
+  | 'Discover'
+  | 'Market'
+  | 'Create'
+  | 'Auctions'
+  | 'My Gain';
+
 type TabIconName =
-  | 'home'
-  | 'home-outline'
+  | 'compass'
+  | 'compass-outline'
   | 'storefront'
   | 'storefront-outline'
-  | 'chatbubbles'
-  | 'chatbubbles-outline'
   | 'add'
   | 'hammer'
   | 'hammer-outline'
-  | 'person'
-  | 'person-outline';
+  | 'person-circle'
+  | 'person-circle-outline';
 
-export default function BottomTabs() {
+function getTabIcon(
+  routeName: VisibleTabName,
+  focused: boolean,
+): TabIconName {
+  switch (routeName) {
+    case 'Discover':
+      return focused
+        ? 'compass'
+        : 'compass-outline';
+
+    case 'Market':
+      return focused
+        ? 'storefront'
+        : 'storefront-outline';
+
+    case 'Create':
+      return 'add';
+
+    case 'Auctions':
+      return focused
+        ? 'hammer'
+        : 'hammer-outline';
+
+    case 'My Gain':
+      return focused
+        ? 'person-circle'
+        : 'person-circle-outline';
+
+    default:
+      return 'compass-outline';
+  }
+}
+
+function BottomTabsNavigator() {
+  const {
+    translateY,
+    showTabBar,
+  } = useTabBarVisibility();
+
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
-        headerShown: false,
-
-        tabBarActiveTintColor: colors.primary,
-
-        tabBarInactiveTintColor:
-          colors.textSecondary,
-
-        tabBarHideOnKeyboard: true,
-
-        tabBarStyle: {
-          height: 92,
-          paddingTop: 8,
-          paddingBottom: 22,
-          backgroundColor: '#090B09',
-          borderTopWidth: 1,
-          borderTopColor: colors.border,
+      initialRouteName="Discover"
+      screenListeners={{
+        tabPress: () => {
+          showTabBar();
         },
+      }}
+      screenOptions={({ route }) => {
+        const isCreate =
+          route.name === 'Create';
 
-        tabBarItemStyle: {
-          minWidth: 0,
-        },
+        return {
+          headerShown: false,
+          tabBarHideOnKeyboard: true,
 
-        tabBarLabelStyle: {
-          fontSize: 9,
-          fontWeight: '700',
-        },
+          tabBarActiveTintColor:
+            colors.primary,
 
-        tabBarIcon: ({
-          color,
-          size,
-          focused,
-        }) => {
-          let iconName: TabIconName;
+          tabBarInactiveTintColor:
+            '#778078',
 
-          switch (route.name) {
-            case 'Discover':
-              iconName = focused
-                ? 'home'
-                : 'home-outline';
-              break;
+          tabBarStyle: [
+            styles.tabBar,
+            {
+              transform: [
+                {
+                  translateY,
+                },
+              ],
+            },
+          ],
 
-            case 'Market':
-              iconName = focused
-                ? 'storefront'
-                : 'storefront-outline';
-              break;
+          tabBarItemStyle: isCreate
+            ? styles.createTabItem
+            : styles.tabItem,
 
-            case 'Messages':
-              iconName = focused
-                ? 'chatbubbles'
-                : 'chatbubbles-outline';
-              break;
+          tabBarLabelStyle:
+            styles.tabLabel,
 
-            case 'Create':
-              iconName = 'add';
-              break;
+          tabBarLabelPosition:
+            'below-icon',
 
-            case 'Auctions':
-              iconName = focused
-                ? 'hammer'
-                : 'hammer-outline';
-              break;
+          tabBarIcon: ({
+            color,
+            focused,
+          }) => {
+            if (
+              route.name === 'Messages'
+            ) {
+              return null;
+            }
 
-            case 'My Gain':
-              iconName = focused
-                ? 'person'
-                : 'person-outline';
-              break;
+            const visibleRoute =
+              route.name as VisibleTabName;
 
-            default:
-              iconName = 'home-outline';
-          }
+            const iconName = getTabIcon(
+              visibleRoute,
+              focused,
+            );
 
-          const isCreate =
-            route.name === 'Create';
-
-          return (
-            <Ionicons
-              name={iconName}
-              size={
-                isCreate
-                  ? 29
-                  : Math.min(size, 23)
-              }
-              color={
-                isCreate
-                  ? colors.background
-                  : color
-              }
-              style={
-                isCreate
-                  ? {
-                      width: 48,
-                      height: 44,
-                      borderRadius: 15,
-                      backgroundColor:
-                        colors.primary,
-                      textAlign: 'center',
-                      lineHeight: 44,
-                      shadowColor:
-                        colors.primary,
-                      shadowOpacity: 0.22,
-                      shadowRadius: 10,
-                      shadowOffset: {
-                        width: 0,
-                        height: 0,
-                      },
+            if (isCreate) {
+              return (
+                <View
+                  style={
+                    styles.createOuterGlow
+                  }
+                >
+                  <View
+                    style={
+                      styles.createButton
                     }
-                  : focused
-                    ? {
-                        textShadowColor:
-                          colors.primary,
-                        textShadowRadius: 7,
-                      }
-                    : undefined
-              }
-            />
-          );
-        },
-      })}
+                  >
+                    <Ionicons
+                      name={iconName}
+                      size={30}
+                      color="#071004"
+                    />
+                  </View>
+                </View>
+              );
+            }
+
+            return (
+              <View style={styles.iconArea}>
+                <View
+                  style={[
+                    styles.iconGlow,
+                    focused &&
+                      styles.iconGlowActive,
+                  ]}
+                />
+
+                <Ionicons
+                  name={iconName}
+                  size={23}
+                  color={color}
+                  style={
+                    focused
+                      ? styles.activeIcon
+                      : undefined
+                  }
+                />
+
+                {focused ? (
+                  <View
+                    style={
+                      styles.activeIndicator
+                    }
+                  />
+                ) : null}
+              </View>
+            );
+          },
+        };
+      }}
     >
       <Tab.Screen
         name="Discover"
         component={DiscoverScreen}
+        options={{
+          tabBarLabel: 'Discover',
+        }}
       />
 
       <Tab.Screen
         name="Market"
         component={MarketStack}
-      />
-
-      <Tab.Screen
-        name="Messages"
-        component={MessagesStack}
+        options={{
+          tabBarLabel: 'Market',
+        }}
       />
 
       <Tab.Screen
         name="Create"
         component={CreateScreen}
         options={{
-          tabBarLabel: () => null,
+          tabBarLabel: '',
         }}
       />
 
       <Tab.Screen
         name="Auctions"
         component={LiveBidScreen}
+        options={{
+          tabBarLabel: 'Auctions',
+        }}
       />
 
       <Tab.Screen
         name="My Gain"
         component={MyGainScreen}
+        options={{
+          tabBarLabel: 'My Gain',
+        }}
+      />
+
+      <Tab.Screen
+        name="Messages"
+        component={MessagesStack}
+        options={{
+          tabBarButton: () => null,
+
+          tabBarItemStyle: {
+            display: 'none',
+          },
+        }}
       />
     </Tab.Navigator>
   );
 }
+
+export default function BottomTabs() {
+  return (
+    <TabBarVisibilityProvider>
+      <BottomTabsNavigator />
+    </TabBarVisibilityProvider>
+  );
+}
+
+const styles = StyleSheet.create({
+  tabBar: {
+    position: 'absolute',
+
+    right: 0,
+    bottom: 0,
+    left: 0,
+
+    height:
+      Platform.OS === 'ios' ? 94 : 80,
+
+    paddingTop: 10,
+    paddingHorizontal: 12,
+
+    paddingBottom:
+      Platform.OS === 'ios' ? 25 : 12,
+
+    borderTopWidth: 1,
+
+    borderTopColor:
+      'rgba(158, 246, 90, 0.14)',
+
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+
+    backgroundColor: '#090D0A',
+
+    shadowColor: '#000000',
+
+    shadowOffset: {
+      width: 0,
+      height: -8,
+    },
+
+    shadowOpacity: 0.38,
+    shadowRadius: 20,
+
+    elevation: 20,
+  },
+
+  tabItem: {
+    minWidth: 0,
+    paddingTop: 1,
+  },
+
+  createTabItem: {
+    minWidth: 0,
+    paddingTop: 0,
+  },
+
+  tabLabel: {
+    marginTop: -1,
+    fontSize: 9,
+    lineHeight: 12,
+    fontWeight: '800',
+    letterSpacing: 0.1,
+  },
+
+  iconArea: {
+    position: 'relative',
+    width: 44,
+    height: 35,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  iconGlow: {
+    position: 'absolute',
+    width: 34,
+    height: 28,
+    borderRadius: 13,
+    opacity: 0,
+
+    backgroundColor:
+      'rgba(158, 246, 90, 0.1)',
+  },
+
+  iconGlowActive: {
+    opacity: 1,
+  },
+
+  activeIcon: {
+    textShadowColor:
+      'rgba(158, 246, 90, 0.48)',
+
+    textShadowOffset: {
+      width: 0,
+      height: 0,
+    },
+
+    textShadowRadius: 6,
+  },
+
+  activeIndicator: {
+    position: 'absolute',
+    bottom: -3,
+
+    width: 16,
+    height: 2,
+
+    borderRadius: 1,
+
+    backgroundColor:
+      colors.primary,
+
+    shadowColor: colors.primary,
+
+    shadowOffset: {
+      width: 0,
+      height: 0,
+    },
+
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+  },
+
+  createOuterGlow: {
+    width: 62,
+    height: 62,
+
+    marginTop: -27,
+
+    borderRadius: 22,
+
+    alignItems: 'center',
+    justifyContent: 'center',
+
+    backgroundColor:
+      'rgba(158, 246, 90, 0.04)',
+
+    shadowColor: colors.primary,
+
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+
+    elevation: 6,
+  },
+
+  createButton: {
+    width: 54,
+    height: 54,
+
+    borderRadius: 19,
+
+    alignItems: 'center',
+    justifyContent: 'center',
+
+    backgroundColor: colors.primary,
+
+    borderWidth: 1,
+
+    borderColor:
+      'rgba(216, 255, 194, 0.68)',
+
+    shadowColor: colors.primary,
+
+    shadowOffset: {
+      width: 0,
+      height: 0,
+    },
+
+    shadowOpacity: 0.13,
+    shadowRadius: 4,
+
+    elevation: 6,
+  },
+});

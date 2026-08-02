@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
+  Image,
   Pressable,
   StyleProp,
   StyleSheet,
@@ -8,7 +9,18 @@ import {
   ViewStyle,
 } from 'react-native';
 
-import { colors } from '../theme/colors';
+import {
+  alpha,
+  iconSize,
+  motion,
+  palette,
+  radius,
+  shadow,
+  spacing,
+  surface,
+  textColor,
+  typography,
+} from '../theme/designSystem';
 
 type DGHeaderIconName =
   React.ComponentProps<typeof Ionicons>['name'];
@@ -80,13 +92,24 @@ export default function DGHeader({
             >
               <Ionicons
                 name="chevron-back"
-                size={23}
-                color={colors.text}
+                size={iconSize.lg}
+                color={textColor.primary}
               />
             </Pressable>
           ) : showBrand ? (
-            <View style={styles.brandMark}>
-              <Text style={styles.brandMarkText}>DG</Text>
+            <View style={styles.brandMarkOuter}>
+              <View style={styles.brandMark}>
+                <View
+                  pointerEvents="none"
+                  style={styles.brandGlow}
+                />
+
+                <Image
+                  source={require('../assets/direct-gain-logo.png')}
+                  resizeMode="contain"
+                  style={styles.brandLogo}
+                />
+              </View>
             </View>
           ) : null}
 
@@ -125,11 +148,15 @@ export default function DGHeader({
 
         <View style={styles.actions}>
           {secondaryAction ? (
-            <HeaderActionButton action={secondaryAction} />
+            <HeaderActionButton
+              action={secondaryAction}
+            />
           ) : null}
 
           {primaryAction ? (
-            <HeaderActionButton action={primaryAction} />
+            <HeaderActionButton
+              action={primaryAction}
+            />
           ) : null}
         </View>
       </View>
@@ -137,7 +164,9 @@ export default function DGHeader({
       {location ? (
         <Pressable
           accessibilityRole={
-            onLocationPress ? 'button' : undefined
+            onLocationPress
+              ? 'button'
+              : undefined
           }
           accessibilityLabel={
             onLocationPress
@@ -148,14 +177,16 @@ export default function DGHeader({
           onPress={onLocationPress}
           style={({ pressed }) => [
             styles.locationRow,
-            pressed && onLocationPress && styles.locationPressed,
+            pressed &&
+              onLocationPress &&
+              styles.locationPressed,
           ]}
         >
           <View style={styles.locationIcon}>
             <Ionicons
               name="location"
               size={15}
-              color={colors.primary}
+              color={palette.opportunityGreen}
             />
           </View>
 
@@ -170,7 +201,7 @@ export default function DGHeader({
             <Ionicons
               name="chevron-down"
               size={15}
-              color={colors.textMuted}
+              color={textColor.muted}
             />
           ) : null}
         </Pressable>
@@ -187,14 +218,17 @@ function HeaderActionButton({
   action,
 }: HeaderActionButtonProps) {
   const displayedBadgeCount =
-    action.badgeCount && action.badgeCount > 99
+    action.badgeCount &&
+    action.badgeCount > 99
       ? '99+'
       : action.badgeCount;
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={action.accessibilityLabel}
+      accessibilityLabel={
+        action.accessibilityLabel
+      }
       hitSlop={8}
       onPress={action.onPress}
       style={({ pressed }) => [
@@ -202,10 +236,15 @@ function HeaderActionButton({
         pressed && styles.pressed,
       ]}
     >
+      <View
+        pointerEvents="none"
+        style={styles.actionGlow}
+      />
+
       <Ionicons
         name={action.icon}
         size={21}
-        color={colors.text}
+        color={textColor.primary}
       />
 
       {action.badgeCount &&
@@ -223,9 +262,9 @@ function HeaderActionButton({
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 14,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
   },
 
   topRow: {
@@ -247,36 +286,70 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
 
+  brandMarkOuter: {
+    width: 58,
+    height: 58,
+    marginRight: spacing.sm,
+    borderRadius: radius.lg,
+    padding: 3,
+
+    backgroundColor: alpha.green06,
+
+    shadowColor: palette.opportunityGreen,
+    shadowOpacity: 0.12,
+    shadowRadius: 9,
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+
+    elevation: 4,
+  },
+
   brandMark: {
-    width: 44,
-    height: 44,
-    marginRight: 12,
-    borderRadius: 16,
-    backgroundColor: colors.primary,
+    position: 'relative',
+    flex: 1,
+    borderRadius: 17,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
 
-    shadowColor: colors.primary,
-    shadowOpacity: 0.22,
-    shadowRadius: 12,
-    shadowOffset: {
-      width: 0,
-      height: 5,
-    },
+    backgroundColor: palette.slate850,
 
-    elevation: 5,
+    borderWidth: 1,
+    borderColor: alpha.green20,
   },
 
-  brandMarkText: {
-    color: '#071004',
-    fontSize: 14,
-    fontWeight: '900',
-    letterSpacing: -0.4,
+  brandGlow: {
+    position: 'absolute',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+
+    backgroundColor: alpha.green08,
+  },
+
+  brandLogo: {
+    width: 48,
+    height: 48,
+
+    /*
+     * This tiny adjustment visually centres the
+     * arrow-heavy logo inside the rounded square.
+     */
+    transform: [
+      {
+        translateX: -1,
+      },
+      {
+        translateY: 1,
+      },
+    ],
   },
 
   eyebrow: {
     marginBottom: 3,
-    color: colors.primary,
+    color: textColor.accent,
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 1,
@@ -284,46 +357,72 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    color: colors.text,
+    color: textColor.primary,
     fontSize: 25,
     fontWeight: '900',
     letterSpacing: -0.7,
   },
 
   brandTitle: {
-    fontSize: 24,
+    fontSize: 25,
+    lineHeight: 30,
   },
 
   subtitle: {
     marginTop: 2,
-    color: colors.textSecondary,
+    color: textColor.secondary,
     fontSize: 13,
+    lineHeight: 18,
     fontWeight: '600',
   },
 
   actions: {
-    marginLeft: 12,
+    marginLeft: spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 9,
   },
 
   iconButton: {
-    width: 43,
-    height: 43,
-    borderRadius: 15,
+    position: 'relative',
+
+    width: 46,
+    height: 46,
+
+    borderRadius: radius.md,
+
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceSoft,
+    borderColor: alpha.white08,
+
+    backgroundColor: surface.cardSoft,
+
     alignItems: 'center',
     justifyContent: 'center',
+
+    overflow: 'hidden',
+
+    ...shadow.card,
+  },
+
+  actionGlow: {
+    position: 'absolute',
+    top: -30,
+    right: -28,
+
+    width: 70,
+    height: 70,
+
+    borderRadius: 35,
+
+    backgroundColor: alpha.green04,
   },
 
   pressed: {
-    opacity: 0.78,
+    opacity: 0.82,
+
     transform: [
       {
-        scale: 0.94,
+        scale: motion.iconPressedScale,
       },
     ],
   },
@@ -332,54 +431,84 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -5,
     right: -5,
+
     minWidth: 19,
     height: 19,
+
     paddingHorizontal: 4,
-    borderRadius: 10,
+
+    borderRadius: radius.pill,
+
     borderWidth: 2,
-    borderColor: colors.cardRaised,
-    backgroundColor: colors.primary,
+    borderColor: surface.cardRaised,
+
+    backgroundColor:
+      palette.opportunityGreen,
+
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   badgeText: {
-    color: '#071004',
+    color: textColor.inverse,
     fontSize: 9,
     fontWeight: '900',
   },
 
   locationRow: {
     alignSelf: 'flex-start',
-    minHeight: 34,
-    marginTop: 14,
-    paddingHorizontal: 10,
-    borderRadius: 17,
+
+    minHeight: 38,
+    marginTop: spacing.md,
+
+    paddingHorizontal: spacing.sm,
+
+    borderRadius: radius.pill,
+
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceSoft,
+    borderColor: alpha.white08,
+
+    backgroundColor: surface.cardSoft,
+
     flexDirection: 'row',
     alignItems: 'center',
   },
 
   locationPressed: {
     opacity: 0.8,
+
+    transform: [
+      {
+        scale: 0.985,
+      },
+    ],
   },
 
   locationIcon: {
-    width: 22,
-    height: 22,
-    marginRight: 5,
-    borderRadius: 11,
-    backgroundColor: `${colors.primary}18`,
+    width: 24,
+    height: 24,
+
+    marginRight: spacing.xs,
+
+    borderRadius: radius.pill,
+
+    backgroundColor: alpha.green10,
+
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   locationText: {
-    maxWidth: 210,
-    color: colors.textSecondary,
-    fontSize: 12,
+    maxWidth: 220,
+
+    color: textColor.secondary,
+
+    fontSize:
+      typography.labelLarge.fontSize,
+
+    lineHeight:
+      typography.labelLarge.lineHeight,
+
     fontWeight: '800',
   },
 });

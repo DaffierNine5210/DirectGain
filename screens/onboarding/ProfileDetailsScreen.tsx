@@ -64,9 +64,18 @@ export default function ProfileDetailsScreen({
   };
 
   const continueSetup = () => {
-    if (!canContinue) {
-      return;
-    }
+  if (!canContinue) {
+    return;
+  }
+
+  navigation.navigate('Interests', {
+    photoUri,
+    displayName: displayName.trim(),
+    username: username.trim(),
+    bio: bio.trim(),
+    location: location.trim(),
+  });
+
 
     const profileDetails = {
       photoUri,

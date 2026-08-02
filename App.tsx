@@ -6,8 +6,11 @@ import AuthProvider from './providers/AuthProvider';
 import { useAuth } from './hooks/useAuth';
 
 function RootNavigator() {
-  const { loading, isAuthenticated } = useAuth();
-
+  const {
+  loading,
+  isAuthenticated,
+  isOnboarding,
+} = useAuth();
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -22,8 +25,10 @@ function RootNavigator() {
   return (
     <NavigationContainer>
       <AppNavigator
-        isAuthenticated={isAuthenticated}
-      />
+  isAuthenticated={isAuthenticated}
+  isOnboarding={isOnboarding}
+/>
+      
     </NavigationContainer>
   );
 }

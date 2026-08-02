@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 
-import OnboardingLayout from './OnboardingLayout';
+import OnboardingLayout from '../../components/onboarding/OnboardingLayout';
 import type { OnboardingStackParamList } from '../../navigation/OnboardingStack';
 
 type ProfilePhotoScreenProps = NativeStackScreenProps<
@@ -61,11 +61,12 @@ export default function ProfilePhotoScreen({
     setPhotoUri(null);
   };
 
-  const continueSetup = () => {
-    // The Profile Details screen will be connected next.
-    console.log('Continue onboarding', {
-      photoUri,
-    });
+  
+    const continueSetup = () => {
+  navigation.navigate('ProfileDetails', {
+    photoUri,
+  });
+
   };
 
   return (

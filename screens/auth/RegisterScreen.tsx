@@ -1,7 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import React, { useMemo, useState } from 'react';
+import React, {
+  useContext,
+  useMemo,
+  useState,
+} from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -19,6 +24,7 @@ import type {
   AuthStackParamList,
 } from '../../navigation/AuthStack';
 
+import { AuthContext } from '../../providers/AuthProvider';
 type RegisterScreenProps = NativeStackScreenProps<
   AuthStackParamList,
   'Register'
@@ -124,6 +130,10 @@ export default function RegisterScreen({
 }: RegisterScreenProps) {
   const accountType: AccountType =
     route.params?.accountType ?? 'personal';
+    const { signUp } = useContext(AuthContext);
+
+const [isSubmitting, setIsSubmitting] = useState(false);
+const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [fullName, setFullName] = useState('');
   const [emailAddress, setEmailAddress] = useState('');
@@ -162,21 +172,40 @@ export default function RegisterScreen({
 
   const passwordsMatch =
     confirmPassword.length === 0 || password === confirmPassword;
+const canSubmit =
+  isFormComplete &&
+  passwordsMatch &&
+  !isSubmitting;
 
-  const canSubmit = isFormComplete && passwordsMatch;
+  const handleCreateAccount = async () => {
+  if (!canSubmit) {
+    return;
+  }
 
-  const handleCreateAccount = () => {
-    if (!canSubmit) {
-      return;
-    }
+  setSubmitError(null);
+  setIsSubmitting(true);
 
-    // Account creation will be connected to authentication later.
-    console.log('Create account', {
+  try {
+    const result = await signUp({
       accountType,
-      fullName,
-      emailAddress,
+      fullName: fullName.trim(),
+      email: emailAddress.trim().toLowerCase(),
+      password,
     });
-  };
+
+    if (result.error) {
+      setSubmitError(result.error.message);
+    }
+  } catch (error) {
+    console.error('Unexpected account creation error:', error);
+
+    setSubmitError(
+      'Something went wrong while creating your account. Please try again.',
+    );
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -365,6 +394,19 @@ export default function RegisterScreen({
                 </Text>
               </View>
             )}
+            {submitError && (
+  <View style={styles.submitErrorContainer}>
+    <Ionicons
+      name="alert-circle-outline"
+      size={18}
+      color="#FF7777"
+    />
+
+    <Text style={styles.submitErrorText}>
+      {submitError}
+    </Text>
+  </View>
+)}
           </View>
 
           <Text style={styles.termsText}>
@@ -386,26 +428,33 @@ export default function RegisterScreen({
             ]}
           >
             <Text
-              style={[
-                styles.createButtonText,
-                !canSubmit && styles.createButtonTextDisabled,
-              ]}
-            >
-              Create account
-            </Text>
+  style={[
+    styles.createButtonText,
+    !canSubmit && styles.createButtonTextDisabled,
+  ]}
+>
+  {isSubmitting ? 'Creating account...' : 'Create account'}
+</Text>
 
-            <View
-              style={[
-                styles.createButtonIcon,
-                !canSubmit && styles.createButtonIconDisabled,
-              ]}
-            >
-              <Ionicons
-                name="arrow-forward"
-                size={23}
-                color={canSubmit ? '#080B09' : '#687168'}
-              />
-            </View>
+<View
+  style={[
+    styles.createButtonIcon,
+    !canSubmit && styles.createButtonIconDisabled,
+  ]}
+>
+  {isSubmitting ? (
+    <ActivityIndicator
+      size="small"
+      color="#080B09"
+    />
+  ) : (
+    <Ionicons
+      name="arrow-forward"
+      size={23}
+     color={canSubmit ? '#080B09' : '#687168'}
+    />
+  )}
+</View>
           </Pressable>
 
           <View style={styles.signInPanel}>
@@ -744,6 +793,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
+  submitErrorContainer: {
+  marginTop: -4,
+  marginBottom: 18,
+  paddingHorizontal: 14,
+  paddingVertical: 12,
+  borderRadius: 14,
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: 'rgba(255, 119, 119, 0.08)',
+  borderWidth: 1,
+  borderColor: 'rgba(255, 119, 119, 0.28)',
+},
+
+submitErrorText: {
+  flex: 1,
+  marginLeft: 9,
+  color: '#FF8D8D',
+  fontSize: 13,
+  lineHeight: 18,
+},
   errorText: {
     marginLeft: 7,
     color: '#FF8D8D',

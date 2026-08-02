@@ -1,5 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useRef } from 'react';
+import {
+  useEffect,
+  useRef,
+} from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -11,7 +14,16 @@ import {
   ViewStyle,
 } from 'react-native';
 
-import { colors } from '../theme/colors';
+import {
+  alpha,
+  motion,
+  palette,
+  radius,
+  shadow,
+  spacing,
+  surface,
+  textColor,
+} from '../theme/designSystem';
 
 export type DGButtonVariant =
   | 'primary'
@@ -26,7 +38,9 @@ export type DGButtonSize =
   | 'large';
 
 type DGButtonIconName =
-  React.ComponentProps<typeof Ionicons>['name'];
+  React.ComponentProps<
+    typeof Ionicons
+  >['name'];
 
 export type DGButtonProps = {
   title: string;
@@ -75,21 +89,29 @@ export default function DGButton({
   onPressIn,
   onPressOut,
 }: DGButtonProps) {
-  const scaleAnimation = useRef(
-    new Animated.Value(1),
-  ).current;
+  const scaleAnimation =
+    useRef(
+      new Animated.Value(1),
+    ).current;
 
-  const glowAnimation = useRef(
-    new Animated.Value(0),
-  ).current;
+  const glowAnimation =
+    useRef(
+      new Animated.Value(0),
+    ).current;
 
-  const isDisabled = disabled || loading;
+  const highlightAnimation =
+    useRef(
+      new Animated.Value(0),
+    ).current;
 
-  const textColor =
-    getButtonTextColor(variant);
+  const isDisabled =
+    disabled || loading;
 
-  const spinnerColor =
-    getSpinnerColor(variant);
+  const textColour =
+    getButtonTextColour(variant);
+
+  const spinnerColour =
+    getSpinnerColour(variant);
 
   useEffect(() => {
     if (
@@ -97,16 +119,32 @@ export default function DGButton({
       isDisabled
     ) {
       glowAnimation.setValue(0);
+      highlightAnimation.setValue(0);
       return;
     }
 
-    Animated.timing(glowAnimation, {
-      toValue: 1,
-      duration: 280,
-      useNativeDriver: true,
-    }).start();
+    Animated.parallel([
+      Animated.timing(
+        glowAnimation,
+        {
+          toValue: 1,
+          duration: motion.relaxed,
+          useNativeDriver: true,
+        },
+      ),
+
+      Animated.timing(
+        highlightAnimation,
+        {
+          toValue: 1,
+          duration: motion.standard,
+          useNativeDriver: true,
+        },
+      ),
+    ]).start();
   }, [
     glowAnimation,
+    highlightAnimation,
     isDisabled,
     variant,
   ]);
@@ -114,12 +152,21 @@ export default function DGButton({
   function animateScale(
     value: number,
   ) {
-    Animated.spring(scaleAnimation, {
-      toValue: value,
-      speed: value === 1 ? 24 : 34,
-      bounciness: value === 1 ? 6 : 0,
-      useNativeDriver: true,
-    }).start();
+    Animated.spring(
+      scaleAnimation,
+      {
+        toValue: value,
+        speed:
+          value === 1
+            ? 24
+            : 34,
+        bounciness:
+          value === 1
+            ? 5
+            : 0,
+        useNativeDriver: true,
+      },
+    ).start();
   }
 
   function handlePressIn() {
@@ -127,7 +174,10 @@ export default function DGButton({
       return;
     }
 
-    animateScale(0.97);
+    animateScale(
+      motion.pressedScale,
+    );
+
     onPressIn?.();
   }
 
@@ -137,6 +187,7 @@ export default function DGButton({
     }
 
     animateScale(1);
+
     onPressOut?.();
   }
 
@@ -145,9 +196,12 @@ export default function DGButton({
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={
-        accessibilityLabel ?? title
+        accessibilityLabel ??
+        title
       }
-      accessibilityHint={accessibilityHint}
+      accessibilityHint={
+        accessibilityHint
+      }
       accessibilityState={{
         disabled: isDisabled,
         busy: loading,
@@ -158,20 +212,26 @@ export default function DGButton({
       onPressOut={handlePressOut}
       style={[
         styles.pressable,
-        fullWidth && styles.fullWidth,
+        fullWidth &&
+          styles.fullWidth,
       ]}
     >
       <Animated.View
         style={[
           styles.button,
           getButtonSizeStyle(size),
-          getButtonVariantStyle(variant),
-          fullWidth && styles.fullWidth,
-          isDisabled && styles.disabledButton,
+          getButtonVariantStyle(
+            variant,
+          ),
+          fullWidth &&
+            styles.fullWidth,
+          isDisabled &&
+            styles.disabledButton,
           {
             transform: [
               {
-                scale: scaleAnimation,
+                scale:
+                  scaleAnimation,
               },
             ],
           },
@@ -179,15 +239,40 @@ export default function DGButton({
         ]}
       >
         {variant === 'primary' ? (
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              styles.primaryHighlight,
-              {
-                opacity: glowAnimation,
-              },
-            ]}
-          />
+          <>
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.primaryGlow,
+                {
+                  opacity:
+                    glowAnimation.interpolate(
+                      {
+                        inputRange: [
+                          0,
+                          1,
+                        ],
+                        outputRange: [
+                          0,
+                          0.52,
+                        ],
+                      },
+                    ),
+                },
+              ]}
+            />
+
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.primaryHighlight,
+                {
+                  opacity:
+                    highlightAnimation,
+                },
+              ]}
+            />
+          </>
         ) : null}
 
         <View style={styles.content}>
@@ -195,17 +280,22 @@ export default function DGButton({
             <>
               <ActivityIndicator
                 size="small"
-                color={spinnerColor}
+                color={
+                  spinnerColour
+                }
               />
 
               <Text
                 numberOfLines={1}
                 style={[
                   styles.label,
-                  getLabelSizeStyle(size),
+                  getLabelSizeStyle(
+                    size,
+                  ),
                   styles.loadingLabel,
                   {
-                    color: textColor,
+                    color:
+                      textColour,
                   },
                 ]}
               >
@@ -215,12 +305,19 @@ export default function DGButton({
           ) : (
             <>
               {icon &&
-              iconPosition === 'left' ? (
+              iconPosition ===
+                'left' ? (
                 <Ionicons
                   name={icon}
-                  size={getIconSize(size)}
-                  color={textColor}
-                  style={styles.leftIcon}
+                  size={getIconSize(
+                    size,
+                  )}
+                  color={
+                    textColour
+                  }
+                  style={
+                    styles.leftIcon
+                  }
                 />
               ) : null}
 
@@ -228,9 +325,12 @@ export default function DGButton({
                 numberOfLines={1}
                 style={[
                   styles.label,
-                  getLabelSizeStyle(size),
+                  getLabelSizeStyle(
+                    size,
+                  ),
                   {
-                    color: textColor,
+                    color:
+                      textColour,
                   },
                 ]}
               >
@@ -238,12 +338,19 @@ export default function DGButton({
               </Text>
 
               {icon &&
-              iconPosition === 'right' ? (
+              iconPosition ===
+                'right' ? (
                 <Ionicons
                   name={icon}
-                  size={getIconSize(size)}
-                  color={textColor}
-                  style={styles.rightIcon}
+                  size={getIconSize(
+                    size,
+                  )}
+                  color={
+                    textColour
+                  }
+                  style={
+                    styles.rightIcon
+                  }
                 />
               ) : null}
             </>
@@ -308,15 +415,15 @@ function getButtonVariantStyle(
   }
 }
 
-function getButtonTextColor(
+function getButtonTextColour(
   variant: DGButtonVariant,
 ) {
   switch (variant) {
     case 'primary':
-      return '#071004';
+      return textColor.inverse;
 
     case 'outline':
-      return colors.primary;
+      return textColor.accent;
 
     case 'danger':
       return '#FFFFFF';
@@ -324,26 +431,16 @@ function getButtonTextColor(
     case 'secondary':
     case 'ghost':
     default:
-      return colors.text;
+      return textColor.primary;
   }
 }
 
-function getSpinnerColor(
+function getSpinnerColour(
   variant: DGButtonVariant,
 ) {
-  switch (variant) {
-    case 'primary':
-      return '#071004';
-
-    case 'outline':
-      return colors.primary;
-
-    case 'secondary':
-    case 'ghost':
-    case 'danger':
-    default:
-      return colors.text;
-  }
+  return getButtonTextColour(
+    variant,
+  );
 }
 
 function getIconSize(
@@ -375,7 +472,6 @@ const styles = StyleSheet.create({
     position: 'relative',
     alignSelf: 'flex-start',
     overflow: 'hidden',
-    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -388,99 +484,120 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
+  primaryGlow: {
+    position: 'absolute',
+    top: -65,
+    right: -45,
+
+    width: 155,
+    height: 155,
+
+    borderRadius: 78,
+
+    backgroundColor:
+      'rgba(255, 255, 255, 0.18)',
+  },
+
   primaryHighlight: {
     position: 'absolute',
     top: 0,
-    right: 20,
-    left: 20,
+    right: spacing.lg,
+    left: spacing.lg,
+
     height: 1,
-    borderRadius: 1,
+
+    borderRadius:
+      radius.pill,
+
     backgroundColor:
-      'rgba(255, 255, 255, 0.7)',
+      'rgba(255, 255, 255, 0.62)',
   },
 
   smallButton: {
     minHeight: 38,
     paddingHorizontal: 15,
     paddingVertical: 8,
-    borderRadius: 13,
+    borderRadius: radius.sm,
   },
 
   mediumButton: {
     minHeight: 48,
-    paddingHorizontal: 20,
+    paddingHorizontal:
+      spacing.lg,
     paddingVertical: 11,
-    borderRadius: 16,
+    borderRadius: radius.md,
   },
 
   largeButton: {
-    minHeight: 56,
-    paddingHorizontal: 25,
+    minHeight: 58,
+    paddingHorizontal:
+      spacing.xl,
     paddingVertical: 14,
-    borderRadius: 18,
+    borderRadius: radius.lg,
   },
 
   primaryButton: {
+    backgroundColor:
+      palette.opportunityGreen,
+
     borderWidth: 1,
-    borderColor: colors.primary,
-    backgroundColor: colors.primary,
 
-    shadowColor: colors.primary,
-    shadowOpacity: 0.24,
-    shadowRadius: 14,
-    shadowOffset: {
-      width: 0,
-      height: 6,
-    },
+    borderColor:
+      'rgba(216, 255, 194, 0.76)',
 
-    elevation: 5,
+    ...shadow.greenMedium,
   },
 
   secondaryButton: {
+    backgroundColor:
+      surface.cardRaised,
+
     borderWidth: 1,
     borderColor:
-      'rgba(255, 255, 255, 0.1)',
-    backgroundColor: colors.cardRaised,
+      alpha.white10,
 
-    shadowColor: '#000000',
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    shadowOffset: {
-      width: 0,
-      height: 5,
-    },
-
-    elevation: 3,
+    ...shadow.card,
   },
 
   outlineButton: {
+    backgroundColor:
+      alpha.green04,
+
     borderWidth: 1,
     borderColor:
-      'rgba(158, 246, 90, 0.7)',
-    backgroundColor:
-      'rgba(158, 246, 90, 0.04)',
+      alpha.green40,
   },
 
   ghostButton: {
+    backgroundColor:
+      'transparent',
+
     borderWidth: 1,
-    borderColor: 'transparent',
-    backgroundColor: 'transparent',
+    borderColor:
+      'transparent',
   },
 
   dangerButton: {
-    borderWidth: 1,
-    borderColor: '#E5484D',
-    backgroundColor: '#E5484D',
+    backgroundColor:
+      palette.danger,
 
-    shadowColor: '#E5484D',
-    shadowOpacity: 0.2,
-    shadowRadius: 11,
+    borderWidth: 1,
+
+    borderColor:
+      'rgba(255, 255, 255, 0.16)',
+
+    shadowColor:
+      palette.danger,
+
+    shadowOpacity: 0.17,
+    shadowRadius: 10,
+
     shadowOffset: {
       width: 0,
-      height: 5,
+      height: 4,
     },
 
-    elevation: 4,
+    elevation: 5,
   },
 
   label: {
@@ -506,11 +623,11 @@ const styles = StyleSheet.create({
   },
 
   leftIcon: {
-    marginRight: 8,
+    marginRight: spacing.xs,
   },
 
   rightIcon: {
-    marginLeft: 8,
+    marginLeft: spacing.xs,
   },
 
   loadingLabel: {

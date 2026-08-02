@@ -1,33 +1,79 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useMemo, useState } from 'react';
 import {
+  useFocusEffect,
+} from '@react-navigation/native';
+import type {
+  NativeStackScreenProps,
+} from '@react-navigation/native-stack';
+import {
+  useCallback,
+  useMemo,
+  useState,
+} from 'react';
+import {
+  Alert,
   FlatList,
   Keyboard,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
+import {
+  SafeAreaView,
+} from 'react-native-safe-area-context';
 
+import DGButton from '../components/DGButton';
+import DGChip from '../components/DGChip';
+import DGHeader from '../components/DGHeader';
+import DGSearchBar from '../components/DGSearchBar';
 import MarketListingCard from '../components/MarketListingCard';
+
 import {
   MarketListing,
   marketListings,
 } from '../data/marketMockData';
-import type { MarketStackParamList } from '../navigation/MarketStack';
-import { colors } from '../theme/colors';
+
+import useTabBarVisibility from '../hooks/useTabBarVisibility';
+
+import type {
+  MarketStackParamList,
+} from '../navigation/MarketStack';
+
+import {
+  alpha,
+  layout,
+  motion,
+  palette,
+  radius,
+  shadow,
+  spacing,
+  surface,
+  textColor,
+  typography,
+} from '../theme/designSystem';
 
 type Props = NativeStackScreenProps<
   MarketStackParamList,
   'MarketHome'
 >;
 
-type MarketTab = 'forYou' | 'nearby';
+type MarketTab =
+  | 'forYou'
+  | 'nearby';
 
-const categories = [
+type MarketLayout =
+  | 'grid'
+  | 'list';
+
+type CategoryItem = {
+  label: string;
+  icon: React.ComponentProps<
+    typeof Ionicons
+  >['name'];
+};
+
+const categories: CategoryItem[] = [
   {
     label: 'All',
     icon: 'grid-outline',
@@ -45,8 +91,24 @@ const categories = [
     icon: 'phone-portrait-outline',
   },
   {
+    label: 'Clothing',
+    icon: 'shirt-outline',
+  },
+  {
     label: 'Furniture',
     icon: 'bed-outline',
+  },
+  {
+    label: 'Property',
+    icon: 'home-outline',
+  },
+  {
+    label: 'Antiques',
+    icon: 'time-outline',
+  },
+  {
+    label: 'Collectables',
+    icon: 'diamond-outline',
   },
   {
     label: 'Jobs',
@@ -60,66 +122,167 @@ const categories = [
     label: 'Services',
     icon: 'people-outline',
   },
-] as const;
+];
 
 export default function MarketScreen({
   navigation,
 }: Props) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] =
-    useState('All');
-  const [selectedTab, setSelectedTab] =
-    useState<MarketTab>('forYou');
-  const [favouriteIds, setFavouriteIds] = useState<
-    string[]
-  >([]);
+  const {
+    updateFromScroll,
+    showTabBar,
+  } = useTabBarVisibility();
 
-  const filteredListings = useMemo(() => {
-    const normalizedSearch = searchQuery
-      .trim()
-      .toLowerCase();
+  const [
+    searchQuery,
+    setSearchQuery,
+  ] = useState('');
 
-    return marketListings.filter((listing) => {
-      const matchesCategory =
-        selectedCategory === 'All' ||
-        listing.category.toLowerCase() ===
-          selectedCategory.toLowerCase() ||
-        (selectedCategory === 'Auctions' &&
-          listing.listingType === 'auction') ||
-        (selectedCategory === 'Jobs' &&
-          listing.listingType === 'job') ||
-        (selectedCategory === 'Services' &&
-          listing.listingType === 'service');
+  const [
+    selectedCategory,
+    setSelectedCategory,
+  ] = useState('All');
 
-      const matchesSearch =
-        normalizedSearch.length === 0 ||
-        listing.title
-          .toLowerCase()
-          .includes(normalizedSearch) ||
-        listing.description
-          .toLowerCase()
-          .includes(normalizedSearch) ||
-        listing.category
-          .toLowerCase()
-          .includes(normalizedSearch) ||
-        listing.location
-          .toLowerCase()
-          .includes(normalizedSearch);
+  const [
+    selectedTab,
+    setSelectedTab,
+  ] = useState<MarketTab>(
+    'forYou',
+  );
 
-      return matchesCategory && matchesSearch;
-    });
-  }, [searchQuery, selectedCategory]);
+  const [
+    layoutMode,
+    setLayoutMode,
+  ] = useState<MarketLayout>(
+    'grid',
+  );
 
-  function toggleFavourite(listingId: string) {
-    setFavouriteIds((currentIds) => {
-      if (currentIds.includes(listingId)) {
-        return currentIds.filter(
-          (id) => id !== listingId,
-        );
-      }
+  const [
+    filterActive,
+    setFilterActive,
+  ] = useState(false);
 
-      return [...currentIds, listingId];
-    });
+  const [
+    favouriteIds,
+    setFavouriteIds,
+  ] = useState<string[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      showTabBar();
+    }, [showTabBar]),
+  );
+
+  const filteredListings =
+    useMemo(() => {
+      const normalizedSearch =
+        searchQuery
+          .trim()
+          .toLowerCase();
+
+      return marketListings.filter(
+        (listing) => {
+          const normalizedCategory =
+            listing.category
+              .trim()
+              .toLowerCase();
+
+          const selectedCategoryValue =
+            selectedCategory
+              .trim()
+              .toLowerCase();
+
+          const matchesCategory =
+            selectedCategory === 'All' ||
+            normalizedCategory ===
+              selectedCategoryValue ||
+            (selectedCategory ===
+              'Auctions' &&
+              listing.listingType ===
+                'auction') ||
+            (selectedCategory ===
+              'Jobs' &&
+              listing.listingType ===
+                'job') ||
+            (selectedCategory ===
+              'Services' &&
+              listing.listingType ===
+                'service');
+
+          const matchesSearch =
+            normalizedSearch.length ===
+              0 ||
+            listing.title
+              .toLowerCase()
+              .includes(
+                normalizedSearch,
+              ) ||
+            listing.description
+              .toLowerCase()
+              .includes(
+                normalizedSearch,
+              ) ||
+            listing.category
+              .toLowerCase()
+              .includes(
+                normalizedSearch,
+              ) ||
+            listing.location
+              .toLowerCase()
+              .includes(
+                normalizedSearch,
+              );
+
+          return (
+            matchesCategory &&
+            matchesSearch
+          );
+        },
+      );
+    }, [
+      searchQuery,
+      selectedCategory,
+    ]);
+
+  function toggleFavourite(
+    listingId: string,
+  ) {
+    setFavouriteIds(
+      (currentIds) => {
+        if (
+          currentIds.includes(
+            listingId,
+          )
+        ) {
+          return currentIds.filter(
+            (id) =>
+              id !== listingId,
+          );
+        }
+
+        return [
+          ...currentIds,
+          listingId,
+        ];
+      },
+    );
+  }
+
+  function openMessages() {
+    const parentNavigation =
+      navigation.getParent();
+
+    if (parentNavigation) {
+      parentNavigation.navigate(
+        'Messages',
+      );
+
+      return;
+    }
+
+    Alert.alert(
+      'Messages',
+      'Messages could not be opened.',
+    );
   }
 
   function renderListing({
@@ -128,11 +291,18 @@ export default function MarketScreen({
     item: MarketListing;
   }) {
     const isFavourite =
-      favouriteIds.includes(item.id) ||
-      item.favourite;
+      favouriteIds.includes(
+        item.id,
+      ) || item.favourite;
 
     return (
-      <View style={styles.gridColumn}>
+      <View
+        style={
+          layoutMode === 'grid'
+            ? styles.gridColumn
+            : styles.listColumn
+        }
+      >
         <MarketListingCard
           id={item.id}
           title={item.title}
@@ -141,36 +311,59 @@ export default function MarketScreen({
             item.currency,
           )}
           image={item.image}
-          sellerName={item.sellerName}
+          sellerName={
+            item.sellerName
+          }
           location={item.location}
           distance={item.distance}
-          listedTime={item.listedTime}
+          listedTime={
+            item.listedTime
+          }
           rating={item.rating}
-          reviewCount={item.reviewCount}
-          gainScore={item.sellerGainScore}
-          verified={item.sellerVerified}
-          favourite={isFavourite}
-          imageCount={item.imageCount}
+          reviewCount={
+            item.reviewCount
+          }
+          gainScore={
+            item.sellerGainScore
+          }
+          verified={
+            item.sellerVerified
+          }
+          favourite={
+            isFavourite
+          }
+          imageCount={
+            item.imageCount
+          }
           category={item.category}
-          auctionLabel={item.auctionLabel}
+          auctionLabel={
+            item.auctionLabel
+          }
+          layout={layoutMode}
           onPress={() => {
-            navigation.navigate('ListingDetail', {
-              listingId: item.id,
-            });
+            navigation.navigate(
+              'ListingDetail',
+              {
+                listingId:
+                  item.id,
+              },
+            );
           }}
           onFavouritePress={() => {
-            toggleFavourite(item.id);
+            toggleFavourite(
+              item.id,
+            );
           }}
           onMessagePress={() => {
-            console.log(
-              'Message seller:',
-              item.sellerId,
+            Alert.alert(
+              'Message seller',
+              `Starting a conversation with ${item.sellerName}.`,
             );
           }}
           onOfferPress={() => {
-            console.log(
-              'Make offer:',
-              item.id,
+            Alert.alert(
+              'Make an offer',
+              `Offer tools for ${item.title} will be connected later.`,
             );
           }}
         />
@@ -179,350 +372,524 @@ export default function MarketScreen({
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView
+      style={styles.safeArea}
+      edges={['top']}
+    >
+      <View
+        pointerEvents="none"
+        style={styles.background}
+      >
+        <View
+          style={styles.topGlow}
+        />
+
+        <View
+          style={styles.bottomGlow}
+        />
+      </View>
+
       <FlatList
+        key={layoutMode}
         data={filteredListings}
         renderItem={renderListing}
-        keyExtractor={(item) => item.id}
-        numColumns={2}
-        columnWrapperStyle={styles.columnWrapper}
-        showsVerticalScrollIndicator={false}
+        keyExtractor={(item) =>
+          item.id
+        }
+        numColumns={
+          layoutMode === 'grid'
+            ? 2
+            : 1
+        }
+        columnWrapperStyle={
+          layoutMode === 'grid'
+            ? styles.columnWrapper
+            : undefined
+        }
+        showsVerticalScrollIndicator={
+          false
+        }
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        onScrollBeginDrag={Keyboard.dismiss}
+        onScrollBeginDrag={() => {
+          Keyboard.dismiss();
+        }}
+        onScroll={(event) => {
+          updateFromScroll(
+            event.nativeEvent
+              .contentOffset.y,
+          );
+        }}
+        scrollEventThrottle={16}
         contentContainerStyle={
           styles.contentContainer
         }
         ListHeaderComponent={
           <View>
-            <View style={styles.header}>
-              <View style={styles.brandArea}>
-                <View style={styles.logoMark}>
-                  <Text style={styles.logoText}>
-                    DG
-                  </Text>
-
-                  <Ionicons
-                    name="trending-up"
-                    size={18}
-                    color={colors.primary}
-                    style={styles.logoArrow}
-                  />
-                </View>
-
-                <View style={styles.brandTextArea}>
-                  <Text style={styles.brandName}>
-                    DIRECT{' '}
-                    <Text style={styles.brandAccent}>
-                      GAIN
-                    </Text>
-                  </Text>
-
-                  <Text style={styles.brandSlogan}>
-                    Grow Together
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.headerActions}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Open messages"
-                  style={({ pressed }) => [
-                    styles.headerButton,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <Ionicons
-                    name="chatbubble-ellipses-outline"
-                    size={21}
-                    color={colors.text}
-                  />
-                </Pressable>
-
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Open notifications"
-                  style={({ pressed }) => [
-                    styles.headerButton,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <Ionicons
-                    name="notifications-outline"
-                    size={22}
-                    color={colors.text}
-                  />
-
-                  <View
-                    style={styles.notificationBadge}
-                  >
-                    <Text
-                      style={styles.notificationText}
-                    >
-                      3
-                    </Text>
-                  </View>
-                </Pressable>
-              </View>
-            </View>
-
-            <View style={styles.searchContainer}>
-              <Ionicons
-                name="search"
-                size={20}
-                color={colors.textMuted}
-              />
-
-              <TextInput
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholder="Search the Market..."
-                placeholderTextColor={
-                  colors.textMuted
-                }
-                returnKeyType="search"
-                clearButtonMode="while-editing"
-                style={styles.searchInput}
-              />
-
-              {searchQuery.length > 0 ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Clear search"
-                  onPress={() => setSearchQuery('')}
-                  hitSlop={10}
-                >
-                  <Ionicons
-                    name="close-circle"
-                    size={20}
-                    color={colors.textMuted}
-                  />
-                </Pressable>
-              ) : (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Open filters"
-                  hitSlop={10}
-                >
-                  <Ionicons
-                    name="options-outline"
-                    size={21}
-                    color={colors.primary}
-                  />
-                </Pressable>
-              )}
-            </View>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Change market location"
-              style={({ pressed }) => [
-                styles.locationRow,
-                pressed && styles.pressed,
-              ]}
-            >
-              <View style={styles.locationLeft}>
-                <Ionicons
-                  name="location"
-                  size={18}
-                  color={colors.primary}
-                />
-
-                <Text style={styles.locationText}>
-                  Mackay, QLD
-                </Text>
-
-                <Ionicons
-                  name="chevron-down"
-                  size={15}
-                  color={colors.textMuted}
-                />
-              </View>
-
-              <Text style={styles.changeText}>
-                Change
-              </Text>
-            </Pressable>
-
-            <View style={styles.tabBar}>
-              <Pressable
-                accessibilityRole="tab"
-                accessibilityState={{
-                  selected:
-                    selectedTab === 'forYou',
-                }}
-                onPress={() =>
-                  setSelectedTab('forYou')
-                }
-                style={styles.tabButton}
-              >
-                <Text
-                  style={[
-                    styles.tabText,
-                    selectedTab === 'forYou' &&
-                      styles.tabTextSelected,
-                  ]}
-                >
-                  For You
-                </Text>
-
-                {selectedTab === 'forYou' ? (
-                  <View
-                    style={styles.tabIndicator}
-                  />
-                ) : null}
-              </Pressable>
-
-              <Pressable
-                accessibilityRole="tab"
-                accessibilityState={{
-                  selected:
-                    selectedTab === 'nearby',
-                }}
-                onPress={() =>
-                  setSelectedTab('nearby')
-                }
-                style={styles.tabButton}
-              >
-                <Text
-                  style={[
-                    styles.tabText,
-                    selectedTab === 'nearby' &&
-                      styles.tabTextSelected,
-                  ]}
-                >
-                  Nearby
-                </Text>
-
-                {selectedTab === 'nearby' ? (
-                  <View
-                    style={styles.tabIndicator}
-                  />
-                ) : null}
-              </Pressable>
-            </View>
-
-            <FlatList
-              horizontal
-              data={categories}
-              keyExtractor={(item) => item.label}
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={
-                styles.categoryList
-              }
-              renderItem={({ item }) => {
-                const isSelected =
-                  selectedCategory === item.label;
-
-                return (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityState={{
-                      selected: isSelected,
-                    }}
-                    onPress={() =>
-                      setSelectedCategory(
-                        item.label,
-                      )
-                    }
-                    style={({ pressed }) => [
-                      styles.categoryChip,
-                      isSelected &&
-                        styles.categoryChipSelected,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <Ionicons
-                      name={item.icon}
-                      size={15}
-                      color={
-                        isSelected
-                          ? '#10150D'
-                          : colors.textMuted
-                      }
-                    />
-
-                    <Text
-                      style={[
-                        styles.categoryText,
-                        isSelected &&
-                          styles.categoryTextSelected,
-                      ]}
-                    >
-                      {item.label}
-                    </Text>
-                  </Pressable>
+            <DGHeader
+              showBrand
+              location="Mackay, QLD · Within 25 km"
+              onLocationPress={() => {
+                Alert.alert(
+                  'Market location',
+                  'Location selection will be connected in a later release.',
                 );
+              }}
+              secondaryAction={{
+                icon:
+                  'chatbubble-ellipses-outline',
+                accessibilityLabel:
+                  'Open messages',
+                onPress:
+                  openMessages,
+              }}
+              primaryAction={{
+                icon:
+                  'notifications-outline',
+                accessibilityLabel:
+                  'Open notifications',
+                badgeCount: 3,
+                onPress: () => {
+                  Alert.alert(
+                    'Notifications',
+                    'Market notifications will be connected later.',
+                  );
+                },
               }}
             />
 
-            <View style={styles.sectionHeading}>
-              <View style={styles.sectionTitleArea}>
-                <View style={styles.sectionIcon}>
+            <View
+              style={
+                styles.headerContent
+              }
+            >
+              <View
+                style={
+                  styles.marketIntro
+                }
+              >
+                <View
+                  style={
+                    styles.marketIntroIcon
+                  }
+                >
                   <Ionicons
-                    name={
-                      selectedTab === 'nearby'
-                        ? 'location-outline'
-                        : 'sparkles-outline'
+                    name="storefront"
+                    size={24}
+                    color={
+                      palette.opportunityGreen
                     }
-                    size={17}
-                    color={colors.primary}
                   />
                 </View>
 
-                <View>
-                  <Text style={styles.sectionTitle}>
-                    {selectedTab === 'nearby'
-                      ? 'Nearby Market'
-                      : 'Recommended For You'}
+                <View
+                  style={
+                    styles.marketIntroCopy
+                  }
+                >
+                  <Text
+                    style={
+                      styles.marketEyebrow
+                    }
+                  >
+                    LOCAL MARKET
                   </Text>
 
                   <Text
-                    style={styles.sectionSubtitle}
+                    style={
+                      styles.marketTitle
+                    }
                   >
-                    {filteredListings.length}{' '}
-                    opportunities available
+                    Find your next
+                    opportunity.
                   </Text>
+
+                  <Text
+                    style={
+                      styles.marketSubtitle
+                    }
+                  >
+                    Browse trusted local
+                    listings, jobs,
+                    services and auctions.
+                  </Text>
+                </View>
+              </View>
+
+              <DGSearchBar
+                value={searchQuery}
+                onChangeText={
+                  setSearchQuery
+                }
+                placeholder="Search the Market"
+                showFilter
+                filterActive={
+                  filterActive
+                }
+                onFilterPress={() => {
+                  setFilterActive(
+                    (current) =>
+                      !current,
+                  );
+                }}
+                onSubmit={(query) => {
+                  if (!query) {
+                    return;
+                  }
+
+                  Keyboard.dismiss();
+                }}
+                containerStyle={
+                  styles.searchBar
+                }
+              />
+
+              {filterActive ? (
+                <View
+                  style={
+                    styles.filterNotice
+                  }
+                >
+                  <View
+                    style={
+                      styles.filterNoticeIcon
+                    }
+                  >
+                    <Ionicons
+                      name="options-outline"
+                      size={16}
+                      color={
+                        palette.opportunityGreen
+                      }
+                    />
+                  </View>
+
+                  <View
+                    style={
+                      styles.filterNoticeCopy
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.filterNoticeTitle
+                      }
+                    >
+                      Local results active
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.filterNoticeDescription
+                      }
+                    >
+                      Showing opportunities
+                      within 25 km.
+                    </Text>
+                  </View>
+
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Clear market filters"
+                    onPress={() => {
+                      setFilterActive(
+                        false,
+                      );
+                    }}
+                    style={({
+                      pressed,
+                    }) => [
+                      styles.clearFilterButton,
+                      pressed &&
+                        styles.pressed,
+                    ]}
+                  >
+                    <Text
+                      style={
+                        styles.clearFilterText
+                      }
+                    >
+                      Clear
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : null}
+
+              <View
+                style={styles.marketTabs}
+              >
+                <Pressable
+                  accessibilityRole="tab"
+                  accessibilityState={{
+                    selected:
+                      selectedTab ===
+                      'forYou',
+                  }}
+                  onPress={() => {
+                    setSelectedTab(
+                      'forYou',
+                    );
+                  }}
+                  style={({
+                    pressed,
+                  }) => [
+                    styles.marketTab,
+                    selectedTab ===
+                      'forYou' &&
+                      styles.marketTabSelected,
+                    pressed &&
+                      styles.pressed,
+                  ]}
+                >
+                  <Ionicons
+                    name="sparkles-outline"
+                    size={17}
+                    color={
+                      selectedTab ===
+                      'forYou'
+                        ? textColor.inverse
+                        : textColor.muted
+                    }
+                  />
+
+                  <Text
+                    style={[
+                      styles.marketTabText,
+                      selectedTab ===
+                        'forYou' &&
+                        styles.marketTabTextSelected,
+                    ]}
+                  >
+                    For You
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="tab"
+                  accessibilityState={{
+                    selected:
+                      selectedTab ===
+                      'nearby',
+                  }}
+                  onPress={() => {
+                    setSelectedTab(
+                      'nearby',
+                    );
+                  }}
+                  style={({
+                    pressed,
+                  }) => [
+                    styles.marketTab,
+                    selectedTab ===
+                      'nearby' &&
+                      styles.marketTabSelected,
+                    pressed &&
+                      styles.pressed,
+                  ]}
+                >
+                  <Ionicons
+                    name="location-outline"
+                    size={17}
+                    color={
+                      selectedTab ===
+                      'nearby'
+                        ? textColor.inverse
+                        : textColor.muted
+                    }
+                  />
+
+                  <Text
+                    style={[
+                      styles.marketTabText,
+                      selectedTab ===
+                        'nearby' &&
+                        styles.marketTabTextSelected,
+                    ]}
+                  >
+                    Nearby
+                  </Text>
+                </Pressable>
+              </View>
+
+              <FlatList
+                horizontal
+                data={categories}
+                keyExtractor={(
+                  item,
+                ) => item.label}
+                showsHorizontalScrollIndicator={
+                  false
+                }
+                contentContainerStyle={
+                  styles.categoryList
+                }
+                renderItem={({
+                  item,
+                }) => (
+                  <DGChip
+                    label={item.label}
+                    icon={item.icon}
+                    size="compact"
+                    selected={
+                      selectedCategory ===
+                      item.label
+                    }
+                    onPress={() => {
+                      setSelectedCategory(
+                        item.label,
+                      );
+                    }}
+                    style={
+                      styles.categoryChip
+                    }
+                  />
+                )}
+              />
+
+              <View
+                style={
+                  styles.resultsHeader
+                }
+              >
+                <View
+                  style={
+                    styles.resultsHeading
+                  }
+                >
+                  <View
+                    style={
+                      styles.resultsIcon
+                    }
+                  >
+                    <Ionicons
+                      name={
+                        selectedTab ===
+                        'nearby'
+                          ? 'location-outline'
+                          : 'sparkles-outline'
+                      }
+                      size={18}
+                      color={
+                        palette.opportunityGreen
+                      }
+                    />
+                  </View>
+
+                  <View
+                    style={
+                      styles.resultsCopy
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.resultsTitle
+                      }
+                    >
+                      {selectedTab ===
+                      'nearby'
+                        ? 'Nearby Market'
+                        : 'Recommended For You'}
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.resultsSubtitle
+                      }
+                    >
+                      {
+                        filteredListings.length
+                      }{' '}
+                      opportunities available
+                    </Text>
+                  </View>
+                </View>
+
+                <View
+                  style={
+                    styles.layoutToggle
+                  }
+                >
+                  <LayoutButton
+                    icon="grid-outline"
+                    label="Grid view"
+                    selected={
+                      layoutMode ===
+                      'grid'
+                    }
+                    onPress={() => {
+                      setLayoutMode(
+                        'grid',
+                      );
+                    }}
+                  />
+
+                  <LayoutButton
+                    icon="list-outline"
+                    label="List view"
+                    selected={
+                      layoutMode ===
+                      'list'
+                    }
+                    onPress={() => {
+                      setLayoutMode(
+                        'list',
+                      );
+                    }}
+                  />
                 </View>
               </View>
             </View>
           </View>
         }
         ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIcon}>
+          <View
+            style={styles.emptyState}
+          >
+            <View
+              style={styles.emptyGlow}
+            />
+
+            <View
+              style={styles.emptyIcon}
+            >
               <Ionicons
                 name="search-outline"
                 size={32}
-                color={colors.primary}
+                color={
+                  palette.opportunityGreen
+                }
               />
             </View>
 
-            <Text style={styles.emptyTitle}>
+            <Text
+              style={styles.emptyTitle}
+            >
               No opportunities found
             </Text>
 
-            <Text style={styles.emptyDescription}>
-              Try another search or choose a
-              different category.
+            <Text
+              style={
+                styles.emptyDescription
+              }
+            >
+              Try another search or
+              choose a different
+              category.
             </Text>
 
-            <Pressable
-              accessibilityRole="button"
+            <DGButton
+              title="Reset filters"
+              icon="refresh-outline"
+              variant="outline"
               onPress={() => {
                 setSearchQuery('');
-                setSelectedCategory('All');
+                setSelectedCategory(
+                  'All',
+                );
+                setFilterActive(
+                  false,
+                );
               }}
-              style={({ pressed }) => [
-                styles.resetButton,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text style={styles.resetButtonText}>
-                Reset filters
-              </Text>
-            </Pressable>
+            />
           </View>
         }
       />
@@ -530,344 +897,421 @@ export default function MarketScreen({
   );
 }
 
+type LayoutButtonProps = {
+  icon: React.ComponentProps<
+    typeof Ionicons
+  >['name'];
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+};
+
+function LayoutButton({
+  icon,
+  label,
+  selected,
+  onPress,
+}: LayoutButtonProps) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{
+        selected,
+      }}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.layoutButton,
+        selected &&
+          styles.layoutButtonSelected,
+        pressed && styles.pressed,
+      ]}
+    >
+      <Ionicons
+        name={icon}
+        size={18}
+        color={
+          selected
+            ? textColor.inverse
+            : textColor.muted
+        }
+      />
+    </Pressable>
+  );
+}
+
 function formatPrice(
   price: number,
   currency: string,
 ) {
-  return new Intl.NumberFormat('en-AU', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 0,
-  }).format(price);
+  return new Intl.NumberFormat(
+    'en-AU',
+    {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 0,
+    },
+  ).format(price);
 }
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#080B09',
+    backgroundColor:
+      palette.midnight,
+  },
+
+  background: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    overflow: 'hidden',
+  },
+
+  topGlow: {
+    position: 'absolute',
+    top: -220,
+    right: -170,
+    width: 430,
+    height: 430,
+    borderRadius: 215,
+    backgroundColor:
+      alpha.green04,
+  },
+
+  bottomGlow: {
+    position: 'absolute',
+    bottom: -260,
+    left: -190,
+    width: 430,
+    height: 430,
+    borderRadius: 215,
+    backgroundColor:
+      alpha.green04,
   },
 
   contentContainer: {
-    paddingHorizontal: 14,
-    paddingBottom: 130,
+    paddingHorizontal:
+      spacing.md,
+    paddingBottom:
+      layout.bottomNavigationClearance +
+      spacing.xl,
   },
 
-  header: {
-    paddingTop: 14,
+  headerContent: {
+    width: '100%',
+    paddingHorizontal:
+      spacing.xxs,
+  },
+
+  marketIntro: {
+    marginTop: spacing.xs,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
 
-  brandArea: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  logoMark: {
-    position: 'relative',
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+  marketIntroIcon: {
+    width: 54,
+    height: 54,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(158, 246, 90, 0.24)',
+    borderColor:
+      alpha.green16,
     backgroundColor:
-      'rgba(158, 246, 90, 0.08)',
+      alpha.green06,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  logoText: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: -1,
-  },
-
-  logoArrow: {
-    position: 'absolute',
-    top: 3,
-    right: 3,
-  },
-
-  brandTextArea: {
-    marginLeft: 11,
-  },
-
-  brandName: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
-
-  brandAccent: {
-    color: colors.primary,
-  },
-
-  brandSlogan: {
-    marginTop: 3,
-    color: colors.textMuted,
-    fontSize: 9,
-    fontWeight: '700',
-  },
-
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  headerButton: {
-    position: 'relative',
-    width: 42,
-    height: 42,
-    marginLeft: 8,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.09)',
-    backgroundColor: colors.cardRaised,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  notificationBadge: {
-    position: 'absolute',
-    top: 5,
-    right: 5,
-    minWidth: 16,
-    height: 16,
-    paddingHorizontal: 4,
-    borderRadius: 8,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  notificationText: {
-    color: '#10150D',
-    fontSize: 8,
-    fontWeight: '900',
-  },
-
-  searchContainer: {
-    height: 52,
-    marginTop: 18,
-    paddingHorizontal: 14,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.09)',
-    backgroundColor: colors.cardRaised,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  searchInput: {
+  marketIntroCopy: {
     flex: 1,
-    height: '100%',
-    marginHorizontal: 10,
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: '600',
+    minWidth: 0,
+    marginLeft: spacing.sm,
   },
 
-  locationRow: {
-    minHeight: 48,
-    marginTop: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  marketEyebrow: {
+    ...typography.eyebrow,
+    color:
+      palette.opportunityGreen,
   },
 
-  locationLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  locationText: {
-    marginHorizontal: 7,
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-
-  changeText: {
-    color: colors.primary,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-
-  tabBar: {
+  marketTitle: {
     marginTop: 3,
-    borderBottomWidth: 1,
-    borderBottomColor:
-      'rgba(255, 255, 255, 0.08)',
-    flexDirection: 'row',
+    ...typography.headingMedium,
+    color: textColor.primary,
   },
 
-  tabButton: {
-    position: 'relative',
-    flex: 1,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
+  marketSubtitle: {
+    marginTop: spacing.xxs,
+    ...typography.bodySmall,
+    color: textColor.secondary,
   },
 
-  tabText: {
-    color: colors.textMuted,
-    fontSize: 13,
-    fontWeight: '800',
+  searchBar: {
+    marginTop: spacing.lg,
   },
 
-  tabTextSelected: {
-    color: colors.text,
-  },
-
-  tabIndicator: {
-    position: 'absolute',
-    right: 0,
-    bottom: -1,
-    left: 0,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: colors.primary,
-  },
-
-  categoryList: {
-    paddingTop: 14,
-    paddingBottom: 4,
-    paddingRight: 14,
-  },
-
-  categoryChip: {
-    minHeight: 37,
-    marginRight: 8,
-    paddingHorizontal: 12,
-    borderRadius: 13,
+  filterNotice: {
+    minHeight: 64,
+    marginTop: spacing.sm,
+    paddingHorizontal:
+      spacing.sm,
+    paddingVertical:
+      spacing.xs,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.09)',
+    borderColor:
+      alpha.green16,
     backgroundColor:
-      'rgba(255, 255, 255, 0.035)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  categoryChipSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary,
-  },
-
-  categoryText: {
-    marginLeft: 6,
-    color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-
-  categoryTextSelected: {
-    color: '#10150D',
-  },
-
-  sectionHeading: {
-    marginTop: 22,
-    marginBottom: 12,
-  },
-
-  sectionTitleArea: {
+      surface.cardSoft,
     flexDirection: 'row',
     alignItems: 'center',
   },
 
-  sectionIcon: {
+  filterNoticeIcon: {
     width: 34,
     height: 34,
-    marginRight: 10,
-    borderRadius: 12,
+    borderRadius: radius.sm,
     backgroundColor:
-      'rgba(158, 246, 90, 0.09)',
+      alpha.green08,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  sectionTitle: {
-    color: colors.text,
-    fontSize: 17,
-    fontWeight: '900',
-    letterSpacing: -0.3,
+  filterNoticeCopy: {
+    flex: 1,
+    marginLeft: spacing.sm,
   },
 
-  sectionSubtitle: {
+  filterNoticeTitle: {
+    color: textColor.primary,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+
+  filterNoticeDescription: {
     marginTop: 2,
-    color: colors.textMuted,
+    color: textColor.muted,
     fontSize: 10,
     fontWeight: '600',
   },
 
-  columnWrapper: {
-    justifyContent: 'space-between',
+  clearFilterButton: {
+    minHeight: 34,
+    paddingHorizontal:
+      spacing.sm,
+    borderRadius: radius.sm,
+    backgroundColor:
+      alpha.green08,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
-  gridColumn: {
-    width: '48.7%',
-    marginBottom: 12,
+  clearFilterText: {
+    color:
+      palette.opportunityGreen,
+    fontSize: 11,
+    fontWeight: '900',
   },
 
-  emptyState: {
-    marginTop: 32,
-    paddingHorizontal: 28,
-    paddingVertical: 42,
-    borderRadius: 24,
+  marketTabs: {
+    marginTop: spacing.lg,
+    padding: spacing.xxs,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    backgroundColor: colors.cardRaised,
+    borderColor:
+      alpha.white08,
+    backgroundColor:
+      surface.cardSoft,
+    flexDirection: 'row',
+  },
+
+  marketTab: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: radius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  marketTabSelected: {
+    backgroundColor:
+      palette.opportunityGreen,
+    ...shadow.greenSoft,
+  },
+
+  marketTabText: {
+    marginLeft: spacing.xs,
+    color: textColor.muted,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
+  marketTabTextSelected: {
+    color: textColor.inverse,
+  },
+
+  categoryList: {
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xs,
+    paddingRight: spacing.md,
+  },
+
+  categoryChip: {
+    marginRight: spacing.xs,
+  },
+
+  resultsHeader: {
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent:
+      'space-between',
+  },
+
+  resultsHeading: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
     alignItems: 'center',
   },
 
-  emptyIcon: {
-    width: 62,
-    height: 62,
-    borderRadius: 21,
+  resultsIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: radius.sm,
     backgroundColor:
-      'rgba(158, 246, 90, 0.1)',
+      alpha.green08,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  resultsCopy: {
+    flex: 1,
+    minWidth: 0,
+    marginLeft: spacing.sm,
+  },
+
+  resultsTitle: {
+    color: textColor.primary,
+    fontSize: 17,
+    lineHeight: 21,
+    fontWeight: '900',
+    letterSpacing: -0.3,
+  },
+
+  resultsSubtitle: {
+    marginTop: 2,
+    color: textColor.muted,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+
+  layoutToggle: {
+    marginLeft: spacing.sm,
+    padding: 3,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor:
+      alpha.white08,
+    backgroundColor:
+      surface.cardSoft,
+    flexDirection: 'row',
+  },
+
+  layoutButton: {
+    width: 38,
+    height: 36,
+    borderRadius: radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  layoutButtonSelected: {
+    backgroundColor:
+      palette.opportunityGreen,
+  },
+
+  columnWrapper: {
+    justifyContent:
+      'space-between',
+  },
+
+  gridColumn: {
+    width: '48.6%',
+    marginBottom: spacing.sm,
+  },
+
+  listColumn: {
+    width: '100%',
+    marginBottom: spacing.sm,
+  },
+
+  emptyState: {
+    position: 'relative',
+    marginTop: spacing.xl,
+    paddingHorizontal:
+      spacing.xl,
+    paddingVertical:
+      spacing.xxxl,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor:
+      alpha.white08,
+    backgroundColor:
+      surface.cardRaised,
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+
+  emptyGlow: {
+    position: 'absolute',
+    top: -85,
+    right: -65,
+    width: 190,
+    height: 190,
+    borderRadius: 95,
+    backgroundColor:
+      alpha.green06,
+  },
+
+  emptyIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: radius.lg,
+    backgroundColor:
+      alpha.green10,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   emptyTitle: {
-    marginTop: 17,
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: '900',
+    marginTop: spacing.md,
+    ...typography.headingSmall,
+    color: textColor.primary,
     textAlign: 'center',
   },
 
   emptyDescription: {
-    marginTop: 7,
-    color: colors.textMuted,
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: '600',
+    maxWidth: 280,
+    marginTop: spacing.xs,
+    marginBottom: spacing.lg,
+    ...typography.bodySmall,
+    color: textColor.secondary,
     textAlign: 'center',
   },
 
-  resetButton: {
-    minHeight: 42,
-    marginTop: 20,
-    paddingHorizontal: 18,
-    borderRadius: 14,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  resetButtonText: {
-    color: '#10150D',
-    fontSize: 12,
-    fontWeight: '900',
-  },
-
   pressed: {
-    opacity: 0.7,
+    opacity: 0.78,
+    transform: [
+      {
+        scale:
+          motion.iconPressedScale,
+      },
+    ],
   },
 });

@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import {
   Pressable,
   StyleProp,
@@ -7,9 +7,22 @@ import {
   ViewStyle,
 } from 'react-native';
 
-import { colors } from '../theme/colors';
+import {
+  alpha,
+  border,
+  layout,
+  motion,
+  palette,
+  radius,
+  shadow,
+  surface,
+} from '../theme/designSystem';
 
-type DGCardVariant = 'default' | 'raised' | 'outlined' | 'soft';
+export type DGCardVariant =
+  | 'default'
+  | 'raised'
+  | 'outlined'
+  | 'soft';
 
 type DGCardProps = {
   children: ReactNode;
@@ -32,101 +45,187 @@ export default function DGCard({
   contentStyle,
   testID,
 }: DGCardProps) {
-  const cardStyles = [
-    styles.card,
-    variant === 'default' && styles.defaultCard,
-    variant === 'raised' && styles.raisedCard,
-    variant === 'outlined' && styles.outlinedCard,
-    variant === 'soft' && styles.softCard,
-    disabled && styles.disabledCard,
+  const isInteractive =
+    pressable || Boolean(onPress);
+
+  const outerStyles = [
+    styles.outer,
+    variant === 'raised' &&
+      styles.raisedOuter,
+    disabled && styles.disabled,
     style,
   ];
 
-  const content = (
-    <View style={[styles.content, contentStyle]}>
-      {children}
+  const surfaceStyles = [
+    styles.surface,
+    variant === 'default' &&
+      styles.defaultSurface,
+    variant === 'raised' &&
+      styles.raisedSurface,
+    variant === 'outlined' &&
+      styles.outlinedSurface,
+    variant === 'soft' &&
+      styles.softSurface,
+  ];
+
+  const cardContent = (
+    <View style={surfaceStyles}>
+      <View
+        pointerEvents="none"
+        style={styles.topHighlight}
+      />
+
+      <View
+        pointerEvents="none"
+        style={styles.internalGlow}
+      />
+
+      <View
+        style={[
+          styles.content,
+          contentStyle,
+        ]}
+      >
+        {children}
+      </View>
     </View>
   );
 
-  if (pressable || onPress) {
+  if (isInteractive) {
     return (
       <Pressable
         testID={testID}
+        accessibilityRole="button"
+        accessibilityState={{
+          disabled,
+        }}
         disabled={disabled}
         onPress={onPress}
         style={({ pressed }) => [
-          cardStyles,
-          pressed && !disabled && styles.pressedCard,
+          outerStyles,
+          pressed &&
+            !disabled &&
+            styles.pressed,
         ]}
       >
-        {content}
+        {cardContent}
       </Pressable>
     );
   }
 
   return (
-    <View testID={testID} style={cardStyles}>
-      {content}
+    <View
+      testID={testID}
+      style={outerStyles}
+    >
+      {cardContent}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
+  /*
+   * Shadow and motion live on this outer layer.
+   * Keeping overflow visible prevents shadows
+   * from being cut off by rounded corners.
+   */
+  outer: {
     width: '100%',
-    borderRadius: 24,
-    overflow: 'hidden',
+    borderRadius: radius.card,
   },
 
-  content: {
-    width: '100%',
-    padding: 18,
+  raisedOuter: {
+    ...shadow.raised,
   },
 
-  defaultCard: {
-    backgroundColor: colors.cardRaised,
-    borderWidth: 1,
-    borderColor: colors.border,
+  disabled: {
+    opacity: 0.5,
   },
 
-  raisedCard: {
-    backgroundColor: colors.cardRaised,
-    borderWidth: 1,
-    borderColor: colors.border,
+  pressed: {
+    opacity: 0.94,
 
-    shadowColor: colors.cardShadow,
-    shadowOpacity: 0.28,
-    shadowRadius: 16,
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-
-    elevation: 8,
-  },
-
-  outlinedCard: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-
-  softCard: {
-    backgroundColor: colors.surfaceSoft,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-
-  pressedCard: {
-    opacity: 0.92,
     transform: [
       {
-        scale: 0.985,
+        scale: motion.pressedScale,
+      },
+      {
+        translateY: motion.cardLift,
       },
     ],
   },
 
-  disabledCard: {
-    opacity: 0.5,
+  /*
+   * The inner layer owns the background,
+   * border, rounded corners and clipping.
+   */
+  surface: {
+    position: 'relative',
+    width: '100%',
+    borderRadius: radius.card,
+    overflow: 'hidden',
+  },
+
+  defaultSurface: {
+    backgroundColor: surface.cardRaised,
+    ...border.subtle,
+  },
+
+  raisedSurface: {
+    backgroundColor: palette.slate800,
+    borderWidth: 1,
+    borderColor: alpha.green10,
+  },
+
+  outlinedSurface: {
+    backgroundColor: alpha.white03,
+    borderWidth: 1,
+    borderColor: alpha.green16,
+  },
+
+  softSurface: {
+    backgroundColor: surface.cardSoft,
+    borderWidth: 1,
+    borderColor: alpha.white05,
+  },
+
+  content: {
+    position: 'relative',
+    zIndex: 2,
+    width: '100%',
+    padding: layout.cardPadding,
+  },
+
+  /*
+   * A faint internal green light gives cards
+   * depth without creating a strong outer glow.
+   */
+  internalGlow: {
+    position: 'absolute',
+    top: -110,
+    right: -95,
+
+    width: 220,
+    height: 220,
+
+    borderRadius: 110,
+
+    backgroundColor: alpha.green04,
+  },
+
+  /*
+   * This subtle top edge catches light and
+   * makes the surface feel layered.
+   */
+  topHighlight: {
+    position: 'absolute',
+    top: 0,
+    right: 24,
+    left: 24,
+
+    height: 1,
+
+    backgroundColor:
+      'rgba(255, 255, 255, 0.08)',
   },
 });
