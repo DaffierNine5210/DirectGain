@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { mediumTap } from '../utils/haptics';
 import {
   useEffect,
   useRef,
@@ -207,7 +208,10 @@ export default function DGButton({
         busy: loading,
       }}
       disabled={isDisabled}
-      onPress={onPress}
+      onPress={async () => {
+  await mediumTap();
+  onPress?.();
+}}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       style={[

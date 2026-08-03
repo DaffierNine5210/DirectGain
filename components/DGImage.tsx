@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 
 import { colors } from '../theme/colors';
-
+import { lightTap } from '../utils/haptics';
 type DGImageAspectRatio =
   | 'square'
   | 'portrait'
@@ -136,37 +136,38 @@ export default function DGImage({
     imageOpacity.setValue(0);
   }
 
-  function handleFavouritePress() {
-    if (!onFavouritePress) {
-      return;
-    }
-
-    Animated.sequence([
-      Animated.spring(favouriteScale, {
-        toValue: 0.82,
-        speed: 30,
-        bounciness: 0,
-        useNativeDriver: true,
-      }),
-
-      Animated.spring(favouriteScale, {
-        toValue: 1.16,
-        speed: 26,
-        bounciness: 8,
-        useNativeDriver: true,
-      }),
-
-      Animated.spring(favouriteScale, {
-        toValue: 1,
-        speed: 24,
-        bounciness: 6,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    onFavouritePress();
+  async function handleFavouritePress() {
+  if (!onFavouritePress) {
+    return;
   }
 
+  await lightTap();
+
+  Animated.sequence([
+    Animated.spring(favouriteScale, {
+      toValue: 0.82,
+      speed: 30,
+      bounciness: 0,
+      useNativeDriver: true,
+    }),
+
+    Animated.spring(favouriteScale, {
+      toValue: 1.16,
+      speed: 26,
+      bounciness: 8,
+      useNativeDriver: true,
+    }),
+
+    Animated.spring(favouriteScale, {
+      toValue: 1,
+      speed: 24,
+      bounciness: 6,
+      useNativeDriver: true,
+    }),
+  ]).start();
+
+  onFavouritePress();
+}
   const showImageCount =
     typeof imageCount === 'number' &&
     imageCount > 1;

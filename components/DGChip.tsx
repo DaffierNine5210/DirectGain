@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRef } from 'react';
+import { selectionHaptic } from '../utils/haptics';
 import {
   Animated,
   Pressable,
@@ -46,7 +47,6 @@ export type DGChipProps = {
   testID?: string;
   accessibilityLabel?: string;
 };
-
 export default function DGChip({
   label,
   selected = false,
@@ -137,7 +137,10 @@ export default function DGChip({
           disabled,
         }}
         disabled={disabled}
-        onPress={onPress}
+        onPress={async () => {
+  await selectionHaptic();
+  onPress?.();
+}}
         onPressIn={
           handlePressIn
         }

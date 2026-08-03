@@ -49,14 +49,13 @@ export type MarketListingCardProps = {
   category?: string;
   auctionLabel?: string;
 
-  layout?: MarketListingCardLayout;
+    layout?: MarketListingCardLayout;
 
   onPress?: () => void;
   onFavouritePress?: () => void;
   onMessagePress?: () => void;
   onOfferPress?: () => void;
 };
-
 export default function MarketListingCard({
   title,
   price,
@@ -177,9 +176,8 @@ export default function MarketListingCard({
               aspectRatio="portrait"
               cornerRadius="large"
               favourite={favourite}
-              onFavouritePress={
-                onFavouritePress
-              }
+              onFavouritePress={onFavouritePress}
+
               imageCount={imageCount}
               auctionLabel={auctionLabel}
               accessibilityLabel={title}

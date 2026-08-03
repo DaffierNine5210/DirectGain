@@ -1,12 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import {
-  useFocusEffect,
-} from '@react-navigation/native';
-import type {
-  NativeStackScreenProps,
-} from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   useCallback,
+  useEffect,
   useMemo,
   useState,
 } from 'react';
@@ -19,13 +16,12 @@ import {
   Text,
   View,
 } from 'react-native';
-import {
-  SafeAreaView,
-} from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import DGButton from '../components/DGButton';
 import DGChip from '../components/DGChip';
 import DGHeader from '../components/DGHeader';
+import DGListingSkeleton from '../components/DGListingSkeleton';
 import DGSearchBar from '../components/DGSearchBar';
 import MarketListingCard from '../components/MarketListingCard';
 
@@ -35,10 +31,7 @@ import {
 } from '../data/marketMockData';
 
 import useTabBarVisibility from '../hooks/useTabBarVisibility';
-
-import type {
-  MarketStackParamList,
-} from '../navigation/MarketStack';
+import type { MarketStackParamList } from '../navigation/MarketStack';
 
 import {
   alpha,
@@ -58,20 +51,22 @@ type Props = NativeStackScreenProps<
   'MarketHome'
 >;
 
-type MarketTab =
-  | 'forYou'
-  | 'nearby';
-
-type MarketLayout =
-  | 'grid'
-  | 'list';
+type MarketTab = 'forYou' | 'nearby';
+type MarketLayout = 'grid' | 'list';
 
 type CategoryItem = {
   label: string;
-  icon: React.ComponentProps<
-    typeof Ionicons
-  >['name'];
+  icon: React.ComponentProps<typeof Ionicons>['name'];
 };
+
+type SkeletonItem = {
+  id: string;
+  skeleton: true;
+};
+
+type MarketListItem =
+  | MarketListing
+  | SkeletonItem;
 
 const categories: CategoryItem[] = [
   {
@@ -124,6 +119,23 @@ const categories: CategoryItem[] = [
   },
 ];
 
+const skeletonItems: SkeletonItem[] =
+  Array.from(
+    {
+      length: 8,
+    },
+    (_, index) => ({
+      id: `market-skeleton-${index}`,
+      skeleton: true,
+    }),
+  );
+
+function isSkeletonItem(
+  item: MarketListItem,
+): item is SkeletonItem {
+  return 'skeleton' in item;
+}
+
 export default function MarketScreen({
   navigation,
 }: Props) {
@@ -145,16 +157,12 @@ export default function MarketScreen({
   const [
     selectedTab,
     setSelectedTab,
-  ] = useState<MarketTab>(
-    'forYou',
-  );
+  ] = useState<MarketTab>('forYou');
 
   const [
     layoutMode,
     setLayoutMode,
-  ] = useState<MarketLayout>(
-    'grid',
-  );
+  ] = useState<MarketLayout>('grid');
 
   const [
     filterActive,
@@ -166,11 +174,27 @@ export default function MarketScreen({
     setFavouriteIds,
   ] = useState<string[]>([]);
 
+  const [loading, setLoading] =
+    useState(true);
+
+  const [refreshing, setRefreshing] =
+    useState(false);
+
   useFocusEffect(
     useCallback(() => {
       showTabBar();
     }, [showTabBar]),
   );
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 1500);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, []);
 
   const filteredListings =
     useMemo(() => {
@@ -181,7 +205,7 @@ export default function MarketScreen({
 
       return marketListings.filter(
         (listing) => {
-          const normalizedCategory =
+          const listingCategory =
             listing.category
               .trim()
               .toLowerCase();
@@ -193,7 +217,7 @@ export default function MarketScreen({
 
           const matchesCategory =
             selectedCategory === 'All' ||
-            normalizedCategory ===
+            listingCategory ===
               selectedCategoryValue ||
             (selectedCategory ===
               'Auctions' &&
@@ -243,6 +267,11 @@ export default function MarketScreen({
       selectedCategory,
     ]);
 
+  const listData: MarketListItem[] =
+    loading
+      ? skeletonItems
+      : filteredListings;
+
   function toggleFavourite(
     listingId: string,
   ) {
@@ -267,6 +296,18 @@ export default function MarketScreen({
     );
   }
 
+  function handleRefresh() {
+    if (refreshing) {
+      return;
+    }
+
+    setRefreshing(true);
+
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1000);
+  }
+
   function openMessages() {
     const parentNavigation =
       navigation.getParent();
@@ -285,11 +326,9 @@ export default function MarketScreen({
     );
   }
 
-  function renderListing({
-    item,
-  }: {
-    item: MarketListing;
-  }) {
+  function renderListing(
+    item: MarketListing,
+  ) {
     const isFavourite =
       favouriteIds.includes(
         item.id,
@@ -371,6 +410,22 @@ export default function MarketScreen({
     );
   }
 
+  function renderSkeleton() {
+    return (
+      <View
+        style={
+          layoutMode === 'grid'
+            ? styles.gridColumn
+            : styles.listColumn
+        }
+      >
+        <DGListingSkeleton
+          layout={layoutMode}
+        />
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView
       style={styles.safeArea}
@@ -390,12 +445,22 @@ export default function MarketScreen({
       </View>
 
       <FlatList
-        key={layoutMode}
-        data={filteredListings}
-        renderItem={renderListing}
+        key={`${layoutMode}-${loading ? 'loading' : 'ready'}`}
+        data={listData}
         keyExtractor={(item) =>
           item.id
         }
+        renderItem={({ item }) => {
+          if (
+            isSkeletonItem(item)
+          ) {
+            return renderSkeleton();
+          }
+
+          return renderListing(
+            item,
+          );
+        }}
         numColumns={
           layoutMode === 'grid'
             ? 2
@@ -421,6 +486,8 @@ export default function MarketScreen({
           );
         }}
         scrollEventThrottle={16}
+        refreshing={refreshing}
+        onRefresh={handleRefresh}
         contentContainerStyle={
           styles.contentContainer
         }
@@ -438,17 +505,22 @@ export default function MarketScreen({
               secondaryAction={{
                 icon:
                   'chatbubble-ellipses-outline',
+
                 accessibilityLabel:
                   'Open messages',
+
                 onPress:
                   openMessages,
               }}
               primaryAction={{
                 icon:
                   'notifications-outline',
+
                 accessibilityLabel:
                   'Open notifications',
+
                 badgeCount: 3,
+
                 onPress: () => {
                   Alert.alert(
                     'Notifications',
@@ -532,11 +604,7 @@ export default function MarketScreen({
                       !current,
                   );
                 }}
-                onSubmit={(query) => {
-                  if (!query) {
-                    return;
-                  }
-
+                onSubmit={() => {
                   Keyboard.dismiss();
                 }}
                 containerStyle={
@@ -633,9 +701,11 @@ export default function MarketScreen({
                     pressed,
                   }) => [
                     styles.marketTab,
+
                     selectedTab ===
                       'forYou' &&
                       styles.marketTabSelected,
+
                     pressed &&
                       styles.pressed,
                   ]}
@@ -654,6 +724,7 @@ export default function MarketScreen({
                   <Text
                     style={[
                       styles.marketTabText,
+
                       selectedTab ===
                         'forYou' &&
                         styles.marketTabTextSelected,
@@ -679,9 +750,11 @@ export default function MarketScreen({
                     pressed,
                   }) => [
                     styles.marketTab,
+
                     selectedTab ===
                       'nearby' &&
                       styles.marketTabSelected,
+
                     pressed &&
                       styles.pressed,
                   ]}
@@ -700,6 +773,7 @@ export default function MarketScreen({
                   <Text
                     style={[
                       styles.marketTabText,
+
                       selectedTab ===
                         'nearby' &&
                         styles.marketTabTextSelected,
@@ -841,56 +915,68 @@ export default function MarketScreen({
           </View>
         }
         ListEmptyComponent={
-          <View
-            style={styles.emptyState}
-          >
+          loading ? null : (
             <View
-              style={styles.emptyGlow}
-            />
-
-            <View
-              style={styles.emptyIcon}
-            >
-              <Ionicons
-                name="search-outline"
-                size={32}
-                color={
-                  palette.opportunityGreen
-                }
-              />
-            </View>
-
-            <Text
-              style={styles.emptyTitle}
-            >
-              No opportunities found
-            </Text>
-
-            <Text
               style={
-                styles.emptyDescription
+                styles.emptyState
               }
             >
-              Try another search or
-              choose a different
-              category.
-            </Text>
+              <View
+                style={
+                  styles.emptyGlow
+                }
+              />
 
-            <DGButton
-              title="Reset filters"
-              icon="refresh-outline"
-              variant="outline"
-              onPress={() => {
-                setSearchQuery('');
-                setSelectedCategory(
-                  'All',
-                );
-                setFilterActive(
-                  false,
-                );
-              }}
-            />
-          </View>
+              <View
+                style={
+                  styles.emptyIcon
+                }
+              >
+                <Ionicons
+                  name="search-outline"
+                  size={32}
+                  color={
+                    palette.opportunityGreen
+                  }
+                />
+              </View>
+
+              <Text
+                style={
+                  styles.emptyTitle
+                }
+              >
+                No opportunities found
+              </Text>
+
+              <Text
+                style={
+                  styles.emptyDescription
+                }
+              >
+                Try another search or
+                choose a different
+                category.
+              </Text>
+
+              <DGButton
+                title="Reset filters"
+                icon="refresh-outline"
+                variant="outline"
+                onPress={() => {
+                  setSearchQuery('');
+
+                  setSelectedCategory(
+                    'All',
+                  );
+
+                  setFilterActive(
+                    false,
+                  );
+                }}
+              />
+            </View>
+          )
         }
       />
     </SafeAreaView>
@@ -901,6 +987,7 @@ type LayoutButtonProps = {
   icon: React.ComponentProps<
     typeof Ionicons
   >['name'];
+
   label: string;
   selected: boolean;
   onPress: () => void;
@@ -922,9 +1009,12 @@ function LayoutButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.layoutButton,
+
         selected &&
           styles.layoutButtonSelected,
-        pressed && styles.pressed,
+
+        pressed &&
+          styles.pressed,
       ]}
     >
       <Ionicons
@@ -995,6 +1085,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingHorizontal:
       spacing.md,
+
     paddingBottom:
       layout.bottomNavigationClearance +
       spacing.xl,
@@ -1015,12 +1106,16 @@ const styles = StyleSheet.create({
   marketIntroIcon: {
     width: 54,
     height: 54,
+
     borderRadius: radius.lg,
+
     borderWidth: 1,
     borderColor:
       alpha.green16,
+
     backgroundColor:
       alpha.green06,
+
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1056,16 +1151,22 @@ const styles = StyleSheet.create({
   filterNotice: {
     minHeight: 64,
     marginTop: spacing.sm,
+
     paddingHorizontal:
       spacing.sm,
+
     paddingVertical:
       spacing.xs,
+
     borderRadius: radius.md,
+
     borderWidth: 1,
     borderColor:
       alpha.green16,
+
     backgroundColor:
       surface.cardSoft,
+
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -1073,9 +1174,12 @@ const styles = StyleSheet.create({
   filterNoticeIcon: {
     width: 34,
     height: 34,
+
     borderRadius: radius.sm,
+
     backgroundColor:
       alpha.green08,
+
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1100,11 +1204,15 @@ const styles = StyleSheet.create({
 
   clearFilterButton: {
     minHeight: 34,
+
     paddingHorizontal:
       spacing.sm,
+
     borderRadius: radius.sm,
+
     backgroundColor:
       alpha.green08,
+
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1112,6 +1220,7 @@ const styles = StyleSheet.create({
   clearFilterText: {
     color:
       palette.opportunityGreen,
+
     fontSize: 11,
     fontWeight: '900',
   },
@@ -1119,19 +1228,25 @@ const styles = StyleSheet.create({
   marketTabs: {
     marginTop: spacing.lg,
     padding: spacing.xxs,
+
     borderRadius: radius.lg,
+
     borderWidth: 1,
     borderColor:
       alpha.white08,
+
     backgroundColor:
       surface.cardSoft,
+
     flexDirection: 'row',
   },
 
   marketTab: {
     flex: 1,
     minHeight: 44,
+
     borderRadius: radius.md,
+
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1140,6 +1255,7 @@ const styles = StyleSheet.create({
   marketTabSelected: {
     backgroundColor:
       palette.opportunityGreen,
+
     ...shadow.greenSoft,
   },
 
@@ -1167,6 +1283,7 @@ const styles = StyleSheet.create({
   resultsHeader: {
     marginTop: spacing.lg,
     marginBottom: spacing.md,
+
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent:
@@ -1176,6 +1293,7 @@ const styles = StyleSheet.create({
   resultsHeading: {
     flex: 1,
     minWidth: 0,
+
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -1183,9 +1301,12 @@ const styles = StyleSheet.create({
   resultsIcon: {
     width: 38,
     height: 38,
+
     borderRadius: radius.sm,
+
     backgroundColor:
       alpha.green08,
+
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1214,19 +1335,25 @@ const styles = StyleSheet.create({
   layoutToggle: {
     marginLeft: spacing.sm,
     padding: 3,
+
     borderRadius: radius.md,
+
     borderWidth: 1,
     borderColor:
       alpha.white08,
+
     backgroundColor:
       surface.cardSoft,
+
     flexDirection: 'row',
   },
 
   layoutButton: {
     width: 38,
     height: 36,
+
     borderRadius: radius.sm,
+
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1253,28 +1380,39 @@ const styles = StyleSheet.create({
 
   emptyState: {
     position: 'relative',
+
     marginTop: spacing.xl,
+
     paddingHorizontal:
       spacing.xl,
+
     paddingVertical:
       spacing.xxxl,
+
     borderRadius: radius.card,
+
     borderWidth: 1,
     borderColor:
       alpha.white08,
+
     backgroundColor:
       surface.cardRaised,
+
     alignItems: 'center',
     overflow: 'hidden',
   },
 
   emptyGlow: {
     position: 'absolute',
+
     top: -85,
     right: -65,
+
     width: 190,
     height: 190,
+
     borderRadius: 95,
+
     backgroundColor:
       alpha.green06,
   },
@@ -1282,31 +1420,42 @@ const styles = StyleSheet.create({
   emptyIcon: {
     width: 64,
     height: 64,
+
     borderRadius: radius.lg,
+
     backgroundColor:
       alpha.green10,
+
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   emptyTitle: {
     marginTop: spacing.md,
+
     ...typography.headingSmall,
+
     color: textColor.primary,
+
     textAlign: 'center',
   },
 
   emptyDescription: {
     maxWidth: 280,
+
     marginTop: spacing.xs,
     marginBottom: spacing.lg,
+
     ...typography.bodySmall,
+
     color: textColor.secondary,
+
     textAlign: 'center',
   },
 
   pressed: {
     opacity: 0.78,
+
     transform: [
       {
         scale:

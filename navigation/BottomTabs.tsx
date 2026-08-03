@@ -3,11 +3,15 @@ import {
   createBottomTabNavigator,
 } from '@react-navigation/bottom-tabs';
 import {
+  Animated,
   Platform,
   StyleSheet,
   View,
 } from 'react-native';
-
+import {
+  mediumTap,
+  selectionHaptic,
+} from '../utils/haptics';
 import MarketStack from './MarketStack';
 import MessagesStack from './MessagesStack';
 
@@ -92,11 +96,18 @@ function BottomTabsNavigator() {
   return (
     <Tab.Navigator
       initialRouteName="Discover"
-      screenListeners={{
-        tabPress: () => {
-          showTabBar();
-        },
-      }}
+      screenListeners={({ route }) => ({
+  tabPress: () => {
+    showTabBar();
+
+    if (route.name === 'Create') {
+      void mediumTap();
+    } else {
+      void selectionHaptic();
+    }
+  },
+})}
+      
       screenOptions={({ route }) => {
         const isCreate =
           route.name === 'Create';

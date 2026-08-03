@@ -54,7 +54,8 @@ export const alpha = {
   white08: 'rgba(255, 255, 255, 0.08)',
   white10: 'rgba(255, 255, 255, 0.10)',
   white14: 'rgba(255, 255, 255, 0.14)',
-
+  white04: 'rgba(255, 255, 255, 0.04)',
+  
   black18: 'rgba(0, 0, 0, 0.18)',
   black28: 'rgba(0, 0, 0, 0.28)',
   black40: 'rgba(0, 0, 0, 0.40)',
