@@ -3,15 +3,16 @@ import {
   createBottomTabNavigator,
 } from '@react-navigation/bottom-tabs';
 import {
-  Animated,
   Platform,
   StyleSheet,
   View,
 } from 'react-native';
+
 import {
   mediumTap,
   selectionHaptic,
 } from '../utils/haptics';
+
 import MarketStack from './MarketStack';
 import MessagesStack from './MessagesStack';
 
@@ -22,6 +23,7 @@ import MyGainScreen from '../screens/MyGainScreen';
 
 import useTabBarVisibility from '../hooks/useTabBarVisibility';
 import TabBarVisibilityProvider from '../providers/TabBarVisibilityProvider';
+
 import { colors } from '../theme/colors';
 
 export type BottomTabParamList = {
@@ -97,23 +99,23 @@ function BottomTabsNavigator() {
     <Tab.Navigator
       initialRouteName="Discover"
       screenListeners={({ route }) => ({
-  tabPress: () => {
-    showTabBar();
+        tabPress: () => {
+          showTabBar();
 
-    if (route.name === 'Create') {
-      void mediumTap();
-    } else {
-      void selectionHaptic();
-    }
-  },
-})}
-      
+          if (route.name === 'Create') {
+            void mediumTap();
+          } else {
+            void selectionHaptic();
+          }
+        },
+      })}
       screenOptions={({ route }) => {
         const isCreate =
           route.name === 'Create';
 
         return {
           headerShown: false,
+
           tabBarHideOnKeyboard: true,
 
           tabBarActiveTintColor:
@@ -156,10 +158,11 @@ function BottomTabsNavigator() {
             const visibleRoute =
               route.name as VisibleTabName;
 
-            const iconName = getTabIcon(
-              visibleRoute,
-              focused,
-            );
+            const iconName =
+              getTabIcon(
+                visibleRoute,
+                focused,
+              );
 
             if (isCreate) {
               return (
@@ -184,33 +187,18 @@ function BottomTabsNavigator() {
             }
 
             return (
-              <View style={styles.iconArea}>
-                <View
-                  style={[
-                    styles.iconGlow,
-                    focused &&
-                      styles.iconGlowActive,
-                  ]}
-                />
-
+              <View
+                style={[
+                  styles.iconArea,
+                  focused &&
+                    styles.iconAreaActive,
+                ]}
+              >
                 <Ionicons
                   name={iconName}
                   size={23}
                   color={color}
-                  style={
-                    focused
-                      ? styles.activeIcon
-                      : undefined
-                  }
                 />
-
-                {focused ? (
-                  <View
-                    style={
-                      styles.activeIndicator
-                    }
-                  />
-                ) : null}
               </View>
             );
           },
@@ -289,18 +277,22 @@ const styles = StyleSheet.create({
     left: 0,
 
     height:
-      Platform.OS === 'ios' ? 94 : 80,
+      Platform.OS === 'ios'
+        ? 94
+        : 80,
 
     paddingTop: 10,
     paddingHorizontal: 12,
 
     paddingBottom:
-      Platform.OS === 'ios' ? 25 : 12,
+      Platform.OS === 'ios'
+        ? 25
+        : 12,
 
     borderTopWidth: 1,
 
     borderTopColor:
-      'rgba(158, 246, 90, 0.14)',
+      'rgba(158, 246, 90, 0.10)',
 
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
@@ -314,8 +306,8 @@ const styles = StyleSheet.create({
       height: -8,
     },
 
-    shadowOpacity: 0.38,
-    shadowRadius: 20,
+    shadowOpacity: 0.34,
+    shadowRadius: 18,
 
     elevation: 20,
   },
@@ -331,69 +323,34 @@ const styles = StyleSheet.create({
   },
 
   tabLabel: {
-    marginTop: -1,
+    marginTop: 1,
+
     fontSize: 9,
     lineHeight: 12,
+
     fontWeight: '800',
+
     letterSpacing: 0.1,
   },
 
   iconArea: {
-    position: 'relative',
-    width: 44,
-    height: 35,
+    width: 42,
+    height: 34,
+
+    borderRadius: 13,
+
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  iconGlow: {
-    position: 'absolute',
-    width: 34,
-    height: 28,
-    borderRadius: 13,
-    opacity: 0,
-
+  iconAreaActive: {
     backgroundColor:
-      'rgba(158, 246, 90, 0.1)',
-  },
+      'rgba(158, 246, 90, 0.10)',
 
-  iconGlowActive: {
-    opacity: 1,
-  },
+    borderWidth: 1,
 
-  activeIcon: {
-    textShadowColor:
-      'rgba(158, 246, 90, 0.48)',
-
-    textShadowOffset: {
-      width: 0,
-      height: 0,
-    },
-
-    textShadowRadius: 6,
-  },
-
-  activeIndicator: {
-    position: 'absolute',
-    bottom: -3,
-
-    width: 16,
-    height: 2,
-
-    borderRadius: 1,
-
-    backgroundColor:
-      colors.primary,
-
-    shadowColor: colors.primary,
-
-    shadowOffset: {
-      width: 0,
-      height: 0,
-    },
-
-    shadowOpacity: 0.5,
-    shadowRadius: 4,
+    borderColor:
+      'rgba(158, 246, 90, 0.12)',
   },
 
   createOuterGlow: {
@@ -432,14 +389,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
 
-    backgroundColor: colors.primary,
+    backgroundColor:
+      colors.primary,
 
     borderWidth: 1,
 
     borderColor:
       'rgba(216, 255, 194, 0.68)',
 
-    shadowColor: colors.primary,
+    shadowColor:
+      colors.primary,
 
     shadowOffset: {
       width: 0,

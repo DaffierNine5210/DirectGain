@@ -1,4 +1,6 @@
-import type { ImageSourcePropType } from 'react-native';
+import type {
+  ImageSourcePropType,
+} from 'react-native';
 
 import type {
   ConversationSummary,
@@ -25,46 +27,82 @@ export type MessageKind =
 
 export type ConversationParticipant = {
   id: string;
+
   name: string;
+
   username?: string;
-  profileImage?: ImageSourcePropType;
+
+  profileImage?:
+    ImageSourcePropType;
+
   gainScore?: number;
+
   rating?: number;
+
   reviewCount?: number;
+
   responseTime?: string;
+
   isOnline?: boolean;
+
   isVerified?: boolean;
 };
 
 export type ConversationContext = {
   type: ConversationType;
+
   title: string;
+
   itemId?: string;
-  itemImage?: ImageSourcePropType;
+
+  itemImage?:
+    ImageSourcePropType;
+
   itemPrice?: number;
+
   location?: string;
 };
 
 export type ChatMessage = {
   id: string;
+
   conversationId: string;
+
   sender: MessageSender;
+
   kind: MessageKind;
+
   text?: string;
-  image?: ImageSourcePropType;
+
+  image?:
+    ImageSourcePropType;
+
   createdAt: string;
-  status?: MessageDeliveryStatus;
+
+  status?:
+    MessageDeliveryStatus;
+
   isEdited?: boolean;
 };
 
 export type Conversation = {
   id: string;
-  participant: ConversationParticipant;
-  context: ConversationContext;
-  messages: ChatMessage[];
+
+  participant:
+    ConversationParticipant;
+
+  context:
+    ConversationContext;
+
+  messages:
+    ChatMessage[];
+
   unreadCount: number;
+
   isMuted?: boolean;
+
   isArchived?: boolean;
+
   isPinned?: boolean;
 };
 
@@ -77,25 +115,44 @@ export function createConversationSummary(
     ];
 
   return {
-    id: conversation.id,
-    participantName: conversation.participant.name,
+    id:
+      conversation.id,
+
+    participantName:
+      conversation.participant.name,
+
     participantImage:
       conversation.participant.profileImage,
-    title: conversation.context.title,
+
+    title:
+      conversation.context.title,
+
     lastMessage:
-      lastMessage?.text ?? 'No messages yet',
+      lastMessage?.text ??
+      'No messages yet',
+
     lastMessageAt:
-      lastMessage?.createdAt ?? '',
+      lastMessage?.createdAt ??
+      '',
+
     gainScore:
       conversation.participant.gainScore,
-    unreadCount: conversation.unreadCount,
+
+    unreadCount:
+      conversation.unreadCount,
+
     isOnline:
       conversation.participant.isOnline,
+
     isVerified:
       conversation.participant.isVerified,
-    type: conversation.context.type,
+
+    type:
+      conversation.context.type,
+
     itemImage:
       conversation.context.itemImage,
+
     itemPrice:
       conversation.context.itemPrice,
   };

@@ -20,7 +20,6 @@ import {
   spacing,
   surface,
   textColor,
-  typography,
 } from '../theme/designSystem';
 
 export type MarketListingCardLayout =
@@ -49,13 +48,14 @@ export type MarketListingCardProps = {
   category?: string;
   auctionLabel?: string;
 
-    layout?: MarketListingCardLayout;
+  layout?: MarketListingCardLayout;
 
   onPress?: () => void;
   onFavouritePress?: () => void;
   onMessagePress?: () => void;
   onOfferPress?: () => void;
 };
+
 export default function MarketListingCard({
   title,
   price,
@@ -116,7 +116,10 @@ export default function MarketListingCard({
         overlayOpacity,
         {
           toValue: 1,
-          duration: motion.fast,
+
+          duration:
+            motion.fast,
+
           useNativeDriver: true,
         },
       ),
@@ -129,8 +132,10 @@ export default function MarketListingCard({
         scaleAnimation,
         {
           toValue: 1,
+
           speed: 24,
           bounciness: 5,
+
           useNativeDriver: true,
         },
       ),
@@ -139,7 +144,10 @@ export default function MarketListingCard({
         overlayOpacity,
         {
           toValue: 0,
-          duration: motion.standard,
+
+          duration:
+            motion.standard,
+
           useNativeDriver: true,
         },
       ),
@@ -166,22 +174,41 @@ export default function MarketListingCard({
           accessibilityLabel={`${title}, ${price}`}
           accessibilityHint="Opens the full market listing"
           onPress={onPress}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
+          onPressIn={
+            handlePressIn
+          }
+          onPressOut={
+            handlePressOut
+          }
           style={styles.listCard}
         >
-          <View style={styles.listImageArea}>
+          <View
+            style={
+              styles.listImageArea
+            }
+          >
             <DGImage
               source={image}
               aspectRatio="portrait"
               cornerRadius="large"
-              favourite={favourite}
-              onFavouritePress={onFavouritePress}
-
-              imageCount={imageCount}
-              auctionLabel={auctionLabel}
-              accessibilityLabel={title}
-              style={styles.listImage}
+              favourite={
+                favourite
+              }
+              onFavouritePress={
+                onFavouritePress
+              }
+              imageCount={
+                imageCount
+              }
+              auctionLabel={
+                auctionLabel
+              }
+              accessibilityLabel={
+                title
+              }
+              style={
+                styles.listImage
+              }
             />
 
             {category &&
@@ -209,25 +236,41 @@ export default function MarketListingCard({
             ) : null}
           </View>
 
-          <View style={styles.listContent}>
+          <View
+            style={
+              styles.listContent
+            }
+          >
             <View>
               <Text
                 numberOfLines={1}
-                style={styles.listPrice}
+                style={
+                  styles.listPrice
+                }
               >
                 {price}
               </Text>
 
               <Text
                 numberOfLines={2}
-                style={styles.listTitle}
+                style={
+                  styles.listTitle
+                }
               >
                 {title}
               </Text>
             </View>
 
-            <View style={styles.listMetadata}>
-              <View style={styles.metadataLine}>
+            <View
+              style={
+                styles.listMetadata
+              }
+            >
+              <View
+                style={
+                  styles.metadataLine
+                }
+              >
                 <Ionicons
                   name="location-outline"
                   size={14}
@@ -249,11 +292,17 @@ export default function MarketListingCard({
               </View>
 
               {listedTime ? (
-                <View style={styles.metadataLine}>
+                <View
+                  style={
+                    styles.metadataLine
+                  }
+                >
                   <Ionicons
                     name="time-outline"
                     size={14}
-                    color={textColor.muted}
+                    color={
+                      textColor.muted
+                    }
                   />
 
                   <Text
@@ -268,8 +317,16 @@ export default function MarketListingCard({
               ) : null}
             </View>
 
-            <View style={styles.sellerRow}>
-              <View style={styles.sellerAvatar}>
+            <View
+              style={
+                styles.sellerRow
+              }
+            >
+              <View
+                style={
+                  styles.sellerAvatar
+                }
+              >
                 <Text
                   style={
                     styles.sellerAvatarText
@@ -282,7 +339,11 @@ export default function MarketListingCard({
                 </Text>
               </View>
 
-              <View style={styles.sellerDetails}>
+              <View
+                style={
+                  styles.sellerDetails
+                }
+              >
                 <View
                   style={
                     styles.sellerNameRow
@@ -290,7 +351,9 @@ export default function MarketListingCard({
                 >
                   <Text
                     numberOfLines={1}
-                    style={styles.sellerName}
+                    style={
+                      styles.sellerName
+                    }
                   >
                     {sellerName}
                   </Text>
@@ -307,9 +370,11 @@ export default function MarketListingCard({
                 </View>
 
                 {typeof rating ===
-                  'number' ? (
+                'number' ? (
                   <View
-                    style={styles.ratingRow}
+                    style={
+                      styles.ratingRow
+                    }
                   >
                     <Ionicons
                       name="star"
@@ -324,10 +389,13 @@ export default function MarketListingCard({
                         styles.ratingText
                       }
                     >
-                      {rating.toFixed(1)}
+                      {rating.toFixed(
+                        1,
+                      )}
+
                       {typeof reviewCount ===
                       'number'
-                        ? ` (${reviewCount})`
+                        ? ` · ${reviewCount} reviews`
                         : ''}
                     </Text>
                   </View>
@@ -342,43 +410,53 @@ export default function MarketListingCard({
                     styles.listGainScoreBadge
                   }
                 >
-                  <Ionicons
-                    name="trending-up"
-                    size={13}
-                    color={
-                      palette.opportunityGreen
-                    }
-                  />
-
                   <Text
                     style={
-                      styles.listGainScoreText
+                      styles.listGainScoreNumber
                     }
                   >
                     {gainScore}
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.listGainScoreLabel
+                    }
+                  >
+                    GAIN
                   </Text>
                 </View>
               ) : null}
             </View>
 
-            <View style={styles.listActions}>
+            <View
+              style={
+                styles.listActions
+              }
+            >
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`Message ${sellerName}`}
-                onPress={(event) => {
+                onPress={event => {
                   event.stopPropagation();
+
                   onMessagePress?.();
                 }}
-                style={({ pressed }) => [
+                style={({
+                  pressed,
+                }) => [
                   styles.secondaryAction,
+
                   pressed &&
                     styles.actionPressed,
                 ]}
               >
                 <Ionicons
                   name="chatbubble-outline"
-                  size={16}
-                  color={textColor.primary}
+                  size={15}
+                  color={
+                    textColor.primary
+                  }
                 />
 
                 <Text
@@ -393,12 +471,16 @@ export default function MarketListingCard({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`Make an offer on ${title}`}
-                onPress={(event) => {
+                onPress={event => {
                   event.stopPropagation();
+
                   onOfferPress?.();
                 }}
-                style={({ pressed }) => [
+                style={({
+                  pressed,
+                }) => [
                   styles.primaryAction,
+
                   pressed &&
                     styles.actionPressed,
                 ]}
@@ -448,91 +530,102 @@ export default function MarketListingCard({
         accessibilityLabel={`${title}, ${price}`}
         accessibilityHint="Opens the full market listing"
         onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        style={styles.gridCard}
+        onPressIn={
+          handlePressIn
+        }
+        onPressOut={
+          handlePressOut
+        }
+        style={
+          styles.gridCard
+        }
       >
-        <DGImage
-          source={image}
-          aspectRatio="portrait"
-          cornerRadius="large"
-          favourite={favourite}
-          onFavouritePress={
-            onFavouritePress
+        <View
+          style={
+            styles.gridImageArea
           }
-          imageCount={imageCount}
-          auctionLabel={auctionLabel}
-          accessibilityLabel={title}
-          style={styles.gridImage}
-        />
+        >
+          <DGImage
+            source={image}
+            aspectRatio="portrait"
+            cornerRadius="large"
+            favourite={
+              favourite
+            }
+            onFavouritePress={
+              onFavouritePress
+            }
+            imageCount={
+              imageCount
+            }
+            auctionLabel={
+              auctionLabel
+            }
+            accessibilityLabel={
+              title
+            }
+            style={
+              styles.gridImage
+            }
+          />
 
-        <View
-          pointerEvents="none"
-          style={styles.baseShade}
-        />
-
-        <View
-          pointerEvents="none"
-          style={styles.middleShade}
-        />
-
-        <View
-          pointerEvents="none"
-          style={styles.bottomShade}
-        />
-
-        <View
-          pointerEvents="none"
-          style={styles.imageGlow}
-        />
-
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.pressOverlay,
-            {
-              opacity:
-                overlayOpacity,
-            },
-          ]}
-        />
-
-        {category &&
-        !auctionLabel ? (
-          <View
-            style={styles.categoryBadge}
-          >
+          {category &&
+          !auctionLabel ? (
             <View
-              style={styles.categoryDot}
-            />
-
-            <Text
-              numberOfLines={1}
-              style={styles.categoryText}
+              style={
+                styles.categoryBadge
+              }
             >
-              {category}
-            </Text>
-          </View>
-        ) : null}
+              <View
+                style={
+                  styles.categoryDot
+                }
+              />
 
-        <View style={styles.gridContent}>
+              <Text
+                numberOfLines={1}
+                style={
+                  styles.categoryText
+                }
+              >
+                {category}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
+        <View
+          style={
+            styles.gridDetails
+          }
+        >
           <Text
             numberOfLines={1}
             adjustsFontSizeToFit
-            minimumFontScale={0.82}
-            style={styles.gridPrice}
+            minimumFontScale={
+              0.84
+            }
+            style={
+              styles.gridPrice
+            }
           >
             {price}
           </Text>
 
           <Text
             numberOfLines={2}
-            style={styles.gridTitle}
+            style={
+              styles.gridTitle
+            }
           >
             {title}
           </Text>
 
-          <View style={styles.gridFooter}>
+          <View
+            style={
+              styles.gridMetaRow
+            }
+          >
             <View
               style={
                 styles.locationGroup
@@ -552,22 +645,20 @@ export default function MarketListingCard({
                   styles.locationText
                 }
               >
-                {distance || location}
+                {distance ||
+                  location}
               </Text>
             </View>
 
-            <View
-              style={
-                styles.trustGroup
-              }
-            >
-              {verified ? (
-                <View
-                  accessibilityLabel="Verified seller"
-                  style={
-                    styles.verifiedBadge
-                  }
-                >
+            {typeof gainScore ===
+            'number' ? (
+              <View
+                accessibilityLabel={`Gain Score ${gainScore}`}
+                style={
+                  styles.compactTrustBadge
+                }
+              >
+                {verified ? (
                   <Ionicons
                     name="shield-checkmark"
                     size={11}
@@ -575,37 +666,64 @@ export default function MarketListingCard({
                       palette.opportunityGreen
                     }
                   />
-                </View>
-              ) : null}
-
-              {typeof gainScore ===
-              'number' ? (
-                <View
-                  accessibilityLabel={`Gain Score ${gainScore}`}
-                  style={
-                    styles.gainScoreBadge
-                  }
-                >
+                ) : (
                   <Ionicons
-                    name="star"
-                    size={10}
+                    name="trending-up"
+                    size={11}
                     color={
                       palette.opportunityGreen
                     }
                   />
+                )}
 
-                  <Text
-                    style={
-                      styles.gainScoreText
-                    }
-                  >
-                    {gainScore}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
+                <Text
+                  style={
+                    styles.compactTrustText
+                  }
+                >
+                  {gainScore}
+                </Text>
+              </View>
+            ) : verified ? (
+              <View
+                accessibilityLabel="Verified seller"
+                style={
+                  styles.compactVerifiedBadge
+                }
+              >
+                <Ionicons
+                  name="shield-checkmark"
+                  size={12}
+                  color={
+                    palette.opportunityGreen
+                  }
+                />
+              </View>
+            ) : null}
           </View>
+
+          {listedTime ? (
+            <Text
+              numberOfLines={1}
+              style={
+                styles.gridListedTime
+              }
+            >
+              {listedTime}
+            </Text>
+          ) : null}
         </View>
+
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.pressOverlay,
+            {
+              opacity:
+                overlayOpacity,
+            },
+          ]}
+        />
       </Pressable>
     </Animated.View>
   );
@@ -618,15 +736,18 @@ const styles = StyleSheet.create({
 
   gridCard: {
     position: 'relative',
+
     width: '100%',
 
     overflow: 'hidden',
 
-    borderRadius: radius.lg,
+    borderRadius:
+      radius.lg,
 
     borderWidth: 1,
+
     borderColor:
-      alpha.green16,
+      alpha.white08,
 
     backgroundColor:
       surface.cardRaised,
@@ -634,79 +755,29 @@ const styles = StyleSheet.create({
     ...shadow.card,
   },
 
+  gridImageArea: {
+    position: 'relative',
+
+    width: '100%',
+
+    overflow: 'hidden',
+  },
+
   gridImage: {
     width: '100%',
+
     borderRadius: 0,
-  },
-
-  baseShade: {
-    position: 'absolute',
-    right: 0,
-    bottom: 0,
-    left: 0,
-
-    height: '74%',
-
-    backgroundColor:
-      'rgba(4, 7, 5, 0.16)',
-  },
-
-  middleShade: {
-    position: 'absolute',
-    right: 0,
-    bottom: 0,
-    left: 0,
-
-    height: '54%',
-
-    backgroundColor:
-      'rgba(4, 7, 5, 0.44)',
-  },
-
-  bottomShade: {
-    position: 'absolute',
-    right: 0,
-    bottom: 0,
-    left: 0,
-
-    height: '38%',
-
-    backgroundColor:
-      'rgba(4, 7, 5, 0.88)',
-  },
-
-  imageGlow: {
-    position: 'absolute',
-    right: -55,
-    bottom: -65,
-
-    width: 150,
-    height: 150,
-
-    borderRadius: 75,
-
-    backgroundColor:
-      alpha.green04,
-  },
-
-  pressOverlay: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-
-    backgroundColor:
-      alpha.green06,
   },
 
   categoryBadge: {
     position: 'absolute',
-    top: 10,
-    left: 10,
 
-    maxWidth: '58%',
-    minHeight: 25,
+    top: 9,
+    left: 9,
+
+    maxWidth: '62%',
+
+    minHeight: 24,
 
     paddingHorizontal:
       spacing.xs,
@@ -715,13 +786,15 @@ const styles = StyleSheet.create({
       radius.pill,
 
     borderWidth: 1,
+
     borderColor:
       alpha.green40,
 
     backgroundColor:
-      'rgba(5, 9, 6, 0.9)',
+      'rgba(5, 9, 6, 0.90)',
 
     flexDirection: 'row',
+
     alignItems: 'center',
   },
 
@@ -745,40 +818,38 @@ const styles = StyleSheet.create({
       palette.opportunityGreen,
 
     fontSize: 8,
+
     lineHeight: 11,
 
     fontWeight: '900',
 
     letterSpacing: 0.55,
 
-    textTransform: 'uppercase',
+    textTransform:
+      'uppercase',
   },
 
-  gridContent: {
-    position: 'absolute',
-    right: 11,
-    bottom: 11,
-    left: 11,
+  gridDetails: {
+    minHeight: 120,
+
+    paddingHorizontal: 11,
+
+    paddingTop: 10,
+
+    paddingBottom: 11,
   },
 
   gridPrice: {
-    color: '#FFFFFF',
+    color:
+      palette.opportunityGreen,
 
     fontSize: 20,
+
     lineHeight: 23,
 
     fontWeight: '900',
+
     letterSpacing: -0.5,
-
-    textShadowColor:
-      'rgba(0, 0, 0, 0.78)',
-
-    textShadowRadius: 5,
-
-    textShadowOffset: {
-      width: 0,
-      height: 2,
-    },
   },
 
   gridTitle: {
@@ -786,41 +857,36 @@ const styles = StyleSheet.create({
 
     marginTop: 3,
 
-    color: '#FFFFFF',
+    color:
+      textColor.primary,
 
     fontSize: 12,
+
     lineHeight: 16,
 
     fontWeight: '800',
-
-    textShadowColor:
-      'rgba(0, 0, 0, 0.82)',
-
-    textShadowRadius: 4,
-
-    textShadowOffset: {
-      width: 0,
-      height: 1,
-    },
   },
 
-  gridFooter: {
-    minHeight: 22,
-
-    marginTop: 7,
+  gridMetaRow: {
+    marginTop: 9,
 
     flexDirection: 'row',
+
     alignItems: 'center',
-    justifyContent: 'space-between',
+
+    justifyContent:
+      'space-between',
   },
 
   locationGroup: {
     flex: 1,
+
     minWidth: 0,
 
     marginRight: 5,
 
     flexDirection: 'row',
+
     alignItems: 'center',
   },
 
@@ -830,78 +896,109 @@ const styles = StyleSheet.create({
     marginLeft: 4,
 
     color:
-      palette.opportunityGreen,
+      textColor.secondary,
 
     fontSize: 9,
 
-    fontWeight: '800',
+    fontWeight: '700',
   },
 
-  trustGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  verifiedBadge: {
-    width: 21,
-    height: 21,
-
-    borderRadius: 8,
-
-    borderWidth: 1,
-    borderColor:
-      alpha.green40,
-
-    backgroundColor:
-      'rgba(6, 12, 7, 0.88)',
-
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  gainScoreBadge: {
+  compactTrustBadge: {
     minWidth: 38,
-    height: 21,
 
-    marginLeft: 5,
+    height: 23,
+
     paddingHorizontal: 6,
 
     borderRadius:
       radius.pill,
 
     borderWidth: 1,
+
     borderColor:
-      alpha.green40,
+      alpha.green20,
 
     backgroundColor:
-      'rgba(6, 12, 7, 0.88)',
+      alpha.green06,
 
     flexDirection: 'row',
+
     alignItems: 'center',
-    justifyContent: 'center',
+
+    justifyContent:
+      'center',
   },
 
-  gainScoreText: {
-    marginLeft: 3,
+  compactTrustText: {
+    marginLeft: 4,
 
-    color: '#FFFFFF',
+    color:
+      textColor.primary,
 
     fontSize: 9,
 
     fontWeight: '900',
   },
 
+  compactVerifiedBadge: {
+    width: 24,
+    height: 24,
+
+    borderRadius: 8,
+
+    borderWidth: 1,
+
+    borderColor:
+      alpha.green20,
+
+    backgroundColor:
+      alpha.green06,
+
+    alignItems: 'center',
+
+    justifyContent:
+      'center',
+  },
+
+  gridListedTime: {
+    marginTop: 7,
+
+    color:
+      textColor.muted,
+
+    fontSize: 8,
+
+    lineHeight: 11,
+
+    fontWeight: '700',
+  },
+
+  pressOverlay: {
+    position: 'absolute',
+
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+
+    backgroundColor:
+      alpha.green06,
+  },
+
   listCard: {
     position: 'relative',
+
     width: '100%',
 
     padding: spacing.sm,
 
-    borderRadius: radius.card,
+    borderRadius:
+      radius.card,
 
     borderWidth: 1,
+
     borderColor:
-      alpha.green10,
+      alpha.white08,
 
     backgroundColor:
       surface.cardRaised,
@@ -917,27 +1014,33 @@ const styles = StyleSheet.create({
     position: 'relative',
 
     width: 126,
+
     minHeight: 182,
 
-    borderRadius: radius.lg,
+    borderRadius:
+      radius.lg,
 
     overflow: 'hidden',
   },
 
   listImage: {
     width: '100%',
+
     height: '100%',
 
-    borderRadius: radius.lg,
+    borderRadius:
+      radius.lg,
   },
 
   listCategoryBadge: {
     position: 'absolute',
+
     left: 8,
     bottom: 8,
 
     maxWidth: '84%',
-    minHeight: 25,
+
+    minHeight: 24,
 
     paddingHorizontal:
       spacing.xs,
@@ -946,21 +1049,25 @@ const styles = StyleSheet.create({
       radius.pill,
 
     borderWidth: 1,
+
     borderColor:
       alpha.green40,
 
     backgroundColor:
-      'rgba(5, 9, 6, 0.9)',
+      'rgba(5, 9, 6, 0.90)',
 
     flexDirection: 'row',
+
     alignItems: 'center',
   },
 
   listContent: {
     flex: 1,
+
     minWidth: 0,
 
-    paddingLeft: spacing.md,
+    paddingLeft:
+      spacing.md,
 
     justifyContent:
       'space-between',
@@ -971,6 +1078,7 @@ const styles = StyleSheet.create({
       palette.opportunityGreen,
 
     fontSize: 22,
+
     lineHeight: 26,
 
     fontWeight: '900',
@@ -981,22 +1089,26 @@ const styles = StyleSheet.create({
   listTitle: {
     marginTop: 4,
 
-    color: textColor.primary,
+    color:
+      textColor.primary,
 
     fontSize: 15,
+
     lineHeight: 20,
 
     fontWeight: '900',
   },
 
   listMetadata: {
-    marginTop: spacing.sm,
+    marginTop:
+      spacing.sm,
 
     gap: 5,
   },
 
   metadataLine: {
     flexDirection: 'row',
+
     alignItems: 'center',
   },
 
@@ -1005,24 +1117,30 @@ const styles = StyleSheet.create({
 
     marginLeft: 5,
 
-    color: textColor.muted,
+    color:
+      textColor.muted,
 
     fontSize: 10,
+
     lineHeight: 14,
 
     fontWeight: '700',
   },
 
   sellerRow: {
-    marginTop: spacing.sm,
+    marginTop:
+      spacing.sm,
 
-    paddingTop: spacing.sm,
+    paddingTop:
+      spacing.sm,
 
     borderTopWidth: 1,
+
     borderTopColor:
       alpha.white08,
 
     flexDirection: 'row',
+
     alignItems: 'center',
   },
 
@@ -1036,7 +1154,9 @@ const styles = StyleSheet.create({
       alpha.green10,
 
     alignItems: 'center',
-    justifyContent: 'center',
+
+    justifyContent:
+      'center',
   },
 
   sellerAvatarText: {
@@ -1050,6 +1170,7 @@ const styles = StyleSheet.create({
 
   sellerDetails: {
     flex: 1,
+
     minWidth: 0,
 
     marginLeft: 9,
@@ -1057,6 +1178,7 @@ const styles = StyleSheet.create({
 
   sellerNameRow: {
     flexDirection: 'row',
+
     alignItems: 'center',
 
     gap: 4,
@@ -1065,7 +1187,8 @@ const styles = StyleSheet.create({
   sellerName: {
     flexShrink: 1,
 
-    color: textColor.primary,
+    color:
+      textColor.primary,
 
     fontSize: 11,
 
@@ -1076,13 +1199,15 @@ const styles = StyleSheet.create({
     marginTop: 3,
 
     flexDirection: 'row',
+
     alignItems: 'center',
   },
 
   ratingText: {
     marginLeft: 4,
 
-    color: textColor.muted,
+    color:
+      textColor.muted,
 
     fontSize: 9,
 
@@ -1090,38 +1215,56 @@ const styles = StyleSheet.create({
   },
 
   listGainScoreBadge: {
-    minWidth: 43,
-    height: 28,
+    minWidth: 48,
+
+    minHeight: 34,
 
     paddingHorizontal: 8,
 
     borderRadius:
-      radius.pill,
+      radius.md,
 
     borderWidth: 1,
+
     borderColor:
       alpha.green20,
 
     backgroundColor:
       alpha.green06,
 
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+
+    justifyContent:
+      'center',
   },
 
-  listGainScoreText: {
-    marginLeft: 4,
+  listGainScoreNumber: {
+    color:
+      palette.opportunityGreen,
 
-    color: textColor.primary,
-
-    fontSize: 10,
+    fontSize: 12,
 
     fontWeight: '900',
   },
 
+  listGainScoreLabel: {
+    marginTop: 1,
+
+    color:
+      textColor.muted,
+
+    fontSize: 6,
+
+    lineHeight: 8,
+
+    fontWeight: '900',
+
+    letterSpacing: 0.7,
+  },
+
   listActions: {
-    marginTop: spacing.sm,
+    marginTop:
+      spacing.sm,
 
     flexDirection: 'row',
 
@@ -1133,9 +1276,11 @@ const styles = StyleSheet.create({
 
     minHeight: 36,
 
-    borderRadius: radius.sm,
+    borderRadius:
+      radius.sm,
 
     borderWidth: 1,
+
     borderColor:
       alpha.white08,
 
@@ -1143,14 +1288,18 @@ const styles = StyleSheet.create({
       surface.cardSoft,
 
     flexDirection: 'row',
+
     alignItems: 'center',
-    justifyContent: 'center',
+
+    justifyContent:
+      'center',
   },
 
   secondaryActionText: {
     marginLeft: 6,
 
-    color: textColor.primary,
+    color:
+      textColor.primary,
 
     fontSize: 10,
 
@@ -1162,17 +1311,21 @@ const styles = StyleSheet.create({
 
     minHeight: 36,
 
-    borderRadius: radius.sm,
+    borderRadius:
+      radius.sm,
 
     backgroundColor:
       palette.opportunityGreen,
 
     alignItems: 'center',
-    justifyContent: 'center',
+
+    justifyContent:
+      'center',
   },
 
   primaryActionText: {
-    color: textColor.inverse,
+    color:
+      textColor.inverse,
 
     fontSize: 10,
 

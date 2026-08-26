@@ -1,9 +1,12 @@
-import { Ionicons } from '@expo/vector-icons';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useMemo, useState } from 'react';
+import type {
+  NativeStackScreenProps,
+} from '@react-navigation/native-stack';
+import {
+  useMemo,
+  useState,
+} from 'react';
 import {
   Alert,
-  Pressable,
   SafeAreaView,
   ScrollView,
   Share,
@@ -12,18 +15,42 @@ import {
   View,
 } from 'react-native';
 
-import ListingDetailsGrid from '../components/listing-detail/ListingDetailsGrid';
+import ListingActionBar from '../components/listing-detail/ListingActionBar';
+import ListingHeader from '../components/listing-detail/ListingHeader';
 import ListingHeroGallery from '../components/listing-detail/ListingHeroGallery';
-import OpportunityScoreCard from '../components/listing-detail/OpportunityScoreCard';
+import ListingSafetyCard from '../components/listing-detail/ListingSafetyCard';
 import SellerTrustCard from '../components/listing-detail/SellerTrustCard';
-import { listings } from '../data/listings';
-import type { MarketStackParamList } from '../navigation/MarketStack';
+
+import GeneralDetailsTab from '../components/listing-detail/details/GeneralDetailsTab';
+import VehicleDetailsTab from '../components/listing-detail/details/VehicleDetailsTab';
+import VehicleModificationsTab from '../components/listing-detail/details/VehicleModificationsTab';
+
+import {
+  getListingById,
+  listings,
+} from '../data/listings';
+
+import type {
+  MarketStackParamList,
+} from '../navigation/MarketStack';
+
+import {
+  resolveMarketConversation,
+} from '../services/messaging/conversationResolver';
+
+import {
+  openMarketConversation,
+} from '../services/messaging/openMarketConversation';
+
 import { colors } from '../theme/colors';
 
-type Props = NativeStackScreenProps<
-  MarketStackParamList,
-  'ListingDetail'
->;
+import formatListingPrice from '../utils/listing/formatListingPrice';
+
+type Props =
+  NativeStackScreenProps<
+    MarketStackParamList,
+    'ListingDetail'
+  >;
 
 export default function ListingDetailScreen({
   navigation,
@@ -31,30 +58,39 @@ export default function ListingDetailScreen({
 }: Props) {
   const listing = useMemo(
     () =>
-      listings.find(
-        item => item.id === route.params.listingId,
+      getListingById(
+        route.params.listingId,
       ) ?? listings[0],
     [route.params.listingId],
   );
 
-  const [isFavourite, setIsFavourite] = useState(
+  const [
+    isFavourite,
+    setIsFavourite,
+  ] = useState(
     listing.isFavourite,
   );
 
-  const formattedPrice = new Intl.NumberFormat('en-AU', {
-    style: 'currency',
-    currency: listing.currency,
-    maximumFractionDigits: 0,
-  }).format(listing.price);
+  const formattedPrice =
+    formatListingPrice(
+      listing.price,
+      listing.currency,
+    );
 
-  const handleFavouritePress = () => {
-    setIsFavourite(current => !current);
-  };
+  const vehicleDetails =
+    listing.vehicleDetails;
 
-  const handleSharePress = async () => {
+  function handleFavouritePress() {
+    setIsFavourite(
+      current => !current,
+    );
+  }
+
+  async function handleSharePress() {
     try {
       await Share.share({
-        message: `${listing.title} — ${formattedPrice}`,
+        message:
+          `${listing.title} — ${formattedPrice}`,
       });
     } catch {
       Alert.alert(
@@ -62,424 +98,415 @@ export default function ListingDetailScreen({
         'Please try again shortly.',
       );
     }
-  };
+  }
 
-  const handleMessagePress = () => {
-    Alert.alert(
-      'Message seller',
-      'Messaging will be connected in a later stage.',
+  function handleSellerPress() {
+    navigation.navigate(
+      'SellerProfile',
+      {
+        sellerId:
+          listing.seller.id,
+      },
     );
-  };
+  }
 
-  const handleOfferPress = () => {
-    Alert.alert(
-      'Make an offer',
-      'The offer flow will be added in a later stage.',
+  async function handleMessagePress() {
+    const conversationId =
+      await resolveConversationId();
+
+    if (!conversationId) {
+      Alert.alert(
+        'Unable to open messages',
+        'A conversation could not be created or found for this listing.',
+      );
+
+      return;
+    }
+
+    navigation.navigate(
+      'Conversation',
+      {
+        conversationId,
+
+        listingId:
+          listing.id,
+
+        intent:
+          'message',
+      },
     );
-  };
+  }
 
-  const handleSellerPress = () => {
-  navigation.navigate('SellerProfile', {
-    sellerId: listing.seller.id,
-  });
+  async function handleOfferPress() {
+    const conversationId =
+      await resolveConversationId();
 
-    
-    
-  };
+    if (!conversationId) {
+      Alert.alert(
+        'Unable to make offer',
+        'A conversation could not be created or found for this listing.',
+      );
+
+      return;
+    }
+
+    navigation.navigate(
+      'Conversation',
+      {
+        conversationId,
+
+        listingId:
+          listing.id,
+
+        intent:
+          'offer',
+      },
+    );
+  }
+
+  async function resolveConversationId():
+    Promise<string | null> {
+    /*
+     * During development our Market listings still
+     * contain mock seller IDs.
+     *
+     * Real Supabase Auth user IDs are UUIDs.
+     *
+     * Once Market listings themselves are stored in
+     * Supabase this fallback can be removed.
+     */
+
+    if (
+      !isUuid(
+        listing.seller.id,
+      )
+    ) {
+      const localConversation =
+        resolveMarketConversation({
+          listingId:
+            listing.id,
+
+          sellerId:
+            listing.seller.id,
+        });
+
+      return (
+        localConversation?.id ??
+        null
+      );
+    }
+
+    try {
+      const result =
+        await openMarketConversation({
+          listingId:
+            listing.id,
+
+          listingTitle:
+            listing.title,
+
+          sellerId:
+            listing.seller.id,
+        });
+
+      return (
+        result?.conversationId ??
+        null
+      );
+    } catch (error) {
+      console.warn(
+        '[Direct Gain] Unable to resolve Supabase market conversation:',
+        error,
+      );
+
+      return null;
+    }
+  }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.screen}>
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          <ListingHeroGallery
-            image={listing.images[0]}
-            imageCount={listing.images.length}
-            currentImage={1}
-            favourite={isFavourite}
-            onBackPress={() => navigation.goBack()}
-            onFavouritePress={handleFavouritePress}
-            onSharePress={handleSharePress}
+    <SafeAreaView
+      style={styles.safeArea}
+    >
+      <ScrollView
+        showsVerticalScrollIndicator={
+          false
+        }
+        contentContainerStyle={
+          styles.scrollContent
+        }
+      >
+        <ListingHeroGallery
+          images={
+            listing.images
+          }
+          favourite={
+            isFavourite
+          }
+          onBackPress={() =>
+            navigation.goBack()
+          }
+          onFavouritePress={
+            handleFavouritePress
+          }
+          onSharePress={
+            handleSharePress
+          }
+        />
+
+        <View style={styles.content}>
+          <ListingHeader
+            title={
+              listing.title
+            }
+            price={
+              formattedPrice
+            }
+            suburb={
+              listing.location
+                .suburb
+            }
+            state={
+              listing.location
+                .state
+            }
+            distanceKm={
+              listing.location
+                .distanceKm
+            }
+            createdAt={
+              listing.createdAt
+            }
           />
 
-          <View style={styles.content}>
-            <Text style={styles.price}>
-              {formattedPrice}
-            </Text>
+          <ListingActionBar
+            sellerName={
+              listing.seller.name
+            }
+            listingTitle={
+              listing.title
+            }
+            allowsOffers={
+              listing.allowsOffers
+            }
+            onMessagePress={
+              handleMessagePress
+            }
+            onOfferPress={
+              handleOfferPress
+            }
+          />
 
-            <Text style={styles.title}>
-              {listing.title}
-            </Text>
+          <SectionDivider />
 
-            <View style={styles.locationRow}>
-              <Ionicons
-                name="location-outline"
-                size={16}
-                color={colors.primary}
+          <SectionHeader
+            eyebrow="ABOUT THIS LISTING"
+            title="Description"
+          />
+
+          <Text
+            style={
+              styles.description
+            }
+          >
+            {listing.description}
+          </Text>
+
+          <SectionDivider />
+
+          <SectionHeader
+            eyebrow="SELLER"
+            title="Who's selling it"
+          />
+
+          <SellerTrustCard
+            seller={
+              listing.seller
+            }
+            onPress={
+              handleSellerPress
+            }
+          />
+
+          <SectionDivider />
+
+          {vehicleDetails ? (
+            <VehicleDetailsTab
+              details={
+                vehicleDetails
+              }
+            />
+          ) : (
+            <GeneralDetailsTab
+              category={
+                listing.category
+              }
+              subcategory={
+                listing.subcategory
+              }
+              condition={
+                listing.condition
+              }
+              pickupAvailable={
+                listing.pickupAvailable
+              }
+              deliveryAvailable={
+                listing.deliveryAvailable
+              }
+            />
+          )}
+
+          {vehicleDetails
+            ?.modifications
+            ?.length ? (
+            <>
+              <View
+                style={
+                  styles.compactSpacing
+                }
               />
 
-              <Text style={styles.locationText}>
-                {listing.location.suburb},{' '}
-                {listing.location.state}
-                {listing.location.distanceKm !== undefined
-                  ? ` • ${listing.location.distanceKm} km away`
-                  : ''}
-                {' • '}
-                {listing.createdAt}
-              </Text>
-            </View>
+              <VehicleModificationsTab
+                modifications={
+                  vehicleDetails.modifications
+                }
+              />
+            </>
+          ) : null}
 
-            <View style={styles.chipRow}>
-              <View style={styles.chip}>
-                <Text style={styles.chipText}>
-                  {listing.category}
-                </Text>
-              </View>
+          <ListingSafetyCard />
 
-              <View style={styles.chip}>
-                <Text style={styles.chipText}>
-                  {listing.condition}
-                </Text>
-              </View>
-
-              {listing.pickupAvailable && (
-                <View style={styles.chip}>
-                  <Text style={styles.chipText}>
-                    Pickup
-                  </Text>
-                </View>
-              )}
-
-              {listing.deliveryAvailable && (
-                <View style={styles.chip}>
-                  <Text style={styles.chipText}>
-                    Delivery
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            <OpportunityScoreCard
-              score={listing.opportunityScore ?? 0}
-            />
-
-            <View style={styles.divider} />
-
-            <Text style={styles.sectionTitle}>
-              Description
-            </Text>
-
-            <Text style={styles.description}>
-              {listing.description}
-            </Text>
-
-            <Text style={styles.detailsTitle}>
-              Key details
-            </Text>
-
-            <ListingDetailsGrid
-              items={[
-                {
-                  label: 'Condition',
-                  value: listing.condition,
-                  icon: 'sparkles-outline',
-                },
-                {
-                  label: 'Category',
-                  value: listing.category,
-                  icon: 'grid-outline',
-                },
-                {
-                  label: 'Collection',
-                  value: listing.pickupAvailable
-                    ? 'Local pickup'
-                    : 'Not available',
-                  icon: 'location-outline',
-                },
-                {
-                  label: 'Delivery',
-                  value: listing.deliveryAvailable
-                    ? 'Available'
-                    : 'Not available',
-                  icon: 'car-outline',
-                },
-              ]}
-            />
-
-            <View style={styles.divider} />
-
-            <Text style={styles.sectionTitle}>
-              Seller
-            </Text>
-
-            <SellerTrustCard
-              seller={listing.seller}
-              onPress={handleSellerPress}
-            />
-
-            <View style={styles.safetyCard}>
-              <View style={styles.safetyIcon}>
-                <Ionicons
-                  name="shield-checkmark-outline"
-                  size={21}
-                  color={colors.primary}
-                />
-              </View>
-
-              <View style={styles.safetyContent}>
-                <Text style={styles.safetyTitle}>
-                  Buy with confidence
-                </Text>
-
-                <Text style={styles.safetyText}>
-                  Keep messages and payments inside Direct Gain.
-                  Review seller history before completing a
-                  transaction.
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.bottomSpacer} />
-          </View>
-        </ScrollView>
-
-        <View style={styles.actionBar}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Message seller"
-            onPress={handleMessagePress}
-            style={({ pressed }) => [
-              styles.secondaryButton,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Ionicons
-              name="chatbubble-outline"
-              size={19}
-              color={colors.text}
-            />
-
-            <Text style={styles.secondaryButtonText}>
-              Message
-            </Text>
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Make an offer"
-            onPress={handleOfferPress}
-            style={({ pressed }) => [
-              styles.primaryButton,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Text style={styles.primaryButtonText}>
-              Make Offer
-            </Text>
-          </Pressable>
+          <View
+            style={
+              styles.bottomSpacer
+            }
+          />
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#080B09',
-  },
+function isUuid(
+  value: string,
+): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+}
 
-  screen: {
-    flex: 1,
-  },
+type SectionHeaderProps = {
+  eyebrow: string;
 
-  scrollContent: {
-    paddingBottom: 104,
-  },
+  title: string;
+};
 
-  content: {
-    paddingHorizontal: 20,
-    paddingTop: 22,
-  },
+function SectionHeader({
+  eyebrow,
+  title,
+}: SectionHeaderProps) {
+  return (
+    <View>
+      <Text
+        style={
+          styles.sectionEyebrow
+        }
+      >
+        {eyebrow}
+      </Text>
 
-  price: {
-    color: colors.primary,
-    fontSize: 30,
-    fontWeight: '900',
-    letterSpacing: -0.6,
-  },
+      <Text
+        style={
+          styles.sectionTitle
+        }
+      >
+        {title}
+      </Text>
+    </View>
+  );
+}
 
-  title: {
-    marginTop: 6,
-    color: colors.text,
-    fontSize: 24,
-    lineHeight: 30,
-    fontWeight: '900',
-  },
+function SectionDivider() {
+  return (
+    <View
+      style={
+        styles.sectionDivider
+      }
+    />
+  );
+}
 
-  locationRow: {
-    marginTop: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+const styles =
+  StyleSheet.create({
+    safeArea: {
+      flex: 1,
 
-  locationText: {
-    flex: 1,
-    marginLeft: 7,
-    color: colors.textMuted,
-    fontSize: 13,
-    lineHeight: 19,
-    fontWeight: '600',
-  },
+      backgroundColor:
+        '#080B09',
+    },
 
-  chipRow: {
-    marginTop: 16,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
+    scrollContent: {
+      paddingBottom: 40,
+    },
 
-  chip: {
-    marginRight: 8,
-    marginBottom: 8,
-    paddingHorizontal: 11,
-    paddingVertical: 7,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(158, 246, 90, 0.18)',
-    backgroundColor: 'rgba(158, 246, 90, 0.08)',
-  },
+    content: {
+      paddingHorizontal: 20,
 
-  chipText: {
-    color: colors.text,
-    fontSize: 11,
-    fontWeight: '800',
-  },
+      paddingTop: 20,
+    },
 
-  divider: {
-    height: 1,
-    marginVertical: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-  },
+    sectionDivider: {
+      height: 1,
 
-  sectionTitle: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: '900',
-  },
+      marginVertical: 22,
 
-  description: {
-    marginTop: 10,
-    color: colors.textMuted,
-    fontSize: 14,
-    lineHeight: 22,
-    fontWeight: '600',
-  },
+      backgroundColor:
+        'rgba(255, 255, 255, 0.07)',
+    },
 
-  detailsTitle: {
-    marginTop: 22,
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: '900',
-  },
+    compactSpacing: {
+      height: 10,
+    },
 
-  safetyCard: {
-    marginTop: 18,
-    padding: 16,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    backgroundColor: 'rgba(255, 255, 255, 0.035)',
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
+    sectionEyebrow: {
+      color:
+        colors.primary,
 
-  safetyIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(158, 246, 90, 0.18)',
-    backgroundColor: 'rgba(158, 246, 90, 0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+      fontSize: 9,
 
-  safetyContent: {
-    flex: 1,
-    marginLeft: 12,
-  },
+      lineHeight: 12,
 
-  safetyTitle: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: '900',
-  },
+      fontWeight: '900',
 
-  safetyText: {
-    marginTop: 5,
-    color: colors.textMuted,
-    fontSize: 11,
-    lineHeight: 17,
-    fontWeight: '600',
-  },
+      letterSpacing: 1.5,
+    },
 
-  bottomSpacer: {
-    height: 28,
-  },
+    sectionTitle: {
+      marginTop: 5,
 
-  actionBar: {
-    position: 'absolute',
-    right: 0,
-    bottom: 0,
-    left: 0,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
-    backgroundColor: 'rgba(8, 11, 9, 0.98)',
-    flexDirection: 'row',
-  },
+      color:
+        colors.text,
 
-  secondaryButton: {
-    height: 52,
-    paddingHorizontal: 18,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.13)',
-    backgroundColor: 'rgba(255, 255, 255, 0.055)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+      fontSize: 20,
 
-  secondaryButtonText: {
-    marginLeft: 8,
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: '900',
-  },
+      lineHeight: 25,
 
-  primaryButton: {
-    flex: 1,
-    height: 52,
-    marginLeft: 10,
-    borderRadius: 17,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+      fontWeight: '900',
+    },
 
-  primaryButtonText: {
-    color: '#080B09',
-    fontSize: 14,
-    fontWeight: '900',
-  },
+    description: {
+      marginTop: 11,
 
-  pressed: {
-    opacity: 0.72,
-    transform: [{ scale: 0.98 }],
-  },
-});
+      color:
+        colors.textMuted,
+
+      fontSize: 13,
+
+      lineHeight: 21,
+
+      fontWeight: '600',
+    },
+
+    bottomSpacer: {
+      height: 28,
+    },
+  });

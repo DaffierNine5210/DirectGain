@@ -2,6 +2,7 @@ import type {
   ImageSourcePropType,
 } from 'react-native';
 
+
 import type {
   ListingSeller,
   VerificationType,
@@ -56,6 +57,7 @@ export type SellerPortfolioItem = {
 
 export type SellerProfile = ListingSeller & {
   username: string;
+  
   bio: string;
   profileImage?: ImageSourcePropType;
   coverImage?: ImageSourcePropType;

@@ -56,7 +56,9 @@ type MarketLayout = 'grid' | 'list';
 
 type CategoryItem = {
   label: string;
-  icon: React.ComponentProps<typeof Ionicons>['name'];
+  icon: React.ComponentProps<
+    typeof Ionicons
+  >['name'];
 };
 
 type SkeletonItem = {
@@ -104,18 +106,6 @@ const categories: CategoryItem[] = [
   {
     label: 'Collectables',
     icon: 'diamond-outline',
-  },
-  {
-    label: 'Jobs',
-    icon: 'briefcase-outline',
-  },
-  {
-    label: 'Auctions',
-    icon: 'hammer-outline',
-  },
-  {
-    label: 'Services',
-    icon: 'people-outline',
   },
 ];
 
@@ -204,7 +194,7 @@ export default function MarketScreen({
           .toLowerCase();
 
       return marketListings.filter(
-        (listing) => {
+        listing => {
           const listingCategory =
             listing.category
               .trim()
@@ -218,19 +208,7 @@ export default function MarketScreen({
           const matchesCategory =
             selectedCategory === 'All' ||
             listingCategory ===
-              selectedCategoryValue ||
-            (selectedCategory ===
-              'Auctions' &&
-              listing.listingType ===
-                'auction') ||
-            (selectedCategory ===
-              'Jobs' &&
-              listing.listingType ===
-                'job') ||
-            (selectedCategory ===
-              'Services' &&
-              listing.listingType ===
-                'service');
+              selectedCategoryValue;
 
           const matchesSearch =
             normalizedSearch.length ===
@@ -276,14 +254,14 @@ export default function MarketScreen({
     listingId: string,
   ) {
     setFavouriteIds(
-      (currentIds) => {
+      currentIds => {
         if (
           currentIds.includes(
             listingId,
           )
         ) {
           return currentIds.filter(
-            (id) =>
+            id =>
               id !== listingId,
           );
         }
@@ -447,7 +425,7 @@ export default function MarketScreen({
       <FlatList
         key={`${layoutMode}-${loading ? 'loading' : 'ready'}`}
         data={listData}
-        keyExtractor={(item) =>
+        keyExtractor={item =>
           item.id
         }
         renderItem={({ item }) => {
@@ -479,7 +457,7 @@ export default function MarketScreen({
         onScrollBeginDrag={() => {
           Keyboard.dismiss();
         }}
-        onScroll={(event) => {
+        onScroll={event => {
           updateFromScroll(
             event.nativeEvent
               .contentOffset.y,
@@ -494,7 +472,7 @@ export default function MarketScreen({
         ListHeaderComponent={
           <View>
             <DGHeader
-              showBrand
+              title="Market"
               location="Mackay, QLD · Within 25 km"
               onLocationPress={() => {
                 Alert.alert(
@@ -537,31 +515,13 @@ export default function MarketScreen({
             >
               <View
                 style={
-                  styles.marketIntro
+                  styles.compactMarketHeader
                 }
               >
-                <View
-                  style={
-                    styles.marketIntroIcon
-                  }
-                >
-                  <Ionicons
-                    name="storefront"
-                    size={24}
-                    color={
-                      palette.opportunityGreen
-                    }
-                  />
-                </View>
-
-                <View
-                  style={
-                    styles.marketIntroCopy
-                  }
-                >
+                <View>
                   <Text
                     style={
-                      styles.marketEyebrow
+                      styles.compactEyebrow
                     }
                   >
                     LOCAL MARKET
@@ -569,21 +529,30 @@ export default function MarketScreen({
 
                   <Text
                     style={
-                      styles.marketTitle
+                      styles.compactTitle
                     }
                   >
-                    Find your next
-                    opportunity.
+                    Buy and sell nearby
                   </Text>
+                </View>
+
+                <View
+                  style={
+                    styles.localStatusBadge
+                  }
+                >
+                  <View
+                    style={
+                      styles.localStatusDot
+                    }
+                  />
 
                   <Text
                     style={
-                      styles.marketSubtitle
+                      styles.localStatusText
                     }
                   >
-                    Browse trusted local
-                    listings, jobs,
-                    services and auctions.
+                    LOCAL
                   </Text>
                 </View>
               </View>
@@ -593,14 +562,14 @@ export default function MarketScreen({
                 onChangeText={
                   setSearchQuery
                 }
-                placeholder="Search the Market"
+                placeholder="Search listings"
                 showFilter
                 filterActive={
                   filterActive
                 }
                 onFilterPress={() => {
                   setFilterActive(
-                    (current) =>
+                    current =>
                       !current,
                   );
                 }}
@@ -650,8 +619,7 @@ export default function MarketScreen({
                         styles.filterNoticeDescription
                       }
                     >
-                      Showing opportunities
-                      within 25 km.
+                      Showing listings within 25 km.
                     </Text>
                   </View>
 
@@ -683,7 +651,9 @@ export default function MarketScreen({
               ) : null}
 
               <View
-                style={styles.marketTabs}
+                style={
+                  styles.marketTabs
+                }
               >
                 <Pressable
                   accessibilityRole="tab"
@@ -712,7 +682,7 @@ export default function MarketScreen({
                 >
                   <Ionicons
                     name="sparkles-outline"
-                    size={17}
+                    size={16}
                     color={
                       selectedTab ===
                       'forYou'
@@ -761,7 +731,7 @@ export default function MarketScreen({
                 >
                   <Ionicons
                     name="location-outline"
-                    size={17}
+                    size={16}
                     color={
                       selectedTab ===
                       'nearby'
@@ -787,9 +757,9 @@ export default function MarketScreen({
               <FlatList
                 horizontal
                 data={categories}
-                keyExtractor={(
-                  item,
-                ) => item.label}
+                keyExtractor={item =>
+                  item.label
+                }
                 showsHorizontalScrollIndicator={
                   false
                 }
@@ -841,7 +811,7 @@ export default function MarketScreen({
                           ? 'location-outline'
                           : 'sparkles-outline'
                       }
-                      size={18}
+                      size={17}
                       color={
                         palette.opportunityGreen
                       }
@@ -860,8 +830,8 @@ export default function MarketScreen({
                     >
                       {selectedTab ===
                       'nearby'
-                        ? 'Nearby Market'
-                        : 'Recommended For You'}
+                        ? 'Nearby listings'
+                        : 'Recommended for you'}
                     </Text>
 
                     <Text
@@ -872,7 +842,10 @@ export default function MarketScreen({
                       {
                         filteredListings.length
                       }{' '}
-                      opportunities available
+                      {filteredListings.length ===
+                      1
+                        ? 'listing'
+                        : 'listings'}
                     </Text>
                   </View>
                 </View>
@@ -946,7 +919,7 @@ export default function MarketScreen({
                   styles.emptyTitle
                 }
               >
-                No opportunities found
+                No listings found
               </Text>
 
               <Text
@@ -954,9 +927,7 @@ export default function MarketScreen({
                   styles.emptyDescription
                 }
               >
-                Try another search or
-                choose a different
-                category.
+                Try another search or choose a different category.
               </Text>
 
               <DGButton
@@ -1097,60 +1068,88 @@ const styles = StyleSheet.create({
       spacing.xxs,
   },
 
-  marketIntro: {
+  compactMarketHeader: {
     marginTop: spacing.xs,
+
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent:
+      'space-between',
   },
 
-  marketIntroIcon: {
-    width: 54,
-    height: 54,
+  compactEyebrow: {
+    ...typography.eyebrow,
 
-    borderRadius: radius.lg,
+    color:
+      palette.opportunityGreen,
+  },
+
+  compactTitle: {
+    marginTop: 3,
+
+    color: textColor.primary,
+
+    fontSize: 19,
+    lineHeight: 24,
+
+    fontWeight: '900',
+
+    letterSpacing: -0.35,
+  },
+
+  localStatusBadge: {
+    minHeight: 28,
+
+    paddingHorizontal:
+      spacing.sm,
+
+    borderRadius:
+      radius.pill,
 
     borderWidth: 1,
+
     borderColor:
       alpha.green16,
 
     backgroundColor:
       alpha.green06,
 
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
   },
 
-  marketIntroCopy: {
-    flex: 1,
-    minWidth: 0,
-    marginLeft: spacing.sm,
-  },
+  localStatusDot: {
+    width: 6,
+    height: 6,
 
-  marketEyebrow: {
-    ...typography.eyebrow,
-    color:
+    marginRight: 6,
+
+    borderRadius: 3,
+
+    backgroundColor:
       palette.opportunityGreen,
   },
 
-  marketTitle: {
-    marginTop: 3,
-    ...typography.headingMedium,
-    color: textColor.primary,
-  },
+  localStatusText: {
+    color:
+      palette.opportunityGreen,
 
-  marketSubtitle: {
-    marginTop: spacing.xxs,
-    ...typography.bodySmall,
-    color: textColor.secondary,
+    fontSize: 8,
+    lineHeight: 11,
+
+    fontWeight: '900',
+
+    letterSpacing: 0.8,
   },
 
   searchBar: {
-    marginTop: spacing.lg,
+    marginTop: spacing.md,
   },
 
   filterNotice: {
-    minHeight: 64,
-    marginTop: spacing.sm,
+    minHeight: 58,
+
+    marginTop: spacing.xs,
 
     paddingHorizontal:
       spacing.sm,
@@ -1161,6 +1160,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
 
     borderWidth: 1,
+
     borderColor:
       alpha.green16,
 
@@ -1191,19 +1191,22 @@ const styles = StyleSheet.create({
 
   filterNoticeTitle: {
     color: textColor.primary,
-    fontSize: 12,
+
+    fontSize: 11,
     fontWeight: '900',
   },
 
   filterNoticeDescription: {
     marginTop: 2,
+
     color: textColor.muted,
-    fontSize: 10,
+
+    fontSize: 9,
     fontWeight: '600',
   },
 
   clearFilterButton: {
-    minHeight: 34,
+    minHeight: 32,
 
     paddingHorizontal:
       spacing.sm,
@@ -1221,17 +1224,19 @@ const styles = StyleSheet.create({
     color:
       palette.opportunityGreen,
 
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '900',
   },
 
   marketTabs: {
-    marginTop: spacing.lg,
+    marginTop: spacing.sm,
+
     padding: spacing.xxs,
 
     borderRadius: radius.lg,
 
     borderWidth: 1,
+
     borderColor:
       alpha.white08,
 
@@ -1243,7 +1248,8 @@ const styles = StyleSheet.create({
 
   marketTab: {
     flex: 1,
-    minHeight: 44,
+
+    minHeight: 42,
 
     borderRadius: radius.md,
 
@@ -1261,8 +1267,10 @@ const styles = StyleSheet.create({
 
   marketTabText: {
     marginLeft: spacing.xs,
+
     color: textColor.muted,
-    fontSize: 12,
+
+    fontSize: 11,
     fontWeight: '800',
   },
 
@@ -1271,9 +1279,13 @@ const styles = StyleSheet.create({
   },
 
   categoryList: {
-    paddingTop: spacing.md,
-    paddingBottom: spacing.xs,
-    paddingRight: spacing.md,
+    paddingTop: spacing.sm,
+
+    paddingBottom:
+      spacing.xxs,
+
+    paddingRight:
+      spacing.md,
   },
 
   categoryChip: {
@@ -1281,26 +1293,32 @@ const styles = StyleSheet.create({
   },
 
   resultsHeader: {
-    marginTop: spacing.lg,
-    marginBottom: spacing.md,
+    marginTop: spacing.md,
+
+    marginBottom:
+      spacing.sm,
 
     flexDirection: 'row',
+
     alignItems: 'center',
+
     justifyContent:
       'space-between',
   },
 
   resultsHeading: {
     flex: 1,
+
     minWidth: 0,
 
     flexDirection: 'row',
+
     alignItems: 'center',
   },
 
   resultsIcon: {
-    width: 38,
-    height: 38,
+    width: 36,
+    height: 36,
 
     borderRadius: radius.sm,
 
@@ -1313,32 +1331,41 @@ const styles = StyleSheet.create({
 
   resultsCopy: {
     flex: 1,
+
     minWidth: 0,
+
     marginLeft: spacing.sm,
   },
 
   resultsTitle: {
     color: textColor.primary,
-    fontSize: 17,
-    lineHeight: 21,
+
+    fontSize: 16,
+    lineHeight: 20,
+
     fontWeight: '900',
-    letterSpacing: -0.3,
+
+    letterSpacing: -0.25,
   },
 
   resultsSubtitle: {
     marginTop: 2,
+
     color: textColor.muted,
-    fontSize: 10,
+
+    fontSize: 9,
     fontWeight: '600',
   },
 
   layoutToggle: {
     marginLeft: spacing.sm,
+
     padding: 3,
 
     borderRadius: radius.md,
 
     borderWidth: 1,
+
     borderColor:
       alpha.white08,
 
@@ -1349,12 +1376,13 @@ const styles = StyleSheet.create({
   },
 
   layoutButton: {
-    width: 38,
-    height: 36,
+    width: 36,
+    height: 34,
 
     borderRadius: radius.sm,
 
     alignItems: 'center',
+
     justifyContent: 'center',
   },
 
@@ -1370,12 +1398,16 @@ const styles = StyleSheet.create({
 
   gridColumn: {
     width: '48.6%',
-    marginBottom: spacing.sm,
+
+    marginBottom:
+      spacing.sm,
   },
 
   listColumn: {
     width: '100%',
-    marginBottom: spacing.sm,
+
+    marginBottom:
+      spacing.sm,
   },
 
   emptyState: {
@@ -1389,9 +1421,11 @@ const styles = StyleSheet.create({
     paddingVertical:
       spacing.xxxl,
 
-    borderRadius: radius.card,
+    borderRadius:
+      radius.card,
 
     borderWidth: 1,
+
     borderColor:
       alpha.white08,
 
@@ -1399,6 +1433,7 @@ const styles = StyleSheet.create({
       surface.cardRaised,
 
     alignItems: 'center',
+
     overflow: 'hidden',
   },
 
@@ -1427,6 +1462,7 @@ const styles = StyleSheet.create({
       alpha.green10,
 
     alignItems: 'center',
+
     justifyContent: 'center',
   },
 
@@ -1444,11 +1480,13 @@ const styles = StyleSheet.create({
     maxWidth: 280,
 
     marginTop: spacing.xs,
+
     marginBottom: spacing.lg,
 
     ...typography.bodySmall,
 
-    color: textColor.secondary,
+    color:
+      textColor.secondary,
 
     textAlign: 'center',
   },

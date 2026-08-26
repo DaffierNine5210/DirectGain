@@ -18,6 +18,12 @@ export type MarketStackParamList = {
 
   Conversation: {
     conversationId: string;
+
+    listingId?: string;
+
+    intent?:
+      | 'message'
+      | 'offer';
   };
 };
 
@@ -29,42 +35,65 @@ export default function MarketStack() {
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
+
         contentStyle: {
-          backgroundColor: '#080B09',
+          backgroundColor:
+            '#080B09',
         },
-        animation: 'fade_from_bottom',
-        gestureEnabled: true,
+
+        animation:
+          'fade_from_bottom',
+
+        gestureEnabled:
+          true,
       }}
     >
       <Stack.Screen
         name="MarketHome"
-        component={MarketScreen}
+        component={
+          MarketScreen
+        }
       />
 
       <Stack.Screen
         name="ListingDetail"
-        component={ListingDetailScreen}
+        component={
+          ListingDetailScreen
+        }
         options={{
-          animation: 'slide_from_right',
-          gestureDirection: 'horizontal',
+          animation:
+            'slide_from_right',
+
+          gestureDirection:
+            'horizontal',
         }}
       />
 
       <Stack.Screen
         name="SellerProfile"
-        component={SellerProfileScreen}
+        component={
+          SellerProfileScreen
+        }
         options={{
-          animation: 'slide_from_right',
-          gestureDirection: 'horizontal',
+          animation:
+            'slide_from_right',
+
+          gestureDirection:
+            'horizontal',
         }}
       />
 
       <Stack.Screen
         name="Conversation"
-        component={ConversationScreen}
+        component={
+          ConversationScreen
+        }
         options={{
-          animation: 'slide_from_right',
-          gestureDirection: 'horizontal',
+          animation:
+            'slide_from_right',
+
+          gestureDirection:
+            'horizontal',
         }}
       />
     </Stack.Navigator>

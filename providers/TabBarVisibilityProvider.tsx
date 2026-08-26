@@ -4,125 +4,259 @@ import {
   useMemo,
   useRef,
 } from 'react';
+
 import {
   Animated,
 } from 'react-native';
 
 type TabBarVisibilityContextType = {
   translateY: Animated.Value;
-  updateFromScroll: (offsetY: number) => void;
+
+  updateFromScroll: (
+    offsetY: number,
+  ) => void;
+
   showTabBar: () => void;
+
   hideTabBar: () => void;
 };
 
 export const TabBarVisibilityContext =
-  createContext<TabBarVisibilityContextType | null>(
+  createContext<
+    TabBarVisibilityContextType | null
+  >(
     null,
   );
 
-const HIDE_THRESHOLD = 10;
-const SHOW_THRESHOLD = -7;
-const TAB_BAR_HIDDEN_POSITION = 130;
+const HIDE_THRESHOLD =
+  10;
+
+const SHOW_THRESHOLD =
+  -7;
+
+/*
+ * Push the entire custom tab bar
+ * completely below the screen.
+ *
+ * The tab bar itself is currently
+ * approximately 94px high on iOS,
+ * so 140 gives us a safe margin.
+ */
+const TAB_BAR_HIDDEN_POSITION =
+  140;
 
 export default function TabBarVisibilityProvider({
   children,
 }: {
-  children: React.ReactNode;
+  children:
+    React.ReactNode;
 }) {
   const translateY =
-    useRef(new Animated.Value(0)).current;
+    useRef(
+      new Animated.Value(
+        0,
+      ),
+    ).current;
 
-  const previousOffset = useRef(0);
-  const isHidden = useRef(false);
-  const animationRunning = useRef(false);
-
-  const animateTo = useCallback(
-    (value: number, hidden: boolean) => {
-      if (
-        isHidden.current === hidden ||
-        animationRunning.current
-      ) {
-        return;
-      }
-
-      animationRunning.current = true;
-      isHidden.current = hidden;
-
-      Animated.timing(translateY, {
-        toValue: value,
-        duration: hidden ? 220 : 190,
-        useNativeDriver: true,
-      }).start(() => {
-        animationRunning.current = false;
-      });
-    },
-    [translateY],
-  );
-
-  const showTabBar = useCallback(() => {
-    animateTo(0, false);
-  }, [animateTo]);
-
-  const hideTabBar = useCallback(() => {
-    animateTo(
-      TAB_BAR_HIDDEN_POSITION,
-      true,
+  const previousOffset =
+    useRef(
+      0,
     );
-  }, [animateTo]);
 
-  const updateFromScroll = useCallback(
-    (offsetY: number) => {
-      const safeOffset = Math.max(0, offsetY);
-      const difference =
-        safeOffset - previousOffset.current;
+  const isHidden =
+    useRef(
+      false,
+    );
 
-      /*
-       * Always show the navigation when the user
-       * returns close to the top of the page.
-       */
-      if (safeOffset <= 18) {
-        showTabBar();
-        previousOffset.current = safeOffset;
-        return;
-      }
+  /*
+   * Animate the tab bar to its
+   * requested state.
+   *
+   * IMPORTANT:
+   *
+   * We deliberately stop any
+   * animation already in progress.
+   *
+   * This fixes the case where:
+   *
+   * 1. A tab press calls showTabBar()
+   * 2. ConversationScreen opens
+   * 3. hideTabBar() runs immediately
+   *
+   * Previously the hide request was
+   * ignored because the show animation
+   * was still running.
+   */
+  const animateTo =
+    useCallback(
+      (
+        value:
+          number,
 
-      /*
-       * Scrolling downward hides the navigation.
-       */
-      if (difference > HIDE_THRESHOLD) {
-        hideTabBar();
-      }
+        hidden:
+          boolean,
+      ) => {
+        /*
+         * If we're already fully
+         * targeting this state,
+         * nothing needs to happen.
+         */
+        if (
+          isHidden.current ===
+          hidden
+        ) {
+          return;
+        }
 
-      /*
-       * Scrolling upward reveals the navigation.
-       */
-      if (difference < SHOW_THRESHOLD) {
-        showTabBar();
-      }
+        /*
+         * Cancel any previous
+         * movement before starting
+         * the new one.
+         */
+        translateY.stopAnimation();
 
-      previousOffset.current = safeOffset;
-    },
-    [hideTabBar, showTabBar],
-  );
+        isHidden.current =
+          hidden;
 
-  const value = useMemo(
-    () => ({
-      translateY,
-      updateFromScroll,
-      showTabBar,
-      hideTabBar,
-    }),
-    [
-      translateY,
-      updateFromScroll,
-      showTabBar,
-      hideTabBar,
-    ],
-  );
+        Animated.timing(
+          translateY,
+          {
+            toValue:
+              value,
+
+            duration:
+              hidden
+                ? 180
+                : 170,
+
+            useNativeDriver:
+              true,
+          },
+        ).start();
+      },
+
+      [
+        translateY,
+      ],
+    );
+
+  const showTabBar =
+    useCallback(
+      () => {
+        animateTo(
+          0,
+          false,
+        );
+      },
+
+      [
+        animateTo,
+      ],
+    );
+
+  const hideTabBar =
+    useCallback(
+      () => {
+        animateTo(
+          TAB_BAR_HIDDEN_POSITION,
+          true,
+        );
+      },
+
+      [
+        animateTo,
+      ],
+    );
+
+  const updateFromScroll =
+    useCallback(
+      (
+        offsetY:
+          number,
+      ) => {
+        const safeOffset =
+          Math.max(
+            0,
+            offsetY,
+          );
+
+        const difference =
+          safeOffset -
+          previousOffset.current;
+
+        /*
+         * Always show navigation
+         * near the top of a screen.
+         */
+        if (
+          safeOffset <=
+          18
+        ) {
+          showTabBar();
+
+          previousOffset.current =
+            safeOffset;
+
+          return;
+        }
+
+        /*
+         * Scrolling downward hides
+         * the navigation.
+         */
+        if (
+          difference >
+          HIDE_THRESHOLD
+        ) {
+          hideTabBar();
+        }
+
+        /*
+         * Scrolling upward shows
+         * the navigation.
+         */
+        if (
+          difference <
+          SHOW_THRESHOLD
+        ) {
+          showTabBar();
+        }
+
+        previousOffset.current =
+          safeOffset;
+      },
+
+      [
+        hideTabBar,
+        showTabBar,
+      ],
+    );
+
+  const value =
+    useMemo(
+      () => ({
+        translateY,
+
+        updateFromScroll,
+
+        showTabBar,
+
+        hideTabBar,
+      }),
+
+      [
+        translateY,
+        updateFromScroll,
+        showTabBar,
+        hideTabBar,
+      ],
+    );
 
   return (
     <TabBarVisibilityContext.Provider
-      value={value}
+      value={
+        value
+      }
     >
       {children}
     </TabBarVisibilityContext.Provider>

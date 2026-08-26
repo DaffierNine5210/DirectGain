@@ -54,8 +54,10 @@ function getTransactionIcon(
 
 function ReviewStars({
   rating,
+  size = 16,
 }: {
   rating: number;
+  size?: number;
 }) {
   const roundedRating = Math.round(rating);
 
@@ -69,7 +71,7 @@ function ReviewStars({
               ? 'star'
               : 'star-outline'
           }
-          size={14}
+          size={size}
           color={
             star <= roundedRating
               ? colors.primary
@@ -164,95 +166,108 @@ export default function ReviewsSection({
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <View style={styles.headerIcon}>
-          <Ionicons
-            name="star-outline"
-            size={21}
-            color={colors.primary}
-          />
-        </View>
-
-        <View style={styles.headerContent}>
-          <Text style={styles.eyebrow}>
-            COMMUNITY FEEDBACK
-          </Text>
-
-          <Text style={styles.title}>
-            Reviews
-          </Text>
-
-          <Text style={styles.subtitle}>
-            Feedback from verified activity across Direct Gain.
-          </Text>
-        </View>
-
-        <View style={styles.scoreBadge}>
-          <Text style={styles.scoreValue}>
-            {seller.rating.toFixed(1)}
-          </Text>
-
-          <View style={styles.scoreStars}>
+      <View style={styles.ratingSummary}>
+        <View style={styles.ratingMain}>
+          <View style={styles.ratingIcon}>
             <Ionicons
               name="star"
-              size={12}
+              size={22}
               color={colors.primary}
             />
-
-            <Text style={styles.scoreCount}>
-              {seller.reviewCount}
-            </Text>
           </View>
-        </View>
-      </View>
 
-      <View style={styles.summaryCard}>
-        <View style={styles.summaryScore}>
-          <Text style={styles.summaryValue}>
+          <Text style={styles.ratingValue}>
             {seller.rating.toFixed(1)}
           </Text>
 
-          <ReviewStars rating={seller.rating} />
+          <ReviewStars
+            rating={seller.rating}
+            size={18}
+          />
 
-          <Text style={styles.summaryLabel}>
+          <Text style={styles.ratingLabel}>
             Overall rating
           </Text>
         </View>
 
         <View style={styles.summaryDivider} />
 
-        <View style={styles.summaryDetails}>
-          <View style={styles.summaryDetailRow}>
-            <Text style={styles.summaryDetailLabel}>
-              Total reviews
-            </Text>
+        <View style={styles.summaryStats}>
+          <View style={styles.statRow}>
+            <View style={styles.statLabelRow}>
+              <Ionicons
+                name="chatbubble-ellipses-outline"
+                size={14}
+                color={colors.primary}
+              />
 
-            <Text style={styles.summaryDetailValue}>
+              <Text style={styles.statLabel}>
+                Reviews
+              </Text>
+            </View>
+
+            <Text style={styles.statValue}>
               {seller.reviewCount}
             </Text>
           </View>
 
-          <View style={styles.summaryDetailRow}>
-            <Text style={styles.summaryDetailLabel}>
-              Successful sales
-            </Text>
+          <View style={styles.statRow}>
+            <View style={styles.statLabelRow}>
+              <Ionicons
+                name="checkmark-circle-outline"
+                size={14}
+                color={colors.primary}
+              />
 
-            <Text style={styles.summaryDetailValue}>
+              <Text style={styles.statLabel}>
+                Successful sales
+              </Text>
+            </View>
+
+            <Text style={styles.statValue}>
               {seller.completedSales}
             </Text>
           </View>
 
-          <View style={styles.summaryDetailRow}>
-            <Text style={styles.summaryDetailLabel}>
-              Repeat customers
-            </Text>
+          <View style={styles.statRow}>
+            <View style={styles.statLabelRow}>
+              <Ionicons
+                name="refresh-outline"
+                size={14}
+                color={colors.primary}
+              />
 
-            <Text style={styles.summaryDetailValue}>
+              <Text style={styles.statLabel}>
+                Repeat customers
+              </Text>
+            </View>
+
+            <Text style={styles.statValue}>
               {seller.repeatCustomerRate}%
             </Text>
           </View>
         </View>
       </View>
+
+      {seller.reviews.length > 0 && (
+        <View style={styles.feedbackHeader}>
+          <View>
+            <Text style={styles.feedbackEyebrow}>
+              VERIFIED FEEDBACK
+            </Text>
+
+            <Text style={styles.feedbackTitle}>
+              Recent reviews
+            </Text>
+          </View>
+
+          <View style={styles.feedbackCount}>
+            <Text style={styles.feedbackCountText}>
+              {seller.reviewCount}
+            </Text>
+          </View>
+        </View>
+      )}
 
       <View style={styles.reviewList}>
         {visibleReviews.map(review => (
@@ -294,24 +309,34 @@ export default function ReviewsSection({
             pressed && styles.pressed,
           ]}
         >
-          <Text style={styles.viewAllText}>
-            View all reviews
-          </Text>
+          <View>
+            <Text style={styles.viewAllText}>
+              View all reviews
+            </Text>
 
-          <Ionicons
-            name="chevron-forward"
-            size={17}
-            color={colors.primary}
-          />
+            <Text style={styles.viewAllSubtext}>
+              See all {seller.reviewCount} buyer reviews
+            </Text>
+          </View>
+
+          <View style={styles.viewAllIcon}>
+            <Ionicons
+              name="chevron-forward"
+              size={17}
+              color={colors.primary}
+            />
+          </View>
         </Pressable>
       )}
 
       <View style={styles.footer}>
-        <Ionicons
-          name="lock-closed-outline"
-          size={15}
-          color={colors.textMuted}
-        />
+        <View style={styles.footerIcon}>
+          <Ionicons
+            name="lock-closed-outline"
+            size={14}
+            color={colors.textMuted}
+          />
+        </View>
 
         <Text style={styles.footerText}>
           Reviews can only be submitted after verified
@@ -333,15 +358,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#101511',
   },
 
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+  ratingSummary: {
+    padding: 18,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(158, 246, 90, 0.14)',
+    backgroundColor: 'rgba(158, 246, 90, 0.035)',
   },
 
-  headerIcon: {
+  ratingMain: {
+    alignItems: 'center',
+  },
+
+  ratingIcon: {
     width: 44,
     height: 44,
-    marginRight: 12,
+    marginBottom: 10,
     borderRadius: 15,
     borderWidth: 1,
     borderColor: 'rgba(158, 246, 90, 0.18)',
@@ -350,139 +382,109 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  headerContent: {
-    flex: 1,
-  },
-
-  eyebrow: {
-    color: colors.primary,
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 1.1,
-  },
-
-  title: {
-    marginTop: 4,
+  ratingValue: {
     color: colors.text,
-    fontSize: 20,
+    fontSize: 36,
     fontWeight: '900',
-    letterSpacing: -0.3,
-  },
-
-  subtitle: {
-    marginTop: 5,
-    color: colors.textMuted,
-    fontSize: 11,
-    lineHeight: 17,
-    fontWeight: '600',
-  },
-
-  scoreBadge: {
-    minWidth: 58,
-    marginLeft: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: 'rgba(158, 246, 90, 0.20)',
-    backgroundColor: 'rgba(158, 246, 90, 0.08)',
-    alignItems: 'center',
-  },
-
-  scoreValue: {
-    color: colors.primary,
-    fontSize: 17,
-    fontWeight: '900',
-  },
-
-  scoreStars: {
-    marginTop: 3,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  scoreCount: {
-    marginLeft: 4,
-    color: colors.textMuted,
-    fontSize: 8,
-    fontWeight: '800',
-  },
-
-  summaryCard: {
-    marginTop: 20,
-    padding: 16,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(158, 246, 90, 0.12)',
-    backgroundColor: 'rgba(158, 246, 90, 0.04)',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  summaryScore: {
-    width: 110,
-    alignItems: 'center',
-  },
-
-  summaryValue: {
-    color: colors.text,
-    fontSize: 30,
-    fontWeight: '900',
-    letterSpacing: -1,
+    letterSpacing: -1.2,
   },
 
   starsRow: {
     marginTop: 5,
     flexDirection: 'row',
+    alignItems: 'center',
   },
 
-  ratingText: {
-    marginLeft: 6,
+  ratingLabel: {
+    marginTop: 8,
     color: colors.textMuted,
     fontSize: 10,
     fontWeight: '800',
   },
 
-  summaryLabel: {
-    marginTop: 6,
-    color: colors.textMuted,
-    fontSize: 9,
-    fontWeight: '700',
-  },
-
   summaryDivider: {
-    width: 1,
-    alignSelf: 'stretch',
-    marginHorizontal: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    height: 1,
+    marginVertical: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
   },
 
-  summaryDetails: {
-    flex: 1,
+  summaryStats: {
+    gap: 12,
   },
 
-  summaryDetailRow: {
-    minHeight: 30,
+  statRow: {
+    minHeight: 34,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
 
-  summaryDetailLabel: {
-    color: colors.textMuted,
-    fontSize: 10,
-    fontWeight: '600',
+  statLabelRow: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 
-  summaryDetailValue: {
+  statLabel: {
+    flex: 1,
+    marginLeft: 8,
+    color: colors.textMuted,
+    fontSize: 10,
+    lineHeight: 15,
+    fontWeight: '700',
+  },
+
+  statValue: {
     color: colors.text,
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '900',
   },
 
-  reviewList: {
-    marginTop: 18,
+  feedbackHeader: {
+    marginTop: 22,
+    marginBottom: 12,
+    paddingHorizontal: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
+
+  feedbackEyebrow: {
+    color: colors.primary,
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 1.05,
+  },
+
+  feedbackTitle: {
+    marginTop: 4,
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: -0.2,
+  },
+
+  feedbackCount: {
+    minWidth: 38,
+    height: 30,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(158, 246, 90, 0.14)',
+    backgroundColor: 'rgba(158, 246, 90, 0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  feedbackCountText: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: '900',
+  },
+
+  reviewList: {},
 
   reviewCard: {
     marginBottom: 12,
@@ -518,6 +520,7 @@ const styles = StyleSheet.create({
 
   reviewerContent: {
     flex: 1,
+    minWidth: 0,
   },
 
   reviewerName: {
@@ -530,6 +533,13 @@ const styles = StyleSheet.create({
     marginTop: 3,
     flexDirection: 'row',
     alignItems: 'center',
+  },
+
+  ratingText: {
+    marginLeft: 6,
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '800',
   },
 
   reviewDate: {
@@ -594,7 +604,6 @@ const styles = StyleSheet.create({
   },
 
   emptyState: {
-    marginTop: 20,
     padding: 24,
     borderRadius: 20,
     borderWidth: 1,
@@ -629,10 +638,11 @@ const styles = StyleSheet.create({
   },
 
   viewAllButton: {
-    height: 48,
-    marginTop: 6,
+    minHeight: 58,
+    marginTop: 4,
     paddingHorizontal: 14,
-    borderRadius: 15,
+    paddingVertical: 10,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(158, 246, 90, 0.16)',
     backgroundColor: 'rgba(158, 246, 90, 0.05)',
@@ -647,8 +657,24 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 
+  viewAllSubtext: {
+    marginTop: 3,
+    color: colors.textMuted,
+    fontSize: 9,
+    fontWeight: '600',
+  },
+
+  viewAllIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: 'rgba(158, 246, 90, 0.07)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
   footer: {
-    marginTop: 8,
+    marginTop: 10,
     paddingTop: 15,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.07)',
@@ -656,9 +682,18 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
 
+  footerIcon: {
+    width: 28,
+    height: 28,
+    marginRight: 8,
+    borderRadius: 9,
+    backgroundColor: 'rgba(255, 255, 255, 0.035)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
   footerText: {
     flex: 1,
-    marginLeft: 8,
     color: colors.textMuted,
     fontSize: 9,
     lineHeight: 14,

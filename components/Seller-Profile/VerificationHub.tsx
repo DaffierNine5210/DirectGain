@@ -184,52 +184,50 @@ export default function VerificationHub({
               </View>
 
               <View style={styles.verificationContent}>
-                <View style={styles.verificationTitleRow}>
+                <Text
+                  style={[
+                    styles.verificationTitle,
+                    !isVerified &&
+                      styles.verificationTitleInactive,
+                  ]}
+                >
+                  {item.title}
+                </Text>
+
+                <View
+                  style={[
+                    styles.statusBadge,
+                    isVerified
+                      ? styles.statusBadgeActive
+                      : styles.statusBadgeInactive,
+                  ]}
+                >
+                  <Ionicons
+                    name={
+                      isVerified
+                        ? 'checkmark'
+                        : 'lock-closed-outline'
+                    }
+                    size={12}
+                    color={
+                      isVerified
+                        ? '#080B09'
+                        : colors.textMuted
+                    }
+                  />
+
                   <Text
                     style={[
-                      styles.verificationTitle,
-                      !isVerified &&
-                        styles.verificationTitleInactive,
-                    ]}
-                  >
-                    {item.title}
-                  </Text>
-
-                  <View
-                    style={[
-                      styles.statusBadge,
+                      styles.statusBadgeText,
                       isVerified
-                        ? styles.statusBadgeActive
-                        : styles.statusBadgeInactive,
+                        ? styles.statusBadgeTextActive
+                        : styles.statusBadgeTextInactive,
                     ]}
                   >
-                    <Ionicons
-                      name={
-                        isVerified
-                          ? 'checkmark'
-                          : 'lock-closed-outline'
-                      }
-                      size={12}
-                      color={
-                        isVerified
-                          ? '#080B09'
-                          : colors.textMuted
-                      }
-                    />
-
-                    <Text
-                      style={[
-                        styles.statusBadgeText,
-                        isVerified
-                          ? styles.statusBadgeTextActive
-                          : styles.statusBadgeTextInactive,
-                      ]}
-                    >
-                      {isVerified
-                        ? 'Verified'
-                        : 'Not active'}
-                    </Text>
-                  </View>
+                    {isVerified
+                      ? 'Verified'
+                      : 'Not active'}
+                  </Text>
                 </View>
 
                 <Text style={styles.verificationDescription}>
@@ -267,6 +265,7 @@ export default function VerificationHub({
                 name="chevron-forward"
                 size={18}
                 color={colors.textMuted}
+                style={styles.chevron}
               />
             </Pressable>
           );
@@ -319,6 +318,7 @@ const styles = StyleSheet.create({
 
   headerContent: {
     flex: 1,
+    minWidth: 0,
   },
 
   eyebrow: {
@@ -392,6 +392,7 @@ const styles = StyleSheet.create({
 
   statusContent: {
     flex: 1,
+    minWidth: 0,
   },
 
   statusTitle: {
@@ -420,7 +421,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.07)',
     backgroundColor: 'rgba(255, 255, 255, 0.025)',
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
 
   verificationCardActive: {
@@ -446,17 +447,13 @@ const styles = StyleSheet.create({
 
   verificationContent: {
     flex: 1,
-  },
-
-  verificationTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    minWidth: 0,
   },
 
   verificationTitle: {
-    flex: 1,
     color: colors.text,
-    fontSize: 13,
+    fontSize: 14,
+    lineHeight: 18,
     fontWeight: '900',
   },
 
@@ -465,7 +462,8 @@ const styles = StyleSheet.create({
   },
 
   statusBadge: {
-    marginLeft: 8,
+    alignSelf: 'flex-start',
+    marginTop: 7,
     paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: 9,
@@ -498,7 +496,7 @@ const styles = StyleSheet.create({
   },
 
   verificationDescription: {
-    marginTop: 6,
+    marginTop: 8,
     color: colors.textMuted,
     fontSize: 10,
     lineHeight: 16,
@@ -508,7 +506,7 @@ const styles = StyleSheet.create({
   detailRow: {
     marginTop: 9,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
 
   detailText: {
@@ -522,6 +520,11 @@ const styles = StyleSheet.create({
 
   detailTextInactive: {
     color: colors.textMuted,
+  },
+
+  chevron: {
+    marginLeft: 8,
+    marginTop: 14,
   },
 
   footer: {

@@ -6,7 +6,8 @@ export const sellers: SellerProfile[] = [
 
     name: 'Liam Green',
 
-    username: '@liamgreen',
+username: '@liamgreen',
+
 
     bio:
       'Local seller and business owner focused on reliable service, honest listings, and helping the Direct Gain community grow together.',
@@ -131,8 +132,8 @@ export const sellers: SellerProfile[] = [
     ],
 
     activeListingIds: [
-      'hilux-001',
-    ],
+  'listing-002',
+],
 
     completedJobCount: 37,
 

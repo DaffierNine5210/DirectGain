@@ -12,55 +12,89 @@ import type { ChatMessage } from '../../types/Messaging';
 
 type Props = {
   message: ChatMessage;
-  onPress?: (message: ChatMessage) => void;
+
+  onPress?: (
+    message: ChatMessage,
+  ) => void;
 };
 
-function getStatusIcon(
-  status: ChatMessage['status'],
+function getStatusText(
+  status:
+    ChatMessage['status'],
 ):
-  | 'time-outline'
-  | 'checkmark'
-  | 'checkmark-done'
+  | 'Sending…'
+  | 'Delivered'
+  | 'Read'
   | null {
-  if (status === 'sending') {
-    return 'time-outline';
+  if (
+    status ===
+    'sending'
+  ) {
+    return 'Sending…';
   }
 
-  if (status === 'sent') {
-    return 'checkmark';
+  /*
+   * Older/local messages may still
+   * use "sent".
+   *
+   * Once the message has successfully
+   * left the device, Direct Gain shows
+   * the clearer user-facing wording
+   * "Delivered".
+   */
+  if (
+    status ===
+      'sent' ||
+    status ===
+      'delivered'
+  ) {
+    return 'Delivered';
   }
 
   if (
-    status === 'delivered' ||
-    status === 'read'
+    status ===
+    'read'
   ) {
-    return 'checkmark-done';
+    return 'Read';
   }
 
   return null;
 }
 
 function getSystemIcon(
-  kind: ChatMessage['kind'],
+  kind:
+    ChatMessage['kind'],
 ):
   | 'information-circle-outline'
   | 'location-outline'
   | 'image-outline'
   | 'cash-outline'
   | 'chatbubble-outline' {
-  if (kind === 'location') {
+  if (
+    kind ===
+    'location'
+  ) {
     return 'location-outline';
   }
 
-  if (kind === 'image') {
+  if (
+    kind ===
+    'image'
+  ) {
     return 'image-outline';
   }
 
-  if (kind === 'offer') {
+  if (
+    kind ===
+    'offer'
+  ) {
     return 'cash-outline';
   }
 
-  if (kind === 'system') {
+  if (
+    kind ===
+    'system'
+  ) {
     return 'information-circle-outline';
   }
 
@@ -72,32 +106,62 @@ export default function MessageBubble({
   onPress,
 }: Props) {
   const isCurrentUser =
-    message.sender === 'current-user';
+    message.sender ===
+    'current-user';
 
   const isSystem =
-    message.sender === 'system' ||
-    message.kind === 'system';
+    message.sender ===
+      'system' ||
+    message.kind ===
+      'system';
 
-  const statusIcon = getStatusIcon(
-    message.status,
-  );
+  const statusText =
+    getStatusText(
+      message.status,
+    );
 
-  if (isSystem) {
+  if (
+    isSystem
+  ) {
     return (
-      <View style={styles.systemWrapper}>
-        <View style={styles.systemBubble}>
+      <View
+        style={
+          styles.systemWrapper
+        }
+      >
+        <View
+          style={
+            styles.systemBubble
+          }
+        >
           <Ionicons
-            name={getSystemIcon(message.kind)}
-            size={15}
-            color={colors.primary}
+            name={
+              getSystemIcon(
+                message.kind,
+              )
+            }
+            size={
+              15
+            }
+            color={
+              colors.primary
+            }
           />
 
-          <Text style={styles.systemText}>
+          <Text
+            style={
+              styles.systemText
+            }
+          >
             {message.text}
           </Text>
         </View>
 
-        <Text style={styles.systemTime}>
+        <Text
+          style={
+            styles.systemTime
+          }
+        >
           {message.createdAt}
         </Text>
       </View>
@@ -108,6 +172,7 @@ export default function MessageBubble({
     <View
       style={[
         styles.messageRow,
+
         isCurrentUser
           ? styles.currentUserRow
           : styles.participantRow,
@@ -116,6 +181,7 @@ export default function MessageBubble({
       <View
         style={[
           styles.bubbleGroup,
+
           isCurrentUser
             ? styles.currentUserGroup
             : styles.participantGroup,
@@ -128,277 +194,515 @@ export default function MessageBubble({
               ? `Message: ${message.text}`
               : 'Open message'
           }
-          onPress={() => onPress?.(message)}
-          style={({ pressed }) => [
+          onPress={() =>
+            onPress?.(
+              message,
+            )
+          }
+          style={({
+            pressed,
+          }) => [
             styles.bubble,
+
             isCurrentUser
               ? styles.currentUserBubble
               : styles.participantBubble,
-            pressed && styles.pressed,
+
+            pressed &&
+              styles.pressed,
           ]}
         >
-          {message.kind === 'image' &&
-            message.image && (
-              <Image
-                source={message.image!}
-                style={styles.messageImage}
-              />
-            )}
+          {message.kind ===
+            'image' &&
+          message.image ? (
+            <Image
+              source={
+                message.image
+              }
+              style={
+                styles.messageImage
+              }
+            />
+          ) : null}
 
-          {message.kind === 'location' && (
-            <View style={styles.specialHeader}>
+          {message.kind ===
+          'location' ? (
+            <View
+              style={
+                styles.specialHeader
+              }
+            >
               <View
-                style={styles.specialIcon}
+                style={
+                  styles.specialIcon
+                }
               >
                 <Ionicons
                   name="location-outline"
-                  size={17}
-                  color={colors.primary}
+                  size={
+                    17
+                  }
+                  color={
+                    colors.primary
+                  }
                 />
               </View>
 
               <Text
-                style={styles.specialTitle}
+                style={
+                  styles.specialTitle
+                }
               >
                 Shared location
               </Text>
             </View>
-          )}
+          ) : null}
 
-          {message.kind === 'offer' && (
-            <View style={styles.specialHeader}>
+          {message.kind ===
+          'offer' ? (
+            <View
+              style={
+                styles.specialHeader
+              }
+            >
               <View
-                style={styles.specialIcon}
+                style={
+                  styles.specialIcon
+                }
               >
                 <Ionicons
                   name="cash-outline"
-                  size={17}
-                  color={colors.primary}
+                  size={
+                    17
+                  }
+                  color={
+                    colors.primary
+                  }
                 />
               </View>
 
               <Text
-                style={styles.specialTitle}
+                style={
+                  styles.specialTitle
+                }
               >
                 Direct Gain offer
               </Text>
             </View>
-          )}
+          ) : null}
 
-          {message.text && (
+          {message.text ? (
             <Text
               style={[
                 styles.messageText,
+
                 isCurrentUser &&
                   styles.currentUserText,
               ]}
             >
               {message.text}
             </Text>
-          )}
+          ) : null}
         </Pressable>
 
         <View
           style={[
             styles.metaRow,
+
             isCurrentUser
               ? styles.metaRowCurrentUser
               : styles.metaRowParticipant,
           ]}
         >
-          {message.isEdited && (
-            <Text style={styles.editedText}>
+          {message.isEdited ? (
+            <Text
+              style={
+                styles.editedText
+              }
+            >
               Edited
             </Text>
-          )}
+          ) : null}
 
-          <Text style={styles.messageTime}>
+          <Text
+            style={
+              styles.messageTime
+            }
+          >
             {message.createdAt}
           </Text>
 
           {isCurrentUser &&
-            statusIcon && (
-              <Ionicons
-                name={statusIcon}
-                size={14}
-                color={
-                  message.status === 'read'
-                    ? colors.primary
-                    : colors.textMuted
+          statusText ? (
+            <>
+              <Text
+                style={
+                  styles.metaSeparator
                 }
-                style={styles.statusIcon}
-              />
-            )}
+              >
+                ·
+              </Text>
+
+              <Text
+                style={[
+                  styles.statusText,
+
+                  message.status ===
+                    'read' &&
+                    styles.readStatusText,
+
+                  message.status ===
+                    'sending' &&
+                    styles.sendingStatusText,
+                ]}
+              >
+                {statusText}
+              </Text>
+            </>
+          ) : null}
         </View>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  messageRow: {
-    width: '100%',
-    marginBottom: 15,
-  },
+const styles =
+  StyleSheet.create({
+    messageRow: {
+      width:
+        '100%',
 
-  currentUserRow: {
-    alignItems: 'flex-end',
-  },
+      marginBottom:
+        15,
+    },
 
-  participantRow: {
-    alignItems: 'flex-start',
-  },
+    currentUserRow: {
+      alignItems:
+        'flex-end',
+    },
 
-  bubbleGroup: {
-    maxWidth: '82%',
-  },
+    participantRow: {
+      alignItems:
+        'flex-start',
+    },
 
-  currentUserGroup: {
-    alignItems: 'flex-end',
-  },
+    bubbleGroup: {
+      maxWidth:
+        '82%',
+    },
 
-  participantGroup: {
-    alignItems: 'flex-start',
-  },
+    currentUserGroup: {
+      alignItems:
+        'flex-end',
+    },
 
-  bubble: {
-    minWidth: 54,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderRadius: 19,
-    overflow: 'hidden',
-  },
+    participantGroup: {
+      alignItems:
+        'flex-start',
+    },
 
-  currentUserBubble: {
-    borderBottomRightRadius: 6,
-    backgroundColor: colors.primary,
-  },
+    bubble: {
+      minWidth:
+        54,
 
-  participantBubble: {
-    borderBottomLeftRadius: 6,
-    borderWidth: 1,
-    borderColor:
-      'rgba(255, 255, 255, 0.08)',
-    backgroundColor: '#151A16',
-  },
+      paddingHorizontal:
+        14,
 
-  messageText: {
-    color: colors.text,
-    fontSize: 13,
-    lineHeight: 19,
-    fontWeight: '600',
-  },
+      paddingVertical:
+        11,
 
-  currentUserText: {
-    color: '#080B09',
-    fontWeight: '700',
-  },
+      borderRadius:
+        19,
 
-  messageImage: {
-    width: 230,
-    height: 170,
-    marginHorizontal: -14,
-    marginTop: -11,
-    marginBottom: 10,
-    backgroundColor: '#182019',
-  },
+      overflow:
+        'hidden',
+    },
 
-  specialHeader: {
-    marginBottom: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+    currentUserBubble: {
+      borderBottomRightRadius:
+        6,
 
-  specialIcon: {
-    width: 30,
-    height: 30,
-    marginRight: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor:
-      'rgba(158, 246, 90, 0.16)',
-    backgroundColor:
-      'rgba(158, 246, 90, 0.07)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+      backgroundColor:
+        colors.primary,
+    },
 
-  specialTitle: {
-    flex: 1,
-    color: colors.text,
-    fontSize: 11,
-    fontWeight: '900',
-  },
+    participantBubble: {
+      borderBottomLeftRadius:
+        6,
 
-  metaRow: {
-    marginTop: 5,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+      borderWidth:
+        1,
 
-  metaRowCurrentUser: {
-    justifyContent: 'flex-end',
-  },
+      borderColor:
+        'rgba(255, 255, 255, 0.08)',
 
-  metaRowParticipant: {
-    justifyContent: 'flex-start',
-  },
+      backgroundColor:
+        '#151A16',
+    },
 
-  messageTime: {
-    color: colors.textMuted,
-    fontSize: 8,
-    fontWeight: '700',
-  },
+    messageText: {
+      color:
+        colors.text,
 
-  editedText: {
-    marginRight: 6,
-    color: colors.textMuted,
-    fontSize: 8,
-    fontWeight: '600',
-  },
+      fontSize:
+        13,
 
-  statusIcon: {
-    marginLeft: 5,
-  },
+      lineHeight:
+        19,
 
-  systemWrapper: {
-    marginVertical: 11,
-    alignItems: 'center',
-  },
+      fontWeight:
+        '600',
+    },
 
-  systemBubble: {
-    maxWidth: '88%',
-    paddingHorizontal: 13,
-    paddingVertical: 9,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor:
-      'rgba(158, 246, 90, 0.12)',
-    backgroundColor:
-      'rgba(158, 246, 90, 0.045)',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+    currentUserText: {
+      color:
+        '#080B09',
 
-  systemText: {
-    flexShrink: 1,
-    marginLeft: 7,
-    color: colors.textMuted,
-    fontSize: 9,
-    lineHeight: 14,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
+      fontWeight:
+        '700',
+    },
 
-  systemTime: {
-    marginTop: 5,
-    color: colors.textMuted,
-    fontSize: 8,
-    fontWeight: '600',
-  },
+    messageImage: {
+      width:
+        230,
 
-  pressed: {
-    opacity: 0.76,
-    transform: [{ scale: 0.988 }],
-  },
-});
+      height:
+        170,
+
+      marginHorizontal:
+        -14,
+
+      marginTop:
+        -11,
+
+      marginBottom:
+        10,
+
+      backgroundColor:
+        '#182019',
+    },
+
+    specialHeader: {
+      marginBottom:
+        8,
+
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+    },
+
+    specialIcon: {
+      width:
+        30,
+
+      height:
+        30,
+
+      marginRight:
+        8,
+
+      borderRadius:
+        10,
+
+      borderWidth:
+        1,
+
+      borderColor:
+        'rgba(158, 246, 90, 0.16)',
+
+      backgroundColor:
+        'rgba(158, 246, 90, 0.07)',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+    },
+
+    specialTitle: {
+      flex:
+        1,
+
+      color:
+        colors.text,
+
+      fontSize:
+        11,
+
+      fontWeight:
+        '900',
+    },
+
+    metaRow: {
+      marginTop:
+        5,
+
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+    },
+
+    metaRowCurrentUser: {
+      justifyContent:
+        'flex-end',
+    },
+
+    metaRowParticipant: {
+      justifyContent:
+        'flex-start',
+    },
+
+    messageTime: {
+      color:
+        colors.textMuted,
+
+      fontSize:
+        8,
+
+      fontWeight:
+        '700',
+    },
+
+    editedText: {
+      marginRight:
+        6,
+
+      color:
+        colors.textMuted,
+
+      fontSize:
+        8,
+
+      fontWeight:
+        '600',
+    },
+
+    metaSeparator: {
+      marginHorizontal:
+        4,
+
+      color:
+        colors.textMuted,
+
+      fontSize:
+        8,
+
+      fontWeight:
+        '700',
+    },
+
+    statusText: {
+      color:
+        colors.textMuted,
+
+      fontSize:
+        8,
+
+      fontWeight:
+        '800',
+    },
+
+    readStatusText: {
+      color:
+        colors.primary,
+
+      fontWeight:
+        '900',
+    },
+
+    sendingStatusText: {
+      opacity:
+        0.7,
+    },
+
+    systemWrapper: {
+      marginVertical:
+        11,
+
+      alignItems:
+        'center',
+    },
+
+    systemBubble: {
+      maxWidth:
+        '88%',
+
+      paddingHorizontal:
+        13,
+
+      paddingVertical:
+        9,
+
+      borderRadius:
+        15,
+
+      borderWidth:
+        1,
+
+      borderColor:
+        'rgba(158, 246, 90, 0.12)',
+
+      backgroundColor:
+        'rgba(158, 246, 90, 0.045)',
+
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+    },
+
+    systemText: {
+      flexShrink:
+        1,
+
+      marginLeft:
+        7,
+
+      color:
+        colors.textMuted,
+
+      fontSize:
+        9,
+
+      lineHeight:
+        14,
+
+      fontWeight:
+        '700',
+
+      textAlign:
+        'center',
+    },
+
+    systemTime: {
+      marginTop:
+        5,
+
+      color:
+        colors.textMuted,
+
+      fontSize:
+        8,
+
+      fontWeight:
+        '600',
+    },
+
+    pressed: {
+      opacity:
+        0.76,
+
+      transform: [
+        {
+          scale:
+            0.988,
+        },
+      ],
+    },
+  });
