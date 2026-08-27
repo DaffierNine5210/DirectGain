@@ -313,3 +313,110 @@ export async function getUnreadMessageCount(
     0
   );
 }
+
+/*
+ * Load unread counts for a known
+ * set of conversations.
+ *
+ * Each count uses the existing
+ * getUnreadMessageCount() logic so
+ * inbox cards and header totals
+ * stay aligned.
+ */
+export async function getUnreadMessageCounts(
+  conversationIds: string[],
+): Promise<Record<string, number>> {
+  const uniqueConversationIds =
+    [
+      ...new Set(
+        conversationIds.filter(
+          conversationId =>
+            conversationId.length >
+            0,
+        ),
+      ),
+    ];
+
+  const unreadEntries =
+    await Promise.all(
+      uniqueConversationIds.map(
+        async conversationId => {
+          const unreadCount =
+            await getUnreadMessageCount(
+              conversationId,
+            );
+
+          return [
+            conversationId,
+            unreadCount,
+          ] as const;
+        },
+      ),
+    );
+
+  return Object.fromEntries(
+    unreadEntries,
+  );
+}
+
+/*
+ * Sum unread incoming messages
+ * across every conversation the
+ * current user participates in.
+ */
+export async function getTotalUnreadMessageCount(): Promise<number> {
+  const currentUser =
+    await getCurrentMessagingUser();
+
+  if (!currentUser) {
+    return 0;
+  }
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('conversation_participants')
+    .select(
+      'conversation_id',
+    )
+    .eq(
+      'user_id',
+      currentUser.userId,
+    );
+
+  if (error) {
+    console.warn(
+      '[Direct Gain] Unable to load conversations for unread totals:',
+      error.message,
+    );
+
+    return 0;
+  }
+
+  const conversationIds =
+    (
+      data ??
+      []
+    ).map(
+      row =>
+        row.conversation_id as string,
+    );
+
+  const unreadCounts =
+    await getUnreadMessageCounts(
+      conversationIds,
+    );
+
+  return Object.values(
+    unreadCounts,
+  ).reduce(
+    (
+      total,
+      unreadCount,
+    ) =>
+      total +
+      unreadCount,
+    0,
+  );
+}

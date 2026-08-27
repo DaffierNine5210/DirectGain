@@ -49,6 +49,7 @@ import {
   getDiscoverFeed,
 } from '../data/selectors/getDiscoverFeed';
 
+import useFocusedUnreadTotal from '../hooks/useFocusedUnreadTotal';
 import useTabBarVisibility from '../hooks/useTabBarVisibility';
 
 import type {
@@ -77,6 +78,9 @@ export default function DiscoverScreen() {
     updateFromScroll,
     showTabBar,
   } = useTabBarVisibility();
+
+  const unreadMessageCount =
+    useFocusedUnreadTotal();
 
   const [
     searchQuery,
@@ -287,6 +291,9 @@ export default function DiscoverScreen() {
         jobCount={17}
         auctionCount={8}
         notificationCount={3}
+        unreadMessageCount={
+          unreadMessageCount
+        }
         onLocationPress={() => {
           showComingSoon(
             'Location settings',

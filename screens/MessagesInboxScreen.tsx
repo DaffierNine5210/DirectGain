@@ -43,6 +43,15 @@ import {
 } from '../services/messaging/currentMessagingUser';
 
 import {
+  getUnreadMessageCounts,
+} from '../services/messaging/messageReadRepository';
+
+import {
+  subscribeToIncomingMessages,
+  unsubscribeFromIncomingMessages,
+} from '../services/messaging/messageRealtime';
+
+import {
   colors,
 } from '../theme/colors';
 
@@ -288,9 +297,31 @@ export default function MessagesInboxScreen({
 
         void load();
 
+        const channel =
+          subscribeToIncomingMessages({
+            onMessage:
+              () => {
+                void loadInbox(
+                  active,
+                );
+              },
+
+            onError:
+              error => {
+                console.warn(
+                  '[Direct Gain] Inbox unread subscription error:',
+                  error.message,
+                );
+              },
+          });
+
         return () => {
           active =
             false;
+
+          void unsubscribeFromIncomingMessages(
+            channel,
+          );
         };
       },
 
@@ -577,6 +608,11 @@ export default function MessagesInboxScreen({
         ) ??
         [];
 
+      const unreadCounts =
+        await getUnreadMessageCounts(
+          conversationIds,
+        );
+
       /*
        * Convert Supabase database
        * rows into the data needed
@@ -701,6 +737,10 @@ export default function MessagesInboxScreen({
                   .created_at,
 
               unreadCount:
+                unreadCounts[
+                  databaseConversation
+                    .id
+                ] ??
                 0,
 
               itemPrice:

@@ -21,6 +21,7 @@ type DiscoverTopSectionProps = {
   auctionCount: number;
 
   notificationCount?: number;
+  unreadMessageCount?: number;
 
   onLocationPress: () => void;
   onMessagesPress: () => void;
@@ -39,6 +40,7 @@ export default function DiscoverTopSection({
   auctionCount,
 
   notificationCount = 0,
+  unreadMessageCount = 0,
 
   onLocationPress,
   onMessagesPress,
@@ -67,6 +69,9 @@ export default function DiscoverTopSection({
 
             onPress:
               onMessagesPress,
+
+            badgeCount:
+              unreadMessageCount,
           }}
           primaryAction={{
             icon:

@@ -30,6 +30,7 @@ import {
   marketListings,
 } from '../data/marketMockData';
 
+import useFocusedUnreadTotal from '../hooks/useFocusedUnreadTotal';
 import useTabBarVisibility from '../hooks/useTabBarVisibility';
 import type { MarketStackParamList } from '../navigation/MarketStack';
 
@@ -133,6 +134,9 @@ export default function MarketScreen({
     updateFromScroll,
     showTabBar,
   } = useTabBarVisibility();
+
+  const unreadMessageCount =
+    useFocusedUnreadTotal();
 
   const [
     searchQuery,
@@ -489,6 +493,9 @@ export default function MarketScreen({
 
                 onPress:
                   openMessages,
+
+                badgeCount:
+                  unreadMessageCount,
               }}
               primaryAction={{
                 icon:

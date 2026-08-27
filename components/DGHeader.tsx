@@ -270,40 +270,47 @@ function HeaderActionButton({
       : action.badgeCount;
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={
-        action.accessibilityLabel
+    <View
+      style={
+        styles.actionButtonWrap
       }
-      hitSlop={8}
-      onPress={
-        action.onPress
-      }
-      style={({ pressed }) => [
-        styles.iconButton,
-
-        pressed &&
-          styles.pressed,
-      ]}
     >
-      <View
-        pointerEvents="none"
-        style={
-          styles.actionGlow
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={
+          action.accessibilityLabel
         }
-      />
+        hitSlop={8}
+        onPress={
+          action.onPress
+        }
+        style={({ pressed }) => [
+          styles.iconButton,
 
-      <Ionicons
-        name={action.icon}
-        size={21}
-        color={
-          textColor.primary
-        }
-      />
+          pressed &&
+            styles.pressed,
+        ]}
+      >
+        <View
+          pointerEvents="none"
+          style={
+            styles.actionGlow
+          }
+        />
+
+        <Ionicons
+          name={action.icon}
+          size={21}
+          color={
+            textColor.primary
+          }
+        />
+      </Pressable>
 
       {action.badgeCount &&
       action.badgeCount > 0 ? (
         <View
+          pointerEvents="none"
           style={styles.badge}
         >
           <Text
@@ -315,7 +322,7 @@ function HeaderActionButton({
           </Text>
         </View>
       ) : null}
-    </Pressable>
+    </View>
   );
 }
 
@@ -448,6 +455,17 @@ const styles = StyleSheet.create({
     gap: 9,
   },
 
+  actionButtonWrap: {
+    position: 'relative',
+
+    width: 46,
+    height: 46,
+
+    overflow: 'visible',
+
+    zIndex: 1,
+  },
+
   iconButton: {
     position: 'relative',
 
@@ -506,6 +524,9 @@ const styles = StyleSheet.create({
 
     top: -5,
     right: -5,
+
+    zIndex: 2,
+    elevation: 8,
 
     minWidth: 19,
     height: 19,
