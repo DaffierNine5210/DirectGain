@@ -6,6 +6,10 @@ import {
   sanitizeDisplayFileName,
 } from './conversationAttachmentStorage';
 
+import {
+  parseConversationLocationMetadata,
+} from './conversationLocation';
+
 import type {
   SupabaseMessageRecord,
 } from './messageRepository';
@@ -20,6 +24,11 @@ export function supabaseMessageToChatMessage(
 ): ChatMessage {
   const fileAttachment =
     getFileAttachmentMetadata(
+      message,
+    );
+
+  const locationAttachment =
+    getLocationAttachmentMetadata(
       message,
     );
 
@@ -60,6 +69,18 @@ export function supabaseMessageToChatMessage(
 
     fileExtension:
       fileAttachment.extension,
+
+    latitude:
+      locationAttachment.latitude,
+
+    longitude:
+      locationAttachment.longitude,
+
+    locationLabel:
+      locationAttachment.locationLabel,
+
+    locationAddress:
+      locationAttachment.locationAddress,
 
     createdAt:
       formatMessageTime(
@@ -175,6 +196,44 @@ export function getInboxMessagePreview(
     default:
       return 'New message';
   }
+}
+
+function getLocationAttachmentMetadata(
+  message: SupabaseMessageRecord,
+): {
+  latitude?: number;
+  longitude?: number;
+  locationLabel?: string;
+  locationAddress?: string;
+} {
+  if (
+    message.message_type !==
+    'location'
+  ) {
+    return {};
+  }
+
+  const parsed =
+    parseConversationLocationMetadata(
+      message.metadata,
+    );
+
+  if (
+    !parsed.isOpenable
+  ) {
+    return {};
+  }
+
+  return {
+    latitude:
+      parsed.latitude,
+    longitude:
+      parsed.longitude,
+    locationLabel:
+      parsed.locationLabel,
+    locationAddress:
+      parsed.locationAddress,
+  };
 }
 
 function getFileAttachmentMetadata(

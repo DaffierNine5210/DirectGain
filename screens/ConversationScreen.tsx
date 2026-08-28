@@ -28,6 +28,7 @@ import {
 
 import ChatInput from '../components/messaging/ChatInput';
 import ConversationHeader from '../components/messaging/ConversationHeader';
+import LocationShareConfirmModal from '../components/messaging/LocationShareConfirmModal';
 import MessageBubble from '../components/messaging/MessageBubble';
 
 import * as DocumentPicker from 'expo-document-picker';
@@ -95,6 +96,15 @@ import {
   uploadConversationDocument,
   uploadConversationImage,
 } from '../services/messaging/conversationAttachmentStorage';
+
+import {
+  LOCATION_TYPE_CURRENT,
+  acquireCurrentLocationShare,
+  getLocationMapUrls,
+  isValidLatitude,
+  isValidLongitude,
+  type ConversationLocationShareDraft,
+} from '../services/messaging/conversationLocation';
 
 import {
   getOtherParticipantReadState,
@@ -176,6 +186,16 @@ export default function ConversationScreen({
   const scrollViewRef =
     useRef<ScrollView | null>(
       null,
+    );
+
+  const locationShareCancelledRef =
+    useRef(
+      false,
+    );
+
+  const locationShareRequestIdRef =
+    useRef(
+      0,
     );
 
   const entryIntent =
@@ -324,6 +344,36 @@ export default function ConversationScreen({
   ] =
     useState(
       false,
+    );
+
+  const [
+    locationShareVisible,
+    setLocationShareVisible,
+  ] =
+    useState(
+      false,
+    );
+
+  const [
+    locationShareStep,
+    setLocationShareStep,
+  ] =
+    useState<
+      'choose' |
+      'loading' |
+      'confirm'
+    >(
+      'choose',
+    );
+
+  const [
+    locationShareDraft,
+    setLocationShareDraft,
+  ] =
+    useState<
+      ConversationLocationShareDraft | null
+    >(
+      null,
     );
 
   const [
@@ -2327,11 +2377,367 @@ useFocusEffect(
   }
 
   function handleLocationPress() {
-    Alert.alert(
-      'Location',
+    if (
+      !isSupabaseConversation
+    ) {
+      Alert.alert(
+        'Location',
+        'Location sharing is available in live Direct Gain conversations.',
+      );
 
-      'Secure location sharing will be connected later.',
+      return;
+    }
+
+    locationShareCancelledRef.current =
+      false;
+
+    setLocationShareDraft(
+      null,
     );
+
+    setLocationShareStep(
+      'choose',
+    );
+
+    setLocationShareVisible(
+      true,
+    );
+  }
+
+  function closeLocationShare() {
+    locationShareCancelledRef.current =
+      true;
+
+    locationShareRequestIdRef.current +=
+      1;
+
+    setLocationShareVisible(
+      false,
+    );
+
+    setLocationShareStep(
+      'choose',
+    );
+
+    setLocationShareDraft(
+      null,
+    );
+  }
+
+  async function handleShareCurrentLocation() {
+    locationShareCancelledRef.current =
+      false;
+
+    const requestId =
+      locationShareRequestIdRef.current +
+      1;
+
+    locationShareRequestIdRef.current =
+      requestId;
+
+    setLocationShareStep(
+      'loading',
+    );
+
+    const result =
+      await acquireCurrentLocationShare();
+
+    if (
+      locationShareCancelledRef.current ||
+      requestId !==
+        locationShareRequestIdRef.current
+    ) {
+      return;
+    }
+
+    if (
+      !result.ok
+    ) {
+      closeLocationShare();
+
+      if (
+        result.error ===
+        'services-disabled'
+      ) {
+        Alert.alert(
+          'Location services off',
+          'Turn on Location Services to share your current location.',
+        );
+
+        return;
+      }
+
+      if (
+        result.error ===
+        'permission-denied'
+      ) {
+        Alert.alert(
+          'Location permission needed',
+          'Direct Gain can share your current location only after you allow location access.',
+        );
+
+        return;
+      }
+
+      Alert.alert(
+        'Unable to get location',
+        'Direct Gain could not find your current location. Please try again.',
+      );
+
+      return;
+    }
+
+    setLocationShareDraft(
+      result.location,
+    );
+
+    setLocationShareStep(
+      'confirm',
+    );
+  }
+
+  function handleConfirmSendLocation() {
+    const draft =
+      locationShareDraft;
+
+    closeLocationShare();
+
+    if (
+      !draft
+    ) {
+      return;
+    }
+
+    void sendConversationLocation(
+      draft,
+    );
+  }
+
+  async function sendConversationLocation(
+    draft:
+      ConversationLocationShareDraft,
+  ) {
+    const userId =
+      currentSupabaseUserId;
+
+    if (
+      !userId
+    ) {
+      Alert.alert(
+        'Unable to send',
+        'Your account session is still loading. Please try again.',
+      );
+
+      return;
+    }
+
+    if (
+      !isValidLatitude(
+        draft.latitude,
+      ) ||
+      !isValidLongitude(
+        draft.longitude,
+      )
+    ) {
+      Alert.alert(
+        'Location not sent',
+        'That location could not be shared. Please try again.',
+      );
+
+      return;
+    }
+
+    const clientMessageId =
+      `client-message-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`;
+
+    const optimisticMessage:
+      ChatMessage = {
+      id:
+        clientMessageId,
+
+      conversationId,
+
+      sender:
+        'current-user',
+
+      kind:
+        'location',
+
+      latitude:
+        draft.latitude,
+
+      longitude:
+        draft.longitude,
+
+      locationLabel:
+        draft.label,
+
+      locationAddress:
+        draft.address,
+
+      createdAt:
+        'Now',
+
+      status:
+        'sending',
+    };
+
+    setConversation(
+      current => ({
+        ...current,
+
+        messages: [
+          ...current.messages,
+          optimisticMessage,
+        ],
+      }),
+    );
+
+    setTimeline(
+      current => [
+        ...current,
+
+        createMessageTimelineItem(
+          optimisticMessage,
+        ),
+      ],
+    );
+
+    scrollToBottom();
+
+    const storedMessage =
+      await sendConversationMessage({
+        conversationId,
+
+        body:
+          '',
+
+        messageType:
+          'location',
+
+        metadata: {
+          client_message_id:
+            clientMessageId,
+
+          latitude:
+            draft.latitude,
+
+          longitude:
+            draft.longitude,
+
+          label:
+            draft.label,
+
+          ...(draft.address
+            ? {
+                address:
+                  draft.address,
+              }
+            : {}),
+
+          locationType:
+            LOCATION_TYPE_CURRENT,
+        },
+      });
+
+    if (
+      !storedMessage
+    ) {
+      removeOptimisticMessage(
+        clientMessageId,
+      );
+
+      Alert.alert(
+        'Location not sent',
+        'Direct Gain could not send that location. Please try again.',
+      );
+
+      return;
+    }
+
+    const confirmedMessage:
+      ChatMessage = {
+      ...supabaseMessageToChatMessage(
+        storedMessage,
+        {
+          currentUserId:
+            userId,
+        },
+      ),
+
+      status:
+        'delivered',
+    };
+
+    setConversation(
+      current => {
+        const realAlreadyExists =
+          current.messages.some(
+            message =>
+              message.id ===
+              confirmedMessage.id,
+          );
+
+        if (
+          realAlreadyExists
+        ) {
+          return {
+            ...current,
+
+            messages:
+              current.messages.filter(
+                message =>
+                  message.id !==
+                  clientMessageId,
+              ),
+          };
+        }
+
+        return {
+          ...current,
+
+          messages:
+            current.messages.map(
+              message =>
+                message.id ===
+                clientMessageId
+                  ? confirmedMessage
+                  : message,
+            ),
+        };
+      },
+    );
+
+    setTimeline(
+      current =>
+        current.map(
+          item => {
+            if (
+              item.type ===
+                'message' &&
+              item.message.id ===
+                clientMessageId
+            ) {
+              return createMessageTimelineItem(
+                confirmedMessage,
+              );
+            }
+
+            return item;
+          },
+        ),
+    );
+
+    if (
+      otherParticipantUserId
+    ) {
+      void applyReadReceipts(
+        userId,
+        otherParticipantUserId,
+      );
+    }
   }
 
   function handleMessagePress(
@@ -2343,6 +2749,17 @@ useFocusEffect(
       'file'
     ) {
       void openConversationFile(
+        message,
+      );
+
+      return;
+    }
+
+    if (
+      message.kind ===
+      'location'
+    ) {
+      void openConversationLocation(
         message,
       );
 
@@ -2416,6 +2833,79 @@ useFocusEffect(
         'Unable to open file',
         'Something went wrong while opening that file.',
       );
+    }
+  }
+
+  async function openConversationLocation(
+    message:
+      ChatMessage,
+  ) {
+    if (
+      message.status ===
+      'sending'
+    ) {
+      return;
+    }
+
+    const latitude =
+      message.latitude;
+
+    const longitude =
+      message.longitude;
+
+    if (
+      !isValidLatitude(
+        latitude,
+      ) ||
+      !isValidLongitude(
+        longitude,
+      )
+    ) {
+      return;
+    }
+
+    const urls =
+      getLocationMapUrls({
+        latitude,
+        longitude,
+        label:
+          message.locationLabel ??
+          'Current location',
+      });
+
+    if (
+      !urls
+    ) {
+      Alert.alert(
+        'Unable to open location',
+        'That location could not be opened.',
+      );
+
+      return;
+    }
+
+    try {
+      await Linking.openURL(
+        urls.primary,
+      );
+    } catch {
+      try {
+        await Linking.openURL(
+          urls.fallback,
+        );
+      } catch (
+        error
+      ) {
+        console.warn(
+          '[Direct Gain] Unable to open conversation location:',
+          error,
+        );
+
+        Alert.alert(
+          'Unable to open location',
+          'Direct Gain could not open Maps for that location.',
+        );
+      }
     }
   }
 
@@ -3426,6 +3916,30 @@ useFocusEffect(
             }
           />
         </View>
+
+        <LocationShareConfirmModal
+          visible={
+            locationShareVisible
+          }
+          step={
+            locationShareStep
+          }
+          label={
+            locationShareDraft?.label
+          }
+          address={
+            locationShareDraft?.address
+          }
+          onShareCurrent={
+            handleShareCurrentLocation
+          }
+          onSend={
+            handleConfirmSendLocation
+          }
+          onCancel={
+            closeLocationShare
+          }
+        />
 
         <Modal
           visible={

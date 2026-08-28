@@ -18,6 +18,9 @@ import {
   formatAttachmentByteSize,
   getDocumentTypeLabel,
 } from '../../services/messaging/conversationAttachmentStorage';
+import {
+  hasValidLocationCoordinates,
+} from '../../services/messaging/conversationLocation';
 
 type Props = {
   message: ChatMessage;
@@ -202,15 +205,34 @@ export default function MessageBubble({
             message.kind ===
             'file'
               ? `File: ${message.fileName ?? 'Document'}`
+              : message.kind ===
+                  'location'
+                ? hasValidLocationCoordinates(
+                    message.latitude,
+                    message.longitude,
+                  )
+                  ? `Location: ${message.locationLabel ?? 'Current location'}`
+                  : 'Location unavailable'
               : message.text
                 ? `Message: ${message.text}`
                 : 'Open message'
           }
-          onPress={() =>
+          onPress={() => {
+            if (
+              message.kind ===
+                'location' &&
+              !hasValidLocationCoordinates(
+                message.latitude,
+                message.longitude,
+              )
+            ) {
+              return;
+            }
+
             onPress?.(
               message,
-            )
-          }
+            );
+          }}
           style={({
             pressed,
           }) => [
@@ -305,7 +327,7 @@ export default function MessageBubble({
           'location' ? (
             <View
               style={
-                styles.specialHeader
+                styles.fileAttachment
               }
             >
               <View
@@ -324,13 +346,58 @@ export default function MessageBubble({
                 />
               </View>
 
-              <Text
+              <View
                 style={
-                  styles.specialTitle
+                  styles.fileDetails
                 }
               >
-                Shared location
-              </Text>
+                <Text
+                  style={
+                    styles.fileName
+                  }
+                  numberOfLines={
+                    2
+                  }
+                >
+                  {hasValidLocationCoordinates(
+                    message.latitude,
+                    message.longitude,
+                  )
+                    ? message.locationLabel ??
+                      'Current location'
+                    : 'Location unavailable'}
+                </Text>
+
+                {hasValidLocationCoordinates(
+                  message.latitude,
+                  message.longitude,
+                ) &&
+                message.locationAddress ? (
+                  <Text
+                    style={
+                      styles.fileMeta
+                    }
+                    numberOfLines={
+                      2
+                    }
+                  >
+                    {message.locationAddress}
+                  </Text>
+                ) : null}
+
+                {hasValidLocationCoordinates(
+                  message.latitude,
+                  message.longitude,
+                ) ? (
+                  <Text
+                    style={
+                      styles.fileMeta
+                    }
+                  >
+                    View location
+                  </Text>
+                ) : null}
+              </View>
             </View>
           ) : null}
 

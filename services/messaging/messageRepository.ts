@@ -8,6 +8,10 @@ import {
   isValidConversationAttachmentPath,
 } from './conversationAttachmentStorage';
 
+import {
+  createValidatedLocationMetadata,
+} from './conversationLocation';
+
 export type SupabaseMessageType =
   | 'text'
   | 'image'
@@ -431,6 +435,14 @@ export async function sendConversationMessage(
     input.messageType ??
     'text';
 
+  const validatedLocationMetadata =
+    messageType ===
+    'location'
+      ? createValidatedLocationMetadata(
+          input.metadata,
+        )
+      : null;
+
   if (
     messageType ===
       'image' ||
@@ -458,10 +470,21 @@ export async function sendConversationMessage(
       return null;
     }
   } else if (
-    messageType !==
-      'location' &&
+    messageType ===
+    'location'
+  ) {
+    if (
+      !validatedLocationMetadata
+    ) {
+      console.warn(
+        '[Direct Gain] SEND STEP 3 FAILED: Location metadata is not valid.',
+      );
+
+      return null;
+    }
+  } else if (
     cleanBody.length ===
-      0
+    0
   ) {
     console.warn(
       '[Direct Gain] SEND STEP 3 FAILED: Empty text message.',
@@ -494,16 +517,23 @@ export async function sendConversationMessage(
       messageType,
 
     body:
-      cleanBody.length >
-      0
-        ? cleanBody
-        : null,
+      messageType ===
+      'location'
+        ? null
+        : cleanBody.length >
+            0
+          ? cleanBody
+          : null,
 
     attachment_url:
-      input.attachmentUrl ??
-      null,
+      messageType ===
+      'location'
+        ? null
+        : input.attachmentUrl ??
+          null,
 
     metadata:
+      validatedLocationMetadata ??
       input.metadata ??
       {},
   };

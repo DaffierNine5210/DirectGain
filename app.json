@@ -28,6 +28,17 @@
         {
           "photosPermission": "Direct Gain uses your photo library so you can send pictures in messages."
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Direct Gain uses your location only when you choose to share it in a conversation.",
+          "locationAlwaysAndWhenInUsePermission": false,
+          "locationAlwaysPermission": false,
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": false
+        }
       ]
     ]
   }

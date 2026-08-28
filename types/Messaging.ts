@@ -93,6 +93,18 @@ export type ChatMessage = {
   fileExtension?:
     string;
 
+  latitude?:
+    number;
+
+  longitude?:
+    number;
+
+  locationLabel?:
+    string;
+
+  locationAddress?:
+    string;
+
   createdAt: string;
 
   status?:
