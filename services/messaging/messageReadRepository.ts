@@ -315,13 +315,75 @@ export async function getUnreadMessageCount(
 }
 
 /*
+ * Same rule as getUnreadMessageCount:
+ *
+ * Incoming messages at or before
+ * last_read_at are read.
+ * Messages after that point are
+ * unread.
+ *
+ * If there is no read position,
+ * every incoming message is unread.
+ */
+export function isIncomingMessageUnread({
+  messageCreatedAt,
+  lastReadAt,
+}: {
+  messageCreatedAt: string;
+
+  lastReadAt:
+    | string
+    | null
+    | undefined;
+}): boolean {
+  if (!lastReadAt) {
+    return true;
+  }
+
+  const messageTime =
+    new Date(
+      messageCreatedAt,
+    ).getTime();
+
+  const readTime =
+    new Date(
+      lastReadAt,
+    ).getTime();
+
+  if (
+    Number.isNaN(
+      messageTime,
+    ) ||
+    Number.isNaN(
+      readTime,
+    )
+  ) {
+    return false;
+  }
+
+  return (
+    messageTime >
+    readTime
+  );
+}
+
+type IncomingUnreadRow = {
+  conversation_id: string;
+
+  created_at: string;
+};
+
+const UNREAD_PAGE_SIZE =
+  1000;
+
+/*
  * Load unread counts for a known
  * set of conversations.
  *
- * Each count uses the existing
- * getUnreadMessageCount() logic so
- * inbox cards and header totals
- * stay aligned.
+ * Uses one message_reads query for
+ * the current user, then counts
+ * incoming messages with the same
+ * unread rule as getUnreadMessageCount.
  */
 export async function getUnreadMessageCounts(
   conversationIds: string[],
@@ -337,26 +399,167 @@ export async function getUnreadMessageCounts(
       ),
     ];
 
-  const unreadEntries =
-    await Promise.all(
-      uniqueConversationIds.map(
-        async conversationId => {
-          const unreadCount =
-            await getUnreadMessageCount(
+  const emptyCounts:
+    Record<string, number> =
+      Object.fromEntries(
+        uniqueConversationIds.map(
+          conversationId =>
+            [
               conversationId,
-            );
+              0,
+            ],
+        ),
+      );
 
-          return [
-            conversationId,
-            unreadCount,
-          ] as const;
-        },
-      ),
+  if (
+    uniqueConversationIds.length ===
+    0
+  ) {
+    return emptyCounts;
+  }
+
+  const currentUser =
+    await getCurrentMessagingUser();
+
+  if (!currentUser) {
+    return emptyCounts;
+  }
+
+  const {
+    data: readRows,
+    error: readError,
+  } = await supabase
+    .from('message_reads')
+    .select(
+      'conversation_id, last_read_at',
+    )
+    .eq(
+      'user_id',
+      currentUser.userId,
+    )
+    .in(
+      'conversation_id',
+      uniqueConversationIds,
     );
 
-  return Object.fromEntries(
-    unreadEntries,
-  );
+  if (readError) {
+    console.warn(
+      '[Direct Gain] Unable to load inbox read positions:',
+      readError.message,
+    );
+  }
+
+  const lastReadByConversation =
+    new Map<string, string>();
+
+  for (const row of readRows ?? []) {
+    lastReadByConversation.set(
+      row.conversation_id as string,
+      row.last_read_at as string,
+    );
+  }
+
+  const incomingRows:
+    IncomingUnreadRow[] =
+      [];
+
+  let pageStart =
+    0;
+
+  while (true) {
+    const {
+      data,
+      error,
+    } = await supabase
+      .from('messages')
+      .select(
+        'conversation_id, created_at',
+      )
+      .in(
+        'conversation_id',
+        uniqueConversationIds,
+      )
+      .neq(
+        'sender_id',
+        currentUser.userId,
+      )
+      .is(
+        'deleted_at',
+        null,
+      )
+      .range(
+        pageStart,
+        pageStart +
+          UNREAD_PAGE_SIZE -
+          1,
+      );
+
+    if (error) {
+      console.warn(
+        '[Direct Gain] Unable to load inbox unread messages:',
+        error.message,
+      );
+
+      return emptyCounts;
+    }
+
+    const page =
+      (
+        data as
+          IncomingUnreadRow[] |
+          null
+      ) ??
+      [];
+
+    incomingRows.push(
+      ...page,
+    );
+
+    if (
+      page.length <
+      UNREAD_PAGE_SIZE
+    ) {
+      break;
+    }
+
+    pageStart +=
+      UNREAD_PAGE_SIZE;
+  }
+
+  const unreadCounts =
+    {
+      ...emptyCounts,
+    };
+
+  for (const message of incomingRows) {
+    const isUnread =
+      isIncomingMessageUnread({
+        messageCreatedAt:
+          message.created_at,
+
+        lastReadAt:
+          lastReadByConversation.get(
+            message.conversation_id,
+          ),
+      });
+
+    if (!isUnread) {
+      continue;
+    }
+
+    unreadCounts[
+      message.conversation_id
+    ] =
+      (
+        unreadCounts[
+          message.conversation_id
+        ] ??
+        0
+      ) +
+      1;
+  }
+
+  return unreadCounts;
 }
 
 /*

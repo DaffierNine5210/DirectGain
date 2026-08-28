@@ -89,6 +89,92 @@ function mapMessageType(
   }
 }
 
+type InboxPreviewMessage = {
+  body:
+    | string
+    | null;
+
+  message_type:
+    string;
+
+  metadata?:
+    Record<string, unknown>;
+};
+
+export function getInboxMessagePreview(
+  message:
+    InboxPreviewMessage |
+    null |
+    undefined,
+): string {
+  if (!message) {
+    return 'No messages yet';
+  }
+
+  const text =
+    message.body
+      ?.trim() ??
+    '';
+
+  if (text.length > 0) {
+    return text;
+  }
+
+  const metadataKind =
+    getMetadataPreviewKind(
+      message.metadata,
+    );
+
+  if (
+    metadataKind ===
+    'offer'
+  ) {
+    return 'Offer';
+  }
+
+  switch (
+    message.message_type
+  ) {
+    case 'image':
+      return 'Photo';
+
+    case 'file':
+      return 'Attachment';
+
+    case 'location':
+      return 'Location';
+
+    case 'system':
+      return 'Deal update';
+
+    default:
+      return 'New message';
+  }
+}
+
+function getMetadataPreviewKind(
+  metadata:
+    Record<string, unknown> |
+    undefined,
+): string | null {
+  if (!metadata) {
+    return null;
+  }
+
+  const kind =
+    metadata.kind ??
+    metadata.type;
+
+  if (
+    typeof kind !==
+    'string'
+  ) {
+    return null;
+  }
+
+  return kind;
+}
+
 function formatMessageTime(
   value: string,
 ): string {

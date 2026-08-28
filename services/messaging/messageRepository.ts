@@ -177,6 +177,138 @@ export async function getConversationMessages(
   ) ?? [];
 }
 
+export type InboxLatestMessage = {
+  id: string;
+
+  conversation_id: string;
+
+  sender_id: string;
+
+  message_type:
+    SupabaseMessageType;
+
+  body:
+    | string
+    | null;
+
+  metadata:
+    Record<string, unknown>;
+
+  created_at: string;
+};
+
+/*
+ * Latest non-deleted message per
+ * conversation.
+ *
+ * Each conversation uses a single
+ * newest-row query so the inbox
+ * does not download full history.
+ *
+ * A conversations.last_message_at
+ * column would replace these
+ * per-thread lookups later.
+ */
+export async function getLatestMessagesForConversations(
+  conversationIds: string[],
+): Promise<
+  Record<string, InboxLatestMessage>
+> {
+  const uniqueConversationIds =
+    [
+      ...new Set(
+        conversationIds.filter(
+          conversationId =>
+            conversationId.length >
+            0,
+        ),
+      ),
+    ];
+
+  if (
+    uniqueConversationIds.length ===
+    0
+  ) {
+    return {};
+  }
+
+  const latestRows =
+    await Promise.all(
+      uniqueConversationIds.map(
+        async conversationId => {
+          const {
+            data,
+            error,
+          } =
+            await supabase
+              .from(
+                'messages',
+              )
+              .select(
+                `
+                  id,
+                  conversation_id,
+                  sender_id,
+                  message_type,
+                  body,
+                  metadata,
+                  created_at
+                `,
+              )
+              .eq(
+                'conversation_id',
+                conversationId,
+              )
+              .is(
+                'deleted_at',
+                null,
+              )
+              .order(
+                'created_at',
+                {
+                  ascending:
+                    false,
+                },
+              )
+              .limit(
+                1,
+              )
+              .maybeSingle();
+
+          if (error) {
+            console.warn(
+              '[Direct Gain] Unable to load latest inbox message:',
+              error.message,
+            );
+
+            return null;
+          }
+
+          return data as
+            InboxLatestMessage |
+            null;
+        },
+      ),
+    );
+
+  const latestByConversation:
+    Record<string, InboxLatestMessage> =
+      {};
+
+  for (const row of latestRows) {
+    if (!row) {
+      continue;
+    }
+
+    latestByConversation[
+      row.conversation_id
+    ] =
+      row;
+  }
+
+  return latestByConversation;
+}
+
 /*
  * Store a new message using the
  * currently authenticated Supabase user.

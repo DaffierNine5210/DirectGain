@@ -9,6 +9,7 @@ import type {
 import {
   useCallback,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -41,6 +42,15 @@ import {
 import {
   getCurrentMessagingUser,
 } from '../services/messaging/currentMessagingUser';
+
+import {
+  getInboxMessagePreview,
+} from '../services/messaging/messageAdapter';
+
+import {
+  getLatestMessagesForConversations,
+  type SupabaseMessageRecord,
+} from '../services/messaging/messageRepository';
 
 import {
   getUnreadMessageCounts,
@@ -113,23 +123,6 @@ type ParticipantRow = {
     string;
 
   role:
-    string;
-};
-
-type MessageRow = {
-  id:
-    string;
-
-  conversation_id:
-    string;
-
-  sender_id:
-    string;
-
-  body:
-    string | null;
-
-  created_at:
     string;
 };
 
@@ -273,6 +266,33 @@ export default function MessagesInboxScreen({
       false,
     );
 
+  const currentUserIdRef =
+    useRef<
+      string | null
+    >(
+      null,
+    );
+
+  const loadInboxRef =
+    useRef<
+      (
+        active?:
+          boolean,
+      ) => Promise<void>
+    >(
+      async () => {},
+    );
+
+  const conversationsRef =
+    useRef<
+      RealInboxConversation[]
+    >(
+      [],
+    );
+
+  conversationsRef.current =
+    conversations;
+
   /*
    * Reload the inbox every time
    * the Messages screen becomes
@@ -290,7 +310,7 @@ export default function MessagesInboxScreen({
           true;
 
         async function load() {
-          await loadInbox(
+          await loadInboxRef.current(
             active,
           );
         }
@@ -300,9 +320,15 @@ export default function MessagesInboxScreen({
         const channel =
           subscribeToIncomingMessages({
             onMessage:
-              () => {
-                void loadInbox(
-                  active,
+              message => {
+                if (
+                  !active
+                ) {
+                  return;
+                }
+
+                applyIncomingInboxMessage(
+                  message,
                 );
               },
 
@@ -329,12 +355,91 @@ export default function MessagesInboxScreen({
     ),
   );
 
+  function applyIncomingInboxMessage(
+    message:
+      SupabaseMessageRecord,
+  ) {
+    const currentUserId =
+      currentUserIdRef.current;
+
+    const current =
+      conversationsRef.current;
+
+    const matchingIndex =
+      current.findIndex(
+        conversation =>
+          conversation.id ===
+          message.conversation_id,
+      );
+
+    if (
+      matchingIndex <
+      0
+    ) {
+      void loadInboxRef.current(
+        true,
+      );
+
+      return;
+    }
+
+    const existing =
+      current[
+        matchingIndex
+      ];
+
+    const isOwnMessage =
+      Boolean(
+        currentUserId,
+      ) &&
+      message.sender_id ===
+        currentUserId;
+
+    const nextUnreadCount =
+      !currentUserId ||
+      isOwnMessage
+        ? existing.unreadCount
+        : existing.unreadCount +
+          1;
+
+    const next = [
+      ...current,
+    ];
+
+    next[
+      matchingIndex
+    ] = {
+      ...existing,
+
+      lastMessage:
+        getInboxMessagePreview(
+          message,
+        ),
+
+      lastMessageAt:
+        message.created_at,
+
+      unreadCount:
+        nextUnreadCount,
+    };
+
+    setConversations(
+      sortInboxConversations(
+        next,
+      ),
+    );
+  }
+
   async function loadInbox(
     active = true,
   ) {
     try {
       const currentUser =
         await getCurrentMessagingUser();
+
+      currentUserIdRef.current =
+        currentUser?.userId ??
+        null;
 
       if (
         !currentUser
@@ -551,62 +656,13 @@ export default function MessagesInboxScreen({
       /*
        * STEP 4
        *
-       * Load messages so every
-       * inbox card can show the
-       * latest real Supabase
-       * message.
+       * Load only the latest message
+       * for each conversation.
        */
-      const {
-        data:
-          messageRows,
-        error:
-          messageError,
-      } =
-        await supabase
-          .from(
-            'messages',
-          )
-          .select(
-            `
-              id,
-              conversation_id,
-              sender_id,
-              body,
-              created_at
-            `,
-          )
-          .in(
-            'conversation_id',
-            conversationIds,
-          )
-          .is(
-            'deleted_at',
-            null,
-          )
-          .order(
-            'created_at',
-            {
-              ascending:
-                false,
-            },
-          );
-
-      if (
-        messageError
-      ) {
-        console.warn(
-          '[Direct Gain] Unable to load inbox messages:',
-          messageError.message,
+      const latestMessages =
+        await getLatestMessagesForConversations(
+          conversationIds,
         );
-      }
-
-      const allMessages =
-        (
-          messageRows as
-            MessageRow[] |
-            null
-        ) ??
-        [];
 
       const unreadCounts =
         await getUnreadMessageCounts(
@@ -685,12 +741,9 @@ export default function MessagesInboxScreen({
                 : false;
 
             const latestMessage =
-              allMessages.find(
-                message =>
-                  message
-                    .conversation_id ===
-                  databaseConversation.id,
-              );
+              latestMessages[
+                databaseConversation.id
+              ];
 
             return {
               id:
@@ -726,9 +779,9 @@ export default function MessagesInboxScreen({
               participantVerified,
 
               lastMessage:
-                latestMessage
-                  ?.body ??
-                'No messages yet',
+                getInboxMessagePreview(
+                  latestMessage,
+                ),
 
               lastMessageAt:
                 latestMessage
@@ -754,38 +807,16 @@ export default function MessagesInboxScreen({
           },
         );
 
-      /*
-       * Sort newest activity first.
-       */
-      mapped.sort(
-        (
-          first,
-          second,
-        ) => {
-          const firstTime =
-            new Date(
-              first
-                .lastMessageAt,
-            ).getTime();
-
-          const secondTime =
-            new Date(
-              second
-                .lastMessageAt,
-            ).getTime();
-
-          return (
-            secondTime -
-            firstTime
-          );
-        },
-      );
+      const sorted =
+        sortInboxConversations(
+          mapped,
+        );
 
       if (
         active
       ) {
         setConversations(
-          mapped,
+          sorted,
         );
 
         setLoading(
@@ -809,6 +840,9 @@ export default function MessagesInboxScreen({
       }
     }
   }
+
+  loadInboxRef.current =
+    loadInbox;
 
   const unreadTotal =
     useMemo(
@@ -895,6 +929,17 @@ export default function MessagesInboxScreen({
       {
         conversationId:
           conversation.id,
+
+        ...(
+          conversation.contextType ===
+            'market' &&
+          conversation.contextId
+            ? {
+                listingId:
+                  conversation.contextId,
+              }
+            : {}
+        ),
       },
     );
   }
@@ -1557,6 +1602,49 @@ export default function MessagesInboxScreen({
         </ScrollView>
       </View>
     </SafeAreaView>
+  );
+}
+
+function sortInboxConversations(
+  conversations:
+    RealInboxConversation[],
+): RealInboxConversation[] {
+  return [
+    ...conversations,
+  ].sort(
+    (
+      first,
+      second,
+    ) => {
+      const firstTime =
+        new Date(
+          first.lastMessageAt,
+        ).getTime();
+
+      const secondTime =
+        new Date(
+          second.lastMessageAt,
+        ).getTime();
+
+      const safeFirst =
+        Number.isNaN(
+          firstTime,
+        )
+          ? 0
+          : firstTime;
+
+      const safeSecond =
+        Number.isNaN(
+          secondTime,
+        )
+          ? 0
+          : secondTime;
+
+      return (
+        safeSecond -
+        safeFirst
+      );
+    },
   );
 }
 
