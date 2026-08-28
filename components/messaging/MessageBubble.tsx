@@ -15,6 +15,8 @@ import { colors } from '../../theme/colors';
 import type { ChatMessage } from '../../types/Messaging';
 import {
   createConversationAttachmentSignedUrl,
+  formatAttachmentByteSize,
+  getDocumentTypeLabel,
 } from '../../services/messaging/conversationAttachmentStorage';
 
 type Props = {
@@ -197,9 +199,12 @@ export default function MessageBubble({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={
-            message.text
-              ? `Message: ${message.text}`
-              : 'Open message'
+            message.kind ===
+            'file'
+              ? `File: ${message.fileName ?? 'Document'}`
+              : message.text
+                ? `Message: ${message.text}`
+                : 'Open message'
           }
           onPress={() =>
             onPress?.(
@@ -226,6 +231,74 @@ export default function MessageBubble({
                 message
               }
             />
+          ) : null}
+
+          {message.kind ===
+          'file' ? (
+            <View
+              style={
+                styles.fileAttachment
+              }
+            >
+              <View
+                style={
+                  styles.specialIcon
+                }
+              >
+                <Ionicons
+                  name="document-text-outline"
+                  size={
+                    17
+                  }
+                  color={
+                    colors.primary
+                  }
+                />
+              </View>
+
+              <View
+                style={
+                  styles.fileDetails
+                }
+              >
+                <Text
+                  style={
+                    styles.fileName
+                  }
+                  numberOfLines={
+                    1
+                  }
+                >
+                  {message.fileName ??
+                    'Document'}
+                </Text>
+
+                <Text
+                  style={
+                    styles.fileMeta
+                  }
+                  numberOfLines={
+                    1
+                  }
+                >
+                  {[
+                    getDocumentTypeLabel(
+                      message.fileMimeType,
+                      message.fileExtension,
+                    ),
+                    formatAttachmentByteSize(
+                      message.fileByteSize,
+                    ),
+                  ]
+                    .filter(
+                      Boolean,
+                    )
+                    .join(
+                      ' · ',
+                    )}
+                </Text>
+              </View>
+            </View>
           ) : null}
 
           {message.kind ===
@@ -727,6 +800,50 @@ const styles =
 
       fontWeight:
         '900',
+    },
+
+    fileAttachment: {
+      minWidth:
+        168,
+
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+    },
+
+    fileDetails: {
+      flex:
+        1,
+
+      minWidth:
+        0,
+    },
+
+    fileName: {
+      color:
+        colors.text,
+
+      fontSize:
+        12,
+
+      fontWeight:
+        '800',
+    },
+
+    fileMeta: {
+      marginTop:
+        3,
+
+      color:
+        colors.textMuted,
+
+      fontSize:
+        10,
+
+      fontWeight:
+        '700',
     },
 
     metaRow: {

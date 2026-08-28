@@ -15,6 +15,7 @@ import {
   Alert,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -29,6 +30,7 @@ import ChatInput from '../components/messaging/ChatInput';
 import ConversationHeader from '../components/messaging/ConversationHeader';
 import MessageBubble from '../components/messaging/MessageBubble';
 
+import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 
 import CompletedDealAgreementCard from '../components/messaging/deals/CompletedDealAgreementCard';
@@ -80,9 +82,17 @@ import {
 } from '../services/messaging/messageRepository';
 
 import {
+  DOCUMENT_PICKER_MIME_TYPES,
+  MAX_CONVERSATION_DOCUMENT_BYTES,
   MAX_CONVERSATION_IMAGE_BYTES,
+  createConversationAttachmentSignedUrl,
   estimateBase64ByteSize,
   isAllowedImageMimeType,
+  isSafeLocalAttachmentUri,
+  isSafeOriginalFileName,
+  resolveDocumentMimeType,
+  sanitizeDisplayFileName,
+  uploadConversationDocument,
   uploadConversationImage,
 } from '../services/messaging/conversationAttachmentStorage';
 
@@ -1971,11 +1981,349 @@ useFocusEffect(
   }
 
   function handleAttachmentPress() {
-    Alert.alert(
-      'Attachment',
+    void sendConversationDocument();
+  }
 
-      'File and document sharing will be connected later.',
+  async function sendConversationDocument() {
+    if (
+      !isSupabaseConversation
+    ) {
+      Alert.alert(
+        'Attachment',
+        'File sharing is available in live Direct Gain conversations.',
+      );
+
+      return;
+    }
+
+    const userId =
+      currentSupabaseUserId;
+
+    if (
+      !userId
+    ) {
+      Alert.alert(
+        'Unable to send',
+        'Your account session is still loading. Please try again.',
+      );
+
+      return;
+    }
+
+    let pickerResult:
+      DocumentPicker.DocumentPickerResult;
+
+    try {
+      pickerResult =
+        await DocumentPicker.getDocumentAsync({
+          type:
+            DOCUMENT_PICKER_MIME_TYPES,
+          copyToCacheDirectory:
+            true,
+          multiple:
+            false,
+        });
+    } catch (
+      error
+    ) {
+      console.warn(
+        '[Direct Gain] Unable to open the document picker:',
+        error,
+      );
+
+      Alert.alert(
+        'Unable to open files',
+        'Something went wrong while opening your files. Please try again.',
+      );
+
+      return;
+    }
+
+    if (
+      pickerResult.canceled ||
+      !pickerResult.assets ||
+      pickerResult.assets.length ===
+        0
+    ) {
+      return;
+    }
+
+    const asset =
+      pickerResult.assets[0];
+
+    const mimeType =
+      resolveDocumentMimeType({
+        mimeType:
+          asset.mimeType,
+        originalFileName:
+          asset.name,
+      });
+
+    if (
+      !mimeType
+    ) {
+      Alert.alert(
+        'Unsupported file',
+        'Direct Gain currently supports PDF, Word, Excel, CSV and plain text files.',
+      );
+
+      return;
+    }
+
+    if (
+      !isSafeOriginalFileName(
+        asset.name,
+      ) ||
+      !isSafeLocalAttachmentUri(
+        asset.uri,
+      )
+    ) {
+      Alert.alert(
+        'Unable to send file',
+        'That file could not be used. Please choose a different file.',
+      );
+
+      return;
+    }
+
+    const byteSize =
+      asset.size &&
+      asset.size >
+        0
+        ? asset.size
+        : 0;
+
+    if (
+      byteSize >
+      MAX_CONVERSATION_DOCUMENT_BYTES
+    ) {
+      Alert.alert(
+        'File too large',
+        'Please choose a file smaller than 10 MB.',
+      );
+
+      return;
+    }
+
+    const displayFileName =
+      sanitizeDisplayFileName(
+        asset.name,
+      );
+
+    const clientMessageId =
+      `client-message-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`;
+
+    const optimisticMessage:
+      ChatMessage = {
+      id:
+        clientMessageId,
+
+      conversationId,
+
+      sender:
+        'current-user',
+
+      kind:
+        'file',
+
+      fileName:
+        displayFileName,
+
+      fileMimeType:
+        mimeType,
+
+      fileByteSize:
+        byteSize ||
+        undefined,
+
+      createdAt:
+        'Now',
+
+      status:
+        'sending',
+    };
+
+    setConversation(
+      current => ({
+        ...current,
+
+        messages: [
+          ...current.messages,
+          optimisticMessage,
+        ],
+      }),
     );
+
+    setTimeline(
+      current => [
+        ...current,
+
+        createMessageTimelineItem(
+          optimisticMessage,
+        ),
+      ],
+    );
+
+    scrollToBottom();
+
+    const uploaded =
+      await uploadConversationDocument({
+        conversationId,
+        userId,
+        localUri:
+          asset.uri,
+        mimeType,
+        originalFileName:
+          asset.name,
+        byteSize:
+          byteSize ||
+          undefined,
+      });
+
+    if (
+      !uploaded
+    ) {
+      removeOptimisticMessage(
+        clientMessageId,
+      );
+
+      Alert.alert(
+        'File not sent',
+        'Direct Gain could not upload that file. Please try again.',
+      );
+
+      return;
+    }
+
+    const storedMessage =
+      await sendConversationMessage({
+        conversationId,
+
+        body:
+          '',
+
+        messageType:
+          'file',
+
+        attachmentUrl:
+          uploaded.objectPath,
+
+        metadata: {
+          client_message_id:
+            clientMessageId,
+
+          fileName:
+            uploaded.fileName,
+
+          mimeType:
+            uploaded.mimeType,
+
+          byteSize:
+            uploaded.byteSize,
+
+          extension:
+            uploaded.extension,
+        },
+      });
+
+    if (
+      !storedMessage
+    ) {
+      removeOptimisticMessage(
+        clientMessageId,
+      );
+
+      Alert.alert(
+        'File not sent',
+        'The file uploaded, but Direct Gain could not save the message. Please try again.',
+      );
+
+      return;
+    }
+
+    const confirmedMessage:
+      ChatMessage = {
+      ...supabaseMessageToChatMessage(
+        storedMessage,
+        {
+          currentUserId:
+            userId,
+        },
+      ),
+
+      status:
+        'delivered',
+    };
+
+    setConversation(
+      current => {
+        const realAlreadyExists =
+          current.messages.some(
+            message =>
+              message.id ===
+              confirmedMessage.id,
+          );
+
+        if (
+          realAlreadyExists
+        ) {
+          return {
+            ...current,
+
+            messages:
+              current.messages.filter(
+                message =>
+                  message.id !==
+                  clientMessageId,
+              ),
+          };
+        }
+
+        return {
+          ...current,
+
+          messages:
+            current.messages.map(
+              message =>
+                message.id ===
+                clientMessageId
+                  ? confirmedMessage
+                  : message,
+            ),
+        };
+      },
+    );
+
+    setTimeline(
+      current =>
+        current.map(
+          item => {
+            if (
+              item.type ===
+                'message' &&
+              item.message.id ===
+                clientMessageId
+            ) {
+              return createMessageTimelineItem(
+                confirmedMessage,
+              );
+            }
+
+            return item;
+          },
+        ),
+    );
+
+    if (
+      otherParticipantUserId
+    ) {
+      void applyReadReceipts(
+        userId,
+        otherParticipantUserId,
+      );
+    }
   }
 
   function handleLocationPress() {
@@ -1990,12 +2338,85 @@ useFocusEffect(
     message:
       ChatMessage,
   ) {
+    if (
+      message.kind ===
+      'file'
+    ) {
+      void openConversationFile(
+        message,
+      );
+
+      return;
+    }
+
     Alert.alert(
       'Message options',
 
       message.text ??
         'Additional message actions will be added later.',
     );
+  }
+
+  async function openConversationFile(
+    message:
+      ChatMessage,
+  ) {
+    if (
+      message.status ===
+        'sending' ||
+      !message.attachmentPath
+    ) {
+      return;
+    }
+
+    const signedUrl =
+      await createConversationAttachmentSignedUrl(
+        message.attachmentPath,
+      );
+
+    if (
+      !signedUrl
+    ) {
+      Alert.alert(
+        'Unable to open file',
+        'Direct Gain could not prepare that file. Please try again.',
+      );
+
+      return;
+    }
+
+    try {
+      const canOpen =
+        await Linking.canOpenURL(
+          signedUrl,
+        );
+
+      if (
+        canOpen
+      ) {
+        await Linking.openURL(
+          signedUrl,
+        );
+
+        return;
+      }
+
+      await Linking.openURL(
+        signedUrl,
+      );
+    } catch (
+      error
+    ) {
+      console.warn(
+        '[Direct Gain] Unable to open conversation file:',
+        error,
+      );
+
+      Alert.alert(
+        'Unable to open file',
+        'Something went wrong while opening that file.',
+      );
+    }
   }
 
   function handleOfferSubmit(

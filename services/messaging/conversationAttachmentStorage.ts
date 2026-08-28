@@ -1,3 +1,5 @@
+import { File } from 'expo-file-system';
+
 import { supabase } from '../../lib/supabase';
 
 export const CONVERSATION_ATTACHMENTS_BUCKET =
@@ -126,6 +128,568 @@ export function isValidConversationAttachmentPath({
   );
 }
 
+export const MAX_CONVERSATION_DOCUMENT_BYTES =
+  10 * 1024 * 1024;
+
+const ALLOWED_DOCUMENT_MIME_TYPES = [
+  'application/pdf',
+  'text/plain',
+  'text/csv',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+] as const;
+
+type AllowedDocumentMimeType =
+  (typeof ALLOWED_DOCUMENT_MIME_TYPES)[number];
+
+const DOCUMENT_MIME_EXTENSIONS:
+  Record<AllowedDocumentMimeType, string> = {
+    'application/pdf':
+      'pdf',
+    'text/plain':
+      'txt',
+    'text/csv':
+      'csv',
+    'application/msword':
+      'doc',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+      'docx',
+    'application/vnd.ms-excel':
+      'xls',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+      'xlsx',
+  };
+
+const DOCUMENT_EXTENSION_MIME_TYPES:
+  Record<string, AllowedDocumentMimeType> = {
+    pdf: 'application/pdf',
+    txt: 'text/plain',
+    csv: 'text/csv',
+    doc: 'application/msword',
+    docx:
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xls: 'application/vnd.ms-excel',
+    xlsx:
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  };
+
+export const DOCUMENT_PICKER_MIME_TYPES:
+  AllowedDocumentMimeType[] = [
+    ...ALLOWED_DOCUMENT_MIME_TYPES,
+  ];
+
+export type ConversationDocumentUploadInput = {
+  conversationId: string;
+  userId: string;
+  localUri: string;
+  mimeType: string;
+  originalFileName: string;
+  byteSize?: number;
+};
+
+export type ConversationDocumentUploadResult = {
+  objectPath: string;
+  mimeType: AllowedDocumentMimeType;
+  byteSize: number;
+  fileName: string;
+  extension: string;
+};
+
+export function isAllowedDocumentMimeType(
+  mimeType: string,
+): mimeType is AllowedDocumentMimeType {
+  return (
+    ALLOWED_DOCUMENT_MIME_TYPES as readonly string[]
+  ).includes(
+    mimeType.toLowerCase(),
+  );
+}
+
+export function resolveDocumentMimeType({
+  mimeType,
+  originalFileName,
+}: {
+  mimeType?:
+    string;
+  originalFileName:
+    string;
+}): AllowedDocumentMimeType | null {
+  const normalizedMime =
+    mimeType
+      ?.trim()
+      .toLowerCase() ??
+    '';
+
+  if (
+    normalizedMime.length >
+    0
+  ) {
+    if (
+      isAllowedDocumentMimeType(
+        normalizedMime,
+      )
+    ) {
+      return normalizedMime;
+    }
+
+    return null;
+  }
+
+  const extension =
+    getDisplayFileExtension(
+      originalFileName,
+    );
+
+  return (
+    DOCUMENT_EXTENSION_MIME_TYPES[
+      extension
+    ] ??
+    null
+  );
+}
+
+export function getDocumentExtensionForMimeType(
+  mimeType: AllowedDocumentMimeType,
+): string {
+  return DOCUMENT_MIME_EXTENSIONS[
+    mimeType
+  ];
+}
+
+export function getDocumentTypeLabel(
+  mimeType?:
+    string,
+  extension?:
+    string,
+): string {
+  const normalizedMime =
+    mimeType
+      ?.toLowerCase() ??
+    '';
+
+  if (
+    isAllowedDocumentMimeType(
+      normalizedMime,
+    )
+  ) {
+    return getDocumentExtensionForMimeType(
+      normalizedMime,
+    ).toUpperCase();
+  }
+
+  const normalizedExtension =
+    extension
+      ?.replace('.', '')
+      .toLowerCase() ??
+    '';
+
+  if (
+    normalizedExtension in
+    DOCUMENT_EXTENSION_MIME_TYPES
+  ) {
+    return normalizedExtension.toUpperCase();
+  }
+
+  return 'FILE';
+}
+
+export function formatAttachmentByteSize(
+  byteSize?:
+    number,
+): string {
+  if (
+    !byteSize ||
+    byteSize <=
+      0
+  ) {
+    return '';
+  }
+
+  if (
+    byteSize <
+    1024
+  ) {
+    return `${byteSize} B`;
+  }
+
+  if (
+    byteSize <
+    1024 *
+      1024
+  ) {
+    return `${Math.round(byteSize / 1024)} KB`;
+  }
+
+  return `${(byteSize / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export function sanitizeDisplayFileName(
+  originalFileName: string,
+): string {
+  const decodedFileName =
+    decodePercentEncodedFileName(
+      originalFileName,
+    );
+
+  const withoutPath =
+    decodedFileName
+      .replace(
+        /\\/g,
+        '/',
+      )
+      .split(
+        '/',
+      )
+      .pop() ??
+    '';
+
+  const withoutControl =
+    withoutPath.replace(
+      /[\u0000-\u001F\u007F]/g,
+      '',
+    );
+
+  const withoutTraversal =
+    withoutControl.replace(
+      /\.\.+/g,
+      '.',
+    );
+
+  const collapsed =
+    withoutTraversal
+      .replace(
+        /\s+/g,
+        ' ',
+      )
+      .trim();
+
+  if (
+    collapsed.length ===
+      0 ||
+    collapsed ===
+      '.'
+  ) {
+    return 'Document';
+  }
+
+  return collapsed.slice(
+    0,
+    80,
+  );
+}
+
+export async function uploadConversationDocument(
+  input: ConversationDocumentUploadInput,
+): Promise<ConversationDocumentUploadResult | null> {
+  const mimeType =
+    resolveDocumentMimeType({
+      mimeType:
+        input.mimeType,
+      originalFileName:
+        input.originalFileName,
+    });
+
+  if (!mimeType) {
+    console.warn(
+      '[Direct Gain] Document upload rejected: unsupported MIME type.',
+    );
+
+    return null;
+  }
+
+  if (
+    !isSafeOriginalFileName(
+      input.originalFileName,
+    )
+  ) {
+    console.warn(
+      '[Direct Gain] Document upload rejected: unsafe filename.',
+    );
+
+    return null;
+  }
+
+  if (
+    !isSafeLocalAttachmentUri(
+      input.localUri,
+    )
+  ) {
+    console.warn(
+      '[Direct Gain] Document upload rejected: unexpected file path.',
+    );
+
+    return null;
+  }
+
+  const fileName =
+    sanitizeDisplayFileName(
+      input.originalFileName,
+    );
+
+  let cachedFile:
+    File;
+
+  try {
+    cachedFile =
+      new File(
+        input.localUri,
+      );
+  } catch (
+    error
+  ) {
+    console.warn(
+      '[Direct Gain] Document upload rejected: invalid local file.',
+      error instanceof
+        Error
+        ? error.message
+        : error,
+    );
+
+    return null;
+  }
+
+  if (
+    !cachedFile.exists
+  ) {
+    console.warn(
+      '[Direct Gain] Document upload rejected: cached file is missing.',
+    );
+
+    return null;
+  }
+
+  const byteSize =
+    input.byteSize &&
+    input.byteSize >
+      0
+      ? input.byteSize
+      : cachedFile.size;
+
+  if (
+    byteSize >
+    MAX_CONVERSATION_DOCUMENT_BYTES
+  ) {
+    console.warn(
+      '[Direct Gain] Document upload rejected: file too large.',
+    );
+
+    return null;
+  }
+
+  const extension =
+    getDocumentExtensionForMimeType(
+      mimeType,
+    );
+
+  const objectPath =
+    `${input.conversationId}/${input.userId}/${createAttachmentUniqueId()}.${extension}`;
+
+  let fileBody:
+    Uint8Array;
+
+  try {
+    fileBody =
+      await cachedFile.bytes();
+  } catch (
+    error
+  ) {
+    console.warn(
+      '[Direct Gain] Document upload rejected: unable to read file bytes.',
+      error instanceof
+        Error
+        ? error.message
+        : error,
+    );
+
+    return null;
+  }
+
+  const {
+    error,
+  } = await supabase.storage
+    .from(
+      CONVERSATION_ATTACHMENTS_BUCKET,
+    )
+    .upload(
+      objectPath,
+      fileBody,
+      {
+        contentType:
+          mimeType,
+        upsert:
+          false,
+        cacheControl:
+          '3600',
+      },
+    );
+
+  if (error) {
+    console.warn(
+      '[Direct Gain] Unable to upload conversation document:',
+      error.message,
+    );
+
+    return null;
+  }
+
+  return {
+    objectPath,
+    mimeType,
+    byteSize,
+    fileName,
+    extension,
+  };
+}
+
+function decodePercentEncodedFileName(
+  value: string,
+): string {
+  try {
+    return decodeURIComponent(
+      value,
+    );
+  } catch {
+    return value;
+  }
+}
+
+export function isSafeOriginalFileName(
+  originalFileName: string,
+): boolean {
+  const decodedFileName =
+    decodePercentEncodedFileName(
+      originalFileName,
+    );
+
+  if (
+    originalFileName.length ===
+      0 ||
+    originalFileName.length >
+      255 ||
+    decodedFileName.length ===
+      0 ||
+    decodedFileName.length >
+      255
+  ) {
+    return false;
+  }
+
+  if (
+    /[\u0000-\u001F\u007F]/.test(
+      decodedFileName,
+    )
+  ) {
+    return false;
+  }
+
+  const segments =
+    decodedFileName
+      .replace(
+        /\\/g,
+        '/',
+      )
+      .split(
+        '/',
+      );
+
+  if (
+    segments.some(
+      segment =>
+        segment ===
+          '.' ||
+        segment ===
+          '..',
+    )
+  ) {
+    return false;
+  }
+
+  const basename =
+    segments[
+      segments.length -
+        1
+    ]?.trim() ??
+    '';
+
+  return basename.length >
+    0;
+}
+
+export function isSafeLocalAttachmentUri(
+  uri: string,
+): boolean {
+  const trimmed =
+    uri.trim();
+
+  if (
+    trimmed.length ===
+      0 ||
+    trimmed.includes(
+      '..',
+    ) ||
+    /[\u0000-\u001F\u007F]/.test(
+      trimmed,
+    )
+  ) {
+    return false;
+  }
+
+  const schemeMatch =
+    trimmed.match(
+      /^([a-zA-Z][a-zA-Z0-9+.-]*):/,
+    );
+
+  if (
+    !schemeMatch
+  ) {
+    return trimmed.startsWith(
+      '/',
+    );
+  }
+
+  const scheme =
+    schemeMatch[1].toLowerCase();
+
+  return (
+    scheme ===
+      'file' ||
+    scheme ===
+      'content'
+  );
+}
+
+function getDisplayFileExtension(
+  originalFileName: string,
+): string {
+  const sanitized =
+    sanitizeDisplayFileName(
+      originalFileName,
+    );
+
+  const parts =
+    sanitized.split(
+      '.',
+    );
+
+  if (
+    parts.length <
+    2
+  ) {
+    return '';
+  }
+
+  return parts[
+    parts.length -
+      1
+  ]!.toLowerCase();
+}
+
+function createAttachmentUniqueId(): string {
+  return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export function createConversationImageObjectPath({
   conversationId,
   userId,
@@ -135,10 +699,7 @@ export function createConversationImageObjectPath({
   userId: string;
   mimeType: AllowedImageMimeType;
 }): string {
-  const uniqueId =
-    `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
-
-  return `${conversationId}/${userId}/${uniqueId}.${getImageExtensionForMimeType(mimeType)}`;
+  return `${conversationId}/${userId}/${createAttachmentUniqueId()}.${getImageExtensionForMimeType(mimeType)}`;
 }
 
 export async function uploadConversationImage(

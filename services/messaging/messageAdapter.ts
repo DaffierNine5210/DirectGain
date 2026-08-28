@@ -2,6 +2,10 @@ import type {
   ChatMessage,
 } from '../../types/Messaging';
 
+import {
+  sanitizeDisplayFileName,
+} from './conversationAttachmentStorage';
+
 import type {
   SupabaseMessageRecord,
 } from './messageRepository';
@@ -14,6 +18,11 @@ export function supabaseMessageToChatMessage(
   message: SupabaseMessageRecord,
   options: MessageAdapterOptions,
 ): ChatMessage {
+  const fileAttachment =
+    getFileAttachmentMetadata(
+      message,
+    );
+
   return {
     id:
       message.id,
@@ -39,6 +48,18 @@ export function supabaseMessageToChatMessage(
     attachmentPath:
       message.attachment_url ??
       undefined,
+
+    fileName:
+      fileAttachment.fileName,
+
+    fileMimeType:
+      fileAttachment.mimeType,
+
+    fileByteSize:
+      fileAttachment.byteSize,
+
+    fileExtension:
+      fileAttachment.extension,
 
     createdAt:
       formatMessageTime(
@@ -85,7 +106,7 @@ function mapMessageType(
       return 'system';
 
     case 'file':
-      return 'system';
+      return 'file';
 
     case 'text':
     default:
@@ -154,6 +175,107 @@ export function getInboxMessagePreview(
     default:
       return 'New message';
   }
+}
+
+function getFileAttachmentMetadata(
+  message: SupabaseMessageRecord,
+): {
+  fileName?: string;
+  mimeType?: string;
+  byteSize?: number;
+  extension?: string;
+} {
+  if (
+    message.message_type !==
+    'file'
+  ) {
+    return {};
+  }
+
+  const metadata =
+    message.metadata ??
+    {};
+
+  const fileName =
+    readMetadataString(
+      metadata,
+      'fileName',
+    );
+
+  const mimeType =
+    readMetadataString(
+      metadata,
+      'mimeType',
+    );
+
+  const extension =
+    readMetadataString(
+      metadata,
+      'extension',
+    );
+
+  const byteSize =
+    readMetadataNumber(
+      metadata,
+      'byteSize',
+    );
+
+  return {
+    fileName:
+      fileName
+        ? sanitizeDisplayFileName(
+            fileName,
+          )
+        : undefined,
+    mimeType,
+    byteSize,
+    extension,
+  };
+}
+
+function readMetadataString(
+  metadata: Record<string, unknown>,
+  key: string,
+): string | undefined {
+  const value =
+    metadata[key];
+
+  if (
+    typeof value !==
+    'string'
+  ) {
+    return undefined;
+  }
+
+  const trimmed =
+    value.trim();
+
+  return trimmed.length >
+    0
+    ? trimmed
+    : undefined;
+}
+
+function readMetadataNumber(
+  metadata: Record<string, unknown>,
+  key: string,
+): number | undefined {
+  const value =
+    metadata[key];
+
+  if (
+    typeof value ===
+      'number' &&
+    Number.isFinite(
+      value,
+    ) &&
+    value >=
+      0
+  ) {
+    return value;
+  }
+
+  return undefined;
 }
 
 function getMetadataPreviewKind(

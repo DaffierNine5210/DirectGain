@@ -433,7 +433,9 @@ export async function sendConversationMessage(
 
   if (
     messageType ===
-    'image'
+      'image' ||
+    messageType ===
+      'file'
   ) {
     const objectPath =
       input.attachmentUrl
@@ -450,14 +452,12 @@ export async function sendConversationMessage(
       })
     ) {
       console.warn(
-        '[Direct Gain] SEND STEP 3 FAILED: Image Storage path is not valid for this sender.',
+        '[Direct Gain] SEND STEP 3 FAILED: Attachment Storage path is not valid for this sender.',
       );
 
       return null;
     }
   } else if (
-    messageType !==
-      'file' &&
     messageType !==
       'location' &&
     cleanBody.length ===

@@ -21,6 +21,7 @@ export type MessageSender =
 export type MessageKind =
   | 'text'
   | 'image'
+  | 'file'
   | 'offer'
   | 'location'
   | 'system';
@@ -78,6 +79,18 @@ export type ChatMessage = {
     ImageSourcePropType;
 
   attachmentPath?:
+    string;
+
+  fileName?:
+    string;
+
+  fileMimeType?:
+    string;
+
+  fileByteSize?:
+    number;
+
+  fileExtension?:
     string;
 
   createdAt: string;
