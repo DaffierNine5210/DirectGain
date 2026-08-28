@@ -21,6 +21,14 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Direct Gain uses your photo library so you can send pictures in messages."
+        }
+      ]
+    ]
   }
 }

@@ -4,6 +4,10 @@ import {
   getCurrentMessagingUser,
 } from './currentMessagingUser';
 
+import {
+  isValidConversationAttachmentPath,
+} from './conversationAttachmentStorage';
+
 export type SupabaseMessageType =
   | 'text'
   | 'image'
@@ -414,16 +418,47 @@ export async function sendConversationMessage(
    * STEP 3
    *
    * Validate the message.
+   *
+   * Text still requires a body.
+   * Image messages may have an
+   * empty caption but must include
+   * a Storage object path.
    */
   const cleanBody =
     input.body.trim();
 
+  const messageType =
+    input.messageType ??
+    'text';
+
   if (
-    input.messageType !==
-      'image' &&
-    input.messageType !==
+    messageType ===
+    'image'
+  ) {
+    const objectPath =
+      input.attachmentUrl
+        ?.trim() ??
+      '';
+
+    if (
+      !isValidConversationAttachmentPath({
+        objectPath,
+        conversationId:
+          input.conversationId,
+        userId:
+          currentUser.userId,
+      })
+    ) {
+      console.warn(
+        '[Direct Gain] SEND STEP 3 FAILED: Image Storage path is not valid for this sender.',
+      );
+
+      return null;
+    }
+  } else if (
+    messageType !==
       'file' &&
-    input.messageType !==
+    messageType !==
       'location' &&
     cleanBody.length ===
       0
@@ -456,8 +491,7 @@ export async function sendConversationMessage(
       currentUser.userId,
 
     message_type:
-      input.messageType ??
-      'text',
+      messageType,
 
     body:
       cleanBody.length >

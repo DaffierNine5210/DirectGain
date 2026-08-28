@@ -29,6 +29,8 @@ import ChatInput from '../components/messaging/ChatInput';
 import ConversationHeader from '../components/messaging/ConversationHeader';
 import MessageBubble from '../components/messaging/MessageBubble';
 
+import * as ImagePicker from 'expo-image-picker';
+
 import CompletedDealAgreementCard from '../components/messaging/deals/CompletedDealAgreementCard';
 import DealAgreementCard from '../components/messaging/deals/DealAgreementCard';
 
@@ -76,6 +78,13 @@ import {
   getConversationMessages,
   sendConversationMessage,
 } from '../services/messaging/messageRepository';
+
+import {
+  MAX_CONVERSATION_IMAGE_BYTES,
+  estimateBase64ByteSize,
+  isAllowedImageMimeType,
+  uploadConversationImage,
+} from '../services/messaging/conversationAttachmentStorage';
 
 import {
   getOtherParticipantReadState,
@@ -1580,10 +1589,384 @@ useFocusEffect(
   }
 
   function handlePhotoPress() {
-    Alert.alert(
-      'Photo',
+    void sendConversationPhoto();
+  }
 
-      'Photo sharing will be connected later.',
+  async function sendConversationPhoto() {
+    if (
+      !isSupabaseConversation
+    ) {
+      Alert.alert(
+        'Photo',
+        'Photo sharing is available in live Direct Gain conversations.',
+      );
+
+      return;
+    }
+
+    const userId =
+      currentSupabaseUserId;
+
+    if (
+      !userId
+    ) {
+      Alert.alert(
+        'Unable to send',
+        'Your account session is still loading. Please try again.',
+      );
+
+      return;
+    }
+
+    const permission =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (
+      !permission.granted
+    ) {
+      Alert.alert(
+        'Photo access needed',
+        'Direct Gain needs access to your photo library so you can send pictures in messages.',
+      );
+
+      return;
+    }
+
+    let pickerResult:
+      ImagePicker.ImagePickerResult;
+
+    try {
+      pickerResult =
+        await ImagePicker.launchImageLibraryAsync({
+          mediaTypes:
+            [
+              'images',
+            ],
+          allowsMultipleSelection:
+            false,
+          quality:
+            0.75,
+          base64:
+            true,
+        });
+    } catch (
+      error
+    ) {
+      console.warn(
+        '[Direct Gain] Unable to open the photo library:',
+        error,
+      );
+
+      Alert.alert(
+        'Unable to open photos',
+        'Something went wrong while opening your photo library. Please try again.',
+      );
+
+      return;
+    }
+
+    if (
+      pickerResult.canceled ||
+      pickerResult.assets.length ===
+        0
+    ) {
+      return;
+    }
+
+    const asset =
+      pickerResult.assets[0];
+
+    const mimeType =
+      (
+        asset.mimeType ??
+        ''
+      ).toLowerCase();
+
+    if (
+      !isAllowedImageMimeType(
+        mimeType,
+      )
+    ) {
+      Alert.alert(
+        'Unsupported photo',
+        'Direct Gain currently supports JPEG, PNG, WebP and HEIC photos.',
+      );
+
+      return;
+    }
+
+    if (
+      !asset.base64
+    ) {
+      Alert.alert(
+        'Unable to send photo',
+        'Direct Gain could not read that photo. Please choose a different image.',
+      );
+
+      return;
+    }
+
+    const byteSize =
+      asset.fileSize &&
+      asset.fileSize >
+        0
+        ? asset.fileSize
+        : estimateBase64ByteSize(
+            asset.base64,
+          );
+
+    if (
+      byteSize >
+      MAX_CONVERSATION_IMAGE_BYTES
+    ) {
+      Alert.alert(
+        'Photo too large',
+        'Please choose a photo smaller than 5 MB.',
+      );
+
+      return;
+    }
+
+    const clientMessageId =
+      `client-message-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`;
+
+    const optimisticMessage:
+      ChatMessage = {
+      id:
+        clientMessageId,
+
+      conversationId,
+
+      sender:
+        'current-user',
+
+      kind:
+        'image',
+
+      image: {
+        uri:
+          asset.uri,
+      },
+
+      createdAt:
+        'Now',
+
+      status:
+        'sending',
+    };
+
+    setConversation(
+      current => ({
+        ...current,
+
+        messages: [
+          ...current.messages,
+          optimisticMessage,
+        ],
+      }),
+    );
+
+    setTimeline(
+      current => [
+        ...current,
+
+        createMessageTimelineItem(
+          optimisticMessage,
+        ),
+      ],
+    );
+
+    scrollToBottom();
+
+    const uploaded =
+      await uploadConversationImage({
+        conversationId,
+        userId,
+        base64:
+          asset.base64,
+        mimeType,
+        byteSize,
+      });
+
+    if (
+      !uploaded
+    ) {
+      removeOptimisticMessage(
+        clientMessageId,
+      );
+
+      Alert.alert(
+        'Photo not sent',
+        'Direct Gain could not upload that photo. Please try again.',
+      );
+
+      return;
+    }
+
+    const storedMessage =
+      await sendConversationMessage({
+        conversationId,
+
+        body:
+          '',
+
+        messageType:
+          'image',
+
+        attachmentUrl:
+          uploaded.objectPath,
+
+        metadata: {
+          client_message_id:
+            clientMessageId,
+
+          mimeType:
+            uploaded.mimeType,
+
+          byteSize:
+            uploaded.byteSize,
+
+          width:
+            asset.width,
+
+          height:
+            asset.height,
+        },
+      });
+
+    if (
+      !storedMessage
+    ) {
+      removeOptimisticMessage(
+        clientMessageId,
+      );
+
+      Alert.alert(
+        'Photo not sent',
+        'The photo uploaded, but Direct Gain could not save the message. Please try again.',
+      );
+
+      return;
+    }
+
+    const confirmedMessage:
+      ChatMessage = {
+      ...supabaseMessageToChatMessage(
+        storedMessage,
+        {
+          currentUserId:
+            userId,
+        },
+      ),
+
+      status:
+        'delivered',
+
+      image: {
+        uri:
+          asset.uri,
+      },
+    };
+
+    setConversation(
+      current => {
+        const realAlreadyExists =
+          current.messages.some(
+            message =>
+              message.id ===
+              confirmedMessage.id,
+          );
+
+        if (
+          realAlreadyExists
+        ) {
+          return {
+            ...current,
+
+            messages:
+              current.messages.filter(
+                message =>
+                  message.id !==
+                  clientMessageId,
+              ),
+          };
+        }
+
+        return {
+          ...current,
+
+          messages:
+            current.messages.map(
+              message =>
+                message.id ===
+                clientMessageId
+                  ? confirmedMessage
+                  : message,
+            ),
+        };
+      },
+    );
+
+    setTimeline(
+      current =>
+        current.map(
+          item => {
+            if (
+              item.type ===
+                'message' &&
+              item.message.id ===
+                clientMessageId
+            ) {
+              return createMessageTimelineItem(
+                confirmedMessage,
+              );
+            }
+
+            return item;
+          },
+        ),
+    );
+
+    if (
+      otherParticipantUserId
+    ) {
+      void applyReadReceipts(
+        userId,
+        otherParticipantUserId,
+      );
+    }
+  }
+
+  function removeOptimisticMessage(
+    clientMessageId:
+      string,
+  ) {
+    setConversation(
+      current => ({
+        ...current,
+
+        messages:
+          current.messages.filter(
+            message =>
+              message.id !==
+              clientMessageId,
+          ),
+      }),
+    );
+
+    setTimeline(
+      current =>
+        current.filter(
+          item =>
+            !(
+              item.type ===
+                'message' &&
+              item.message.id ===
+                clientMessageId
+            ),
+        ),
     );
   }
 

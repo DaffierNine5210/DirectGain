@@ -77,6 +77,9 @@ export type ChatMessage = {
   image?:
     ImageSourcePropType;
 
+  attachmentPath?:
+    string;
+
   createdAt: string;
 
   status?:

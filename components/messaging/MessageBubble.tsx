@@ -1,5 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
+  useEffect,
+  useState,
+} from 'react';
+import {
   Image,
   Pressable,
   StyleSheet,
@@ -9,6 +13,9 @@ import {
 
 import { colors } from '../../theme/colors';
 import type { ChatMessage } from '../../types/Messaging';
+import {
+  createConversationAttachmentSignedUrl,
+} from '../../services/messaging/conversationAttachmentStorage';
 
 type Props = {
   message: ChatMessage;
@@ -213,14 +220,10 @@ export default function MessageBubble({
           ]}
         >
           {message.kind ===
-            'image' &&
-          message.image ? (
-            <Image
-              source={
-                message.image
-              }
-              style={
-                styles.messageImage
+          'image' ? (
+            <ConversationImage
+              message={
+                message
               }
             />
           ) : null}
@@ -366,6 +369,175 @@ export default function MessageBubble({
   );
 }
 
+function ConversationImage({
+  message,
+}: {
+  message: ChatMessage;
+}) {
+  const [
+    signedUrl,
+    setSignedUrl,
+  ] =
+    useState<
+      string | null
+    >(
+      null,
+    );
+
+  const [
+    isUnavailable,
+    setIsUnavailable,
+  ] =
+    useState(
+      false,
+    );
+
+  const localImage =
+    message.image;
+
+  const attachmentPath =
+    message.attachmentPath;
+
+  useEffect(
+    () => {
+      let cancelled =
+        false;
+
+      if (
+        localImage ||
+        !attachmentPath
+      ) {
+        setSignedUrl(
+          null,
+        );
+
+        setIsUnavailable(
+          false,
+        );
+
+        return () => {
+          cancelled =
+            true;
+        };
+      }
+
+      async function loadSignedUrl() {
+        if (
+          !attachmentPath
+        ) {
+          return;
+        }
+
+        const url =
+          await createConversationAttachmentSignedUrl(
+            attachmentPath,
+          );
+
+        if (
+          cancelled
+        ) {
+          return;
+        }
+
+        if (!url) {
+          setIsUnavailable(
+            true,
+          );
+
+          setSignedUrl(
+            null,
+          );
+
+          return;
+        }
+
+        setIsUnavailable(
+          false,
+        );
+
+        setSignedUrl(
+          url,
+        );
+      }
+
+      void loadSignedUrl();
+
+      return () => {
+        cancelled =
+          true;
+      };
+    },
+
+    [
+      attachmentPath,
+      localImage,
+    ],
+  );
+
+  if (
+    localImage
+  ) {
+    return (
+      <Image
+        source={
+          localImage
+        }
+        style={
+          styles.messageImage
+        }
+      />
+    );
+  }
+
+  if (
+    signedUrl
+  ) {
+    return (
+      <Image
+        source={{
+          uri:
+            signedUrl,
+        }}
+        style={
+          styles.messageImage
+        }
+        onError={() => {
+          setIsUnavailable(
+            true,
+          );
+        }}
+      />
+    );
+  }
+
+  return (
+    <View
+      style={[
+        styles.messageImage,
+        styles.imagePlaceholder,
+      ]}
+    >
+      <Ionicons
+        name="image-outline"
+        size={22}
+        color={
+          colors.primary
+        }
+      />
+
+      <Text
+        style={
+          styles.imagePlaceholderText
+        }
+      >
+        {isUnavailable
+          ? 'Photo unavailable'
+          : 'Photo'}
+      </Text>
+    </View>
+  );
+}
+
 const styles =
   StyleSheet.create({
     messageRow: {
@@ -480,6 +652,27 @@ const styles =
 
       backgroundColor:
         '#182019',
+    },
+
+    imagePlaceholder: {
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+      gap: 8,
+    },
+
+    imagePlaceholderText: {
+      color:
+        colors.primary,
+
+      fontSize:
+        12,
+
+      fontWeight:
+        '800',
     },
 
     specialHeader: {

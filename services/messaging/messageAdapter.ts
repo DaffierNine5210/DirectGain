@@ -36,6 +36,10 @@ export function supabaseMessageToChatMessage(
       message.body ??
       undefined,
 
+    attachmentPath:
+      message.attachment_url ??
+      undefined,
+
     createdAt:
       formatMessageTime(
         message.created_at,
