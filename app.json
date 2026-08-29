@@ -39,6 +39,15 @@
           "isAndroidBackgroundLocationEnabled": false,
           "isAndroidForegroundServiceEnabled": false
         }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Direct Gain uses the microphone only when you record a voice message in a conversation.",
+          "recordAudioAndroid": true,
+          "enableBackgroundRecording": false,
+          "enableBackgroundPlayback": false
+        }
       ]
     ]
   }

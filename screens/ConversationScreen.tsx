@@ -12,6 +12,7 @@ import {
 } from 'react';
 
 import {
+  AppState,
   Alert,
   Image,
   KeyboardAvoidingView,
@@ -26,11 +27,24 @@ import {
   View,
 } from 'react-native';
 
-import ChatInput from '../components/messaging/ChatInput';
+import ChatInput, {
+  type VoiceComposerMode,
+} from '../components/messaging/ChatInput';
 import ConversationHeader from '../components/messaging/ConversationHeader';
 import LocationShareConfirmModal from '../components/messaging/LocationShareConfirmModal';
 import MessageBubble from '../components/messaging/MessageBubble';
 
+import {
+  createAudioPlayer,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  useAudioRecorder,
+  useAudioRecorderState,
+  type AudioPlayer,
+} from 'expo-audio';
+import {
+  File,
+} from 'expo-file-system';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -95,7 +109,17 @@ import {
   sanitizeDisplayFileName,
   uploadConversationDocument,
   uploadConversationImage,
+  uploadConversationAudio,
 } from '../services/messaging/conversationAttachmentStorage';
+
+import {
+  CONVERSATION_AUDIO_MIME_TYPE,
+  MAX_CONVERSATION_AUDIO_DURATION_MS,
+  MIN_CONVERSATION_AUDIO_DURATION_MS,
+  VOICE_RECORDING_OPTIONS,
+  deleteLocalRecordingFile,
+  isValidAudioDurationMs,
+} from '../services/messaging/conversationAudio';
 
 import {
   LOCATION_TYPE_CURRENT,
@@ -196,6 +220,46 @@ export default function ConversationScreen({
   const locationShareRequestIdRef =
     useRef(
       0,
+    );
+
+  const voicePlayerRef =
+    useRef<AudioPlayer | null>(
+      null,
+    );
+
+  const voicePreviewUriRef =
+    useRef<
+      string | null
+    >(
+      null,
+    );
+
+  const voiceFinishingRef =
+    useRef(
+      false,
+    );
+
+  const voiceCancellingRef =
+    useRef(
+      false,
+    );
+
+  const cancelVoiceComposerRef =
+    useRef<
+      (() => Promise<void>) | null
+    >(
+      null,
+    );
+
+  const voiceRecorder =
+    useAudioRecorder(
+      VOICE_RECORDING_OPTIONS,
+    );
+
+  const voiceRecorderState =
+    useAudioRecorderState(
+      voiceRecorder,
+      250,
     );
 
   const entryIntent =
@@ -374,6 +438,58 @@ export default function ConversationScreen({
       ConversationLocationShareDraft | null
     >(
       null,
+    );
+
+  const [
+    voiceMode,
+    setVoiceMode,
+  ] =
+    useState<
+      VoiceComposerMode
+    >(
+      'compose',
+    );
+
+  const voiceModeRef =
+    useRef(
+      voiceMode,
+    );
+
+  voiceModeRef.current =
+    voiceMode;
+
+  const [
+    voicePreviewDurationMs,
+    setVoicePreviewDurationMs,
+  ] =
+    useState(
+      0,
+    );
+
+  const [
+    isVoicePreviewPlaying,
+    setIsVoicePreviewPlaying,
+  ] =
+    useState(
+      false,
+    );
+
+  const [
+    playingVoiceMessageId,
+    setPlayingVoiceMessageId,
+  ] =
+    useState<
+      string | null
+    >(
+      null,
+    );
+
+  const [
+    voicePlaybackProgress,
+    setVoicePlaybackProgress,
+  ] =
+    useState(
+      0,
     );
 
   const [
@@ -620,6 +736,24 @@ useFocusEffect(
 
       return () => {
         showTabBar();
+        voicePlayerRef.current?.pause();
+        setPlayingVoiceMessageId(
+          null,
+        );
+        setIsVoicePreviewPlaying(
+          false,
+        );
+
+        if (
+          voiceModeRef.current ===
+          'recording'
+        ) {
+          void cancelVoiceComposerRef.current?.()?.catch(
+            () => {
+              // Native recorder may already be released on unmount.
+            },
+          );
+        }
       };
     },
     [
@@ -633,6 +767,116 @@ useFocusEffect(
     ],
   ),
 );
+
+  useEffect(
+    () => {
+      const player =
+        createAudioPlayer(
+          null,
+          {
+            updateInterval:
+              200,
+          },
+        );
+
+      voicePlayerRef.current =
+        player;
+
+      const subscription =
+        player.addListener(
+          'playbackStatusUpdate',
+          status => {
+            if (
+              status.duration >
+              0
+            ) {
+              setVoicePlaybackProgress(
+                Math.min(
+                  1,
+                  status.currentTime /
+                    status.duration,
+                ),
+              );
+            }
+
+            if (
+              status.didJustFinish
+            ) {
+              setPlayingVoiceMessageId(
+                null,
+              );
+
+              setIsVoicePreviewPlaying(
+                false,
+              );
+
+              setVoicePlaybackProgress(
+                0,
+              );
+            }
+          },
+        );
+
+      const appStateSubscription =
+        AppState.addEventListener(
+          'change',
+          nextState => {
+            if (
+              nextState !==
+              'active'
+            ) {
+              player.pause();
+              setPlayingVoiceMessageId(
+                null,
+              );
+              setIsVoicePreviewPlaying(
+                false,
+              );
+
+              if (
+                voiceModeRef.current ===
+                'recording'
+              ) {
+                void cancelVoiceComposerRef.current?.()?.catch(
+                  () => {
+                    // Native recorder may already be released on unmount.
+                  },
+                );
+              }
+            }
+          },
+        );
+
+      return () => {
+        subscription.remove();
+        appStateSubscription.remove();
+        player.pause();
+        player.remove();
+        voicePlayerRef.current =
+          null;
+      };
+    },
+
+    [],
+  );
+
+  useEffect(
+    () => {
+      if (
+        voiceMode ===
+          'recording' &&
+        voiceRecorderState.durationMillis >=
+          MAX_CONVERSATION_AUDIO_DURATION_MS
+      ) {
+        void finishVoiceRecording();
+      }
+    },
+
+    [
+      voiceMode,
+      voiceRecorderState.durationMillis,
+    ],
+  );
   
 
   /*
@@ -2376,6 +2620,694 @@ useFocusEffect(
     }
   }
 
+  async function stopVoicePlayback() {
+    const player =
+      voicePlayerRef.current;
+
+    if (
+      player
+    ) {
+      player.pause();
+    }
+
+    setPlayingVoiceMessageId(
+      null,
+    );
+
+    setIsVoicePreviewPlaying(
+      false,
+    );
+
+    setVoicePlaybackProgress(
+      0,
+    );
+  }
+
+  async function handleVoicePress() {
+    if (
+      !isSupabaseConversation
+    ) {
+      Alert.alert(
+        'Voice message',
+        'Voice messages are available in live Direct Gain conversations.',
+      );
+
+      return;
+    }
+
+    await stopVoicePlayback();
+
+    const permission =
+      await requestRecordingPermissionsAsync();
+
+    if (
+      !permission.granted
+    ) {
+      Alert.alert(
+        'Microphone permission needed',
+        'Direct Gain can record a voice message only after you allow microphone access.',
+      );
+
+      return;
+    }
+
+    try {
+      await setAudioModeAsync({
+        allowsRecording:
+          true,
+        playsInSilentMode:
+          true,
+        shouldPlayInBackground:
+          false,
+        allowsBackgroundRecording:
+          false,
+      });
+
+      await voiceRecorder.prepareToRecordAsync();
+
+      voiceFinishingRef.current =
+        false;
+
+      setVoiceMode(
+        'recording',
+      );
+
+      voiceRecorder.record({
+        forDuration:
+          MAX_CONVERSATION_AUDIO_DURATION_MS /
+          1000,
+      });
+    } catch (
+      error
+    ) {
+      console.warn(
+        '[Direct Gain] Unable to start voice recording:',
+        error,
+      );
+
+      setVoiceMode(
+        'compose',
+      );
+
+      Alert.alert(
+        'Unable to record',
+        'Direct Gain could not start a voice recording. Please try again.',
+      );
+    }
+  }
+
+  async function finishVoiceRecording() {
+    if (
+      voiceMode !==
+        'recording' ||
+      voiceFinishingRef.current
+    ) {
+      return;
+    }
+
+    voiceFinishingRef.current =
+      true;
+
+    try {
+      if (
+        voiceRecorder.isRecording
+      ) {
+        await voiceRecorder.stop();
+      }
+    } catch (
+      error
+    ) {
+      console.warn(
+        '[Direct Gain] Unable to stop voice recording:',
+        error,
+      );
+    }
+
+    const uri =
+      voiceRecorder.uri;
+
+    const durationMs =
+      Math.min(
+        voiceRecorderState.durationMillis ||
+          Math.round(
+            (voiceRecorder.currentTime ||
+              0) *
+              1000,
+          ),
+        MAX_CONVERSATION_AUDIO_DURATION_MS,
+      );
+
+    if (
+      !uri ||
+      durationMs <
+        MIN_CONVERSATION_AUDIO_DURATION_MS
+    ) {
+      await deleteLocalRecordingFile(
+        uri,
+      );
+
+      setVoiceMode(
+        'compose',
+      );
+
+      if (
+        uri
+      ) {
+        Alert.alert(
+          'Voice message too short',
+          'Hold a little longer, then send your voice message.',
+        );
+      }
+
+      voiceFinishingRef.current =
+        false;
+
+      return;
+    }
+
+    voicePreviewUriRef.current =
+      uri;
+
+    setVoicePreviewDurationMs(
+      durationMs,
+    );
+
+    setVoiceMode(
+      'preview',
+    );
+
+    voiceFinishingRef.current =
+      false;
+
+    try {
+      await setAudioModeAsync({
+        allowsRecording:
+          false,
+        playsInSilentMode:
+          true,
+        shouldPlayInBackground:
+          false,
+        allowsBackgroundRecording:
+          false,
+      });
+    } catch {
+      // Keep the preview even if audio mode reset fails.
+    }
+  }
+
+  async function cancelVoiceComposer() {
+    if (
+      voiceCancellingRef.current
+    ) {
+      return;
+    }
+
+    voiceCancellingRef.current =
+      true;
+
+    voiceModeRef.current =
+      'compose';
+
+    try {
+      try {
+        await voiceRecorder.stop();
+      } catch {
+        // Recorder may already be stopped or released.
+      }
+
+      let localUri:
+        string | null =
+          voicePreviewUriRef.current;
+
+      try {
+        localUri =
+          localUri ??
+          voiceRecorder.uri ??
+          null;
+      } catch {
+        // URI is unavailable after native release.
+      }
+
+      try {
+        await stopVoicePlayback();
+      } catch {
+        // Playback may already be torn down on unmount.
+      }
+
+      await deleteLocalRecordingFile(
+        localUri,
+      );
+
+      voicePreviewUriRef.current =
+        null;
+
+      setVoicePreviewDurationMs(
+        0,
+      );
+
+      setVoiceMode(
+        'compose',
+      );
+
+      voiceFinishingRef.current =
+        false;
+
+      try {
+        await setAudioModeAsync({
+          allowsRecording:
+            false,
+          playsInSilentMode:
+            true,
+          shouldPlayInBackground:
+            false,
+          allowsBackgroundRecording:
+            false,
+        });
+      } catch {
+        // Composer still returns to idle.
+      }
+    } catch {
+      voicePreviewUriRef.current =
+        null;
+
+      setVoicePreviewDurationMs(
+        0,
+      );
+
+      setVoiceMode(
+        'compose',
+      );
+
+      voiceFinishingRef.current =
+        false;
+    } finally {
+      voiceCancellingRef.current =
+        false;
+    }
+  }
+
+  cancelVoiceComposerRef.current =
+    cancelVoiceComposer;
+
+  async function previewLocalVoice() {
+    const uri =
+      voicePreviewUriRef.current;
+
+    const player =
+      voicePlayerRef.current;
+
+    if (
+      !uri ||
+      !player
+    ) {
+      return;
+    }
+
+    if (
+      isVoicePreviewPlaying
+    ) {
+      player.pause();
+      setIsVoicePreviewPlaying(
+        false,
+      );
+
+      return;
+    }
+
+    setPlayingVoiceMessageId(
+      null,
+    );
+
+    player.replace({
+      uri,
+    });
+
+    player.play();
+
+    setIsVoicePreviewPlaying(
+      true,
+    );
+  }
+
+  async function sendConversationVoice() {
+    const localUri =
+      voicePreviewUriRef.current;
+
+    const durationMs =
+      voicePreviewDurationMs;
+
+    const userId =
+      currentSupabaseUserId;
+
+    await stopVoicePlayback();
+
+    if (
+      !localUri ||
+      !userId ||
+      !isValidAudioDurationMs(
+        durationMs,
+      )
+    ) {
+      await cancelVoiceComposer();
+
+      Alert.alert(
+        'Voice message not sent',
+        'That recording could not be sent. Please try again.',
+      );
+
+      return;
+    }
+
+    let byteSize =
+      0;
+
+    try {
+      const recordedFile =
+        new File(
+          localUri,
+        );
+
+      byteSize =
+        recordedFile.size;
+    } catch {
+      byteSize =
+        0;
+    }
+
+    if (
+      byteSize <=
+        0 ||
+      byteSize >
+        10 * 1024 * 1024
+    ) {
+      await cancelVoiceComposer();
+
+      Alert.alert(
+        'Voice message not sent',
+        'That recording is too large to send.',
+      );
+
+      return;
+    }
+
+    const clientMessageId =
+      `client-message-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`;
+
+    const optimisticMessage:
+      ChatMessage = {
+      id:
+        clientMessageId,
+      conversationId,
+      sender:
+        'current-user',
+      kind:
+        'audio',
+      localAudioUri:
+        localUri,
+      durationMs,
+      createdAt:
+        'Now',
+      status:
+        'sending',
+    };
+
+    setConversation(
+      current => ({
+        ...current,
+        messages: [
+          ...current.messages,
+          optimisticMessage,
+        ],
+      }),
+    );
+
+    setTimeline(
+      current => [
+        ...current,
+        createMessageTimelineItem(
+          optimisticMessage,
+        ),
+      ],
+    );
+
+    setVoiceMode(
+      'compose',
+    );
+
+    scrollToBottom();
+
+    const uploaded =
+      await uploadConversationAudio({
+        conversationId,
+        userId,
+        localUri,
+        mimeType:
+          CONVERSATION_AUDIO_MIME_TYPE,
+        byteSize,
+        durationMs,
+      });
+
+    if (
+      !uploaded
+    ) {
+      removeOptimisticMessage(
+        clientMessageId,
+      );
+
+      await deleteLocalRecordingFile(
+        localUri,
+      );
+
+      voicePreviewUriRef.current =
+        null;
+
+      Alert.alert(
+        'Voice message not sent',
+        'Direct Gain could not upload that voice message. Please try again.',
+      );
+
+      return;
+    }
+
+    const storedMessage =
+      await sendConversationMessage({
+        conversationId,
+        body:
+          '',
+        messageType:
+          'audio',
+        attachmentUrl:
+          uploaded.objectPath,
+        metadata: {
+          client_message_id:
+            clientMessageId,
+          mimeType:
+            uploaded.mimeType,
+          byteSize:
+            uploaded.byteSize,
+          durationMs:
+            uploaded.durationMs,
+          extension:
+            uploaded.extension,
+        },
+      });
+
+    await deleteLocalRecordingFile(
+      localUri,
+    );
+
+    voicePreviewUriRef.current =
+      null;
+
+    setVoicePreviewDurationMs(
+      0,
+    );
+
+    if (
+      !storedMessage
+    ) {
+      removeOptimisticMessage(
+        clientMessageId,
+      );
+
+      Alert.alert(
+        'Voice message not sent',
+        'The recording uploaded, but Direct Gain could not save the message. Please try again.',
+      );
+
+      return;
+    }
+
+    const confirmedMessage:
+      ChatMessage = {
+      ...supabaseMessageToChatMessage(
+        storedMessage,
+        {
+          currentUserId:
+            userId,
+        },
+      ),
+      status:
+        'delivered',
+    };
+
+    setConversation(
+      current => {
+        const realAlreadyExists =
+          current.messages.some(
+            message =>
+              message.id ===
+              confirmedMessage.id,
+          );
+
+        if (
+          realAlreadyExists
+        ) {
+          return {
+            ...current,
+            messages:
+              current.messages.filter(
+                message =>
+                  message.id !==
+                  clientMessageId,
+              ),
+          };
+        }
+
+        return {
+          ...current,
+          messages:
+            current.messages.map(
+              message =>
+                message.id ===
+                clientMessageId
+                  ? confirmedMessage
+                  : message,
+            ),
+        };
+      },
+    );
+
+    setTimeline(
+      current =>
+        current.map(
+          item => {
+            if (
+              item.type ===
+                'message' &&
+              item.message.id ===
+                clientMessageId
+            ) {
+              return createMessageTimelineItem(
+                confirmedMessage,
+              );
+            }
+
+            return item;
+          },
+        ),
+    );
+
+    if (
+      otherParticipantUserId
+    ) {
+      void applyReadReceipts(
+        userId,
+        otherParticipantUserId,
+      );
+    }
+  }
+
+  async function toggleVoicePlayback(
+    message:
+      ChatMessage,
+  ) {
+    const player =
+      voicePlayerRef.current;
+
+    if (
+      !player ||
+      message.kind !==
+        'audio'
+    ) {
+      return;
+    }
+
+    if (
+      playingVoiceMessageId ===
+      message.id
+    ) {
+      player.pause();
+      setPlayingVoiceMessageId(
+        null,
+      );
+
+      return;
+    }
+
+    setIsVoicePreviewPlaying(
+      false,
+    );
+
+    const sourceUri =
+      message.status ===
+        'sending' &&
+      message.localAudioUri
+        ? message.localAudioUri
+        : null;
+
+    let playbackUri =
+      sourceUri;
+
+    if (
+      !playbackUri
+    ) {
+      if (
+        !message.attachmentPath
+      ) {
+        Alert.alert(
+          'Voice message unavailable',
+          'This voice message cannot be played.',
+        );
+
+        return;
+      }
+
+      playbackUri =
+        await createConversationAttachmentSignedUrl(
+          message.attachmentPath,
+        );
+    }
+
+    if (
+      !playbackUri
+    ) {
+      Alert.alert(
+        'Unable to play',
+        'Direct Gain could not prepare that voice message.',
+      );
+
+      return;
+    }
+
+    player.replace({
+      uri:
+        playbackUri,
+    });
+
+    player.play();
+
+    setPlayingVoiceMessageId(
+      message.id,
+    );
+
+    setVoicePlaybackProgress(
+      0,
+    );
+  }
+
   function handleLocationPress() {
     if (
       !isSupabaseConversation
@@ -3653,6 +4585,19 @@ useFocusEffect(
                     onPress={
                       handleMessagePress
                     }
+                    onVoiceToggle={
+                      toggleVoicePlayback
+                    }
+                    isVoicePlaying={
+                      playingVoiceMessageId ===
+                      item.message.id
+                    }
+                    voiceProgress={
+                      playingVoiceMessageId ===
+                      item.message.id
+                        ? voicePlaybackProgress
+                        : 0
+                    }
                   />
                 );
               }
@@ -3913,6 +4858,33 @@ useFocusEffect(
             }
             onLocationPress={
               handleLocationPress
+            }
+            onVoicePress={
+              handleVoicePress
+            }
+            voiceMode={
+              voiceMode
+            }
+            voiceElapsedMs={
+              voiceRecorderState.durationMillis
+            }
+            voicePreviewDurationMs={
+              voicePreviewDurationMs
+            }
+            isVoicePreviewPlaying={
+              isVoicePreviewPlaying
+            }
+            onStopVoiceRecording={
+              finishVoiceRecording
+            }
+            onCancelVoice={
+              cancelVoiceComposer
+            }
+            onPreviewVoice={
+              previewLocalVoice
+            }
+            onSendVoice={
+              sendConversationVoice
             }
           />
         </View>

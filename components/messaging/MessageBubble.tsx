@@ -21,6 +21,9 @@ import {
 import {
   hasValidLocationCoordinates,
 } from '../../services/messaging/conversationLocation';
+import {
+  formatVoiceDuration,
+} from '../../services/messaging/conversationAudio';
 
 type Props = {
   message: ChatMessage;
@@ -28,6 +31,16 @@ type Props = {
   onPress?: (
     message: ChatMessage,
   ) => void;
+
+  onVoiceToggle?: (
+    message: ChatMessage,
+  ) => void;
+
+  isVoicePlaying?:
+    boolean;
+
+  voiceProgress?:
+    number;
 };
 
 function getStatusText(
@@ -116,6 +129,9 @@ function getSystemIcon(
 export default function MessageBubble({
   message,
   onPress,
+  onVoiceToggle,
+  isVoicePlaying = false,
+  voiceProgress = 0,
 }: Props) {
   const isCurrentUser =
     message.sender ===
@@ -206,6 +222,9 @@ export default function MessageBubble({
             'file'
               ? `File: ${message.fileName ?? 'Document'}`
               : message.kind ===
+                  'audio'
+                ? `Voice message ${formatVoiceDuration(message.durationMs)}`
+              : message.kind ===
                   'location'
                 ? hasValidLocationCoordinates(
                     message.latitude,
@@ -218,6 +237,17 @@ export default function MessageBubble({
                 : 'Open message'
           }
           onPress={() => {
+            if (
+              message.kind ===
+              'audio'
+            ) {
+              onVoiceToggle?.(
+                message,
+              );
+
+              return;
+            }
+
             if (
               message.kind ===
                 'location' &&
@@ -318,6 +348,84 @@ export default function MessageBubble({
                     .join(
                       ' · ',
                     )}
+                </Text>
+              </View>
+            </View>
+          ) : null}
+
+          {message.kind ===
+          'audio' ? (
+            <View
+              style={
+                styles.fileAttachment
+              }
+            >
+              <View
+                style={
+                  styles.specialIcon
+                }
+              >
+                <Ionicons
+                  name={
+                    isVoicePlaying
+                      ? 'pause'
+                      : 'play'
+                  }
+                  size={
+                    17
+                  }
+                  color={
+                    colors.primary
+                  }
+                />
+              </View>
+
+              <View
+                style={
+                  styles.fileDetails
+                }
+              >
+                <Text
+                  style={
+                    styles.fileName
+                  }
+                >
+                  Voice message
+                </Text>
+
+                <View
+                  style={
+                    styles.voiceProgressTrack
+                  }
+                >
+                  <View
+                    style={[
+                      styles.voiceProgressFill,
+                      {
+                        width:
+                          `${Math.max(
+                            0,
+                            Math.min(
+                              100,
+                              Math.round(
+                                voiceProgress *
+                                  100,
+                              ),
+                            ),
+                          )}%`,
+                      },
+                    ]}
+                  />
+                </View>
+
+                <Text
+                  style={
+                    styles.fileMeta
+                  }
+                >
+                  {formatVoiceDuration(
+                    message.durationMs,
+                  )}
                 </Text>
               </View>
             </View>
@@ -911,6 +1019,34 @@ const styles =
 
       fontWeight:
         '700',
+    },
+
+    voiceProgressTrack: {
+      marginTop:
+        6,
+
+      height:
+        3,
+
+      borderRadius:
+        99,
+
+      overflow:
+        'hidden',
+
+      backgroundColor:
+        'rgba(255,255,255,0.12)',
+    },
+
+    voiceProgressFill: {
+      height:
+        3,
+
+      borderRadius:
+        99,
+
+      backgroundColor:
+        colors.primary,
     },
 
     metaRow: {

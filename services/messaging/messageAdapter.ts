@@ -10,6 +10,10 @@ import {
   parseConversationLocationMetadata,
 } from './conversationLocation';
 
+import {
+  parseConversationAudioMetadata,
+} from './conversationAudio';
+
 import type {
   SupabaseMessageRecord,
 } from './messageRepository';
@@ -29,6 +33,11 @@ export function supabaseMessageToChatMessage(
 
   const locationAttachment =
     getLocationAttachmentMetadata(
+      message,
+    );
+
+  const audioAttachment =
+    getAudioAttachmentMetadata(
       message,
     );
 
@@ -82,6 +91,9 @@ export function supabaseMessageToChatMessage(
     locationAddress:
       locationAttachment.locationAddress,
 
+    durationMs:
+      audioAttachment.durationMs,
+
     createdAt:
       formatMessageTime(
         message.created_at,
@@ -128,6 +140,9 @@ function mapMessageType(
 
     case 'file':
       return 'file';
+
+    case 'audio':
+      return 'audio';
 
     case 'text':
     default:
@@ -190,12 +205,32 @@ export function getInboxMessagePreview(
     case 'location':
       return 'Location';
 
+    case 'audio':
+      return 'Voice message';
+
     case 'system':
       return 'Deal update';
 
     default:
       return 'New message';
   }
+}
+
+function getAudioAttachmentMetadata(
+  message: SupabaseMessageRecord,
+): {
+  durationMs?: number;
+} {
+  if (
+    message.message_type !==
+    'audio'
+  ) {
+    return {};
+  }
+
+  return parseConversationAudioMetadata(
+    message.metadata,
+  );
 }
 
 function getLocationAttachmentMetadata(

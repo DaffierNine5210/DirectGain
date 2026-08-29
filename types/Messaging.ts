@@ -24,6 +24,7 @@ export type MessageKind =
   | 'file'
   | 'offer'
   | 'location'
+  | 'audio'
   | 'system';
 
 export type ConversationParticipant = {
@@ -91,6 +92,12 @@ export type ChatMessage = {
     number;
 
   fileExtension?:
+    string;
+
+  durationMs?:
+    number;
+
+  localAudioUri?:
     string;
 
   latitude?:

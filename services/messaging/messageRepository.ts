@@ -12,11 +12,16 @@ import {
   createValidatedLocationMetadata,
 } from './conversationLocation';
 
+import {
+  createValidatedAudioMetadata,
+} from './conversationAudio';
+
 export type SupabaseMessageType =
   | 'text'
   | 'image'
   | 'file'
   | 'location'
+  | 'audio'
   | 'system';
 
 export type SupabaseMessageRecord = {
@@ -443,11 +448,21 @@ export async function sendConversationMessage(
         )
       : null;
 
+  const validatedAudioMetadata =
+    messageType ===
+    'audio'
+      ? createValidatedAudioMetadata(
+          input.metadata,
+        )
+      : null;
+
   if (
     messageType ===
       'image' ||
     messageType ===
-      'file'
+      'file' ||
+    messageType ===
+      'audio'
   ) {
     const objectPath =
       input.attachmentUrl
@@ -465,6 +480,18 @@ export async function sendConversationMessage(
     ) {
       console.warn(
         '[Direct Gain] SEND STEP 3 FAILED: Attachment Storage path is not valid for this sender.',
+      );
+
+      return null;
+    }
+
+    if (
+      messageType ===
+        'audio' &&
+      !validatedAudioMetadata
+    ) {
+      console.warn(
+        '[Direct Gain] SEND STEP 3 FAILED: Audio metadata is not valid.',
       );
 
       return null;
@@ -518,7 +545,9 @@ export async function sendConversationMessage(
 
     body:
       messageType ===
-      'location'
+        'location' ||
+      messageType ===
+        'audio'
         ? null
         : cleanBody.length >
             0
@@ -534,6 +563,7 @@ export async function sendConversationMessage(
 
     metadata:
       validatedLocationMetadata ??
+      validatedAudioMetadata ??
       input.metadata ??
       {},
   };

@@ -543,6 +543,167 @@ export async function uploadConversationDocument(
   };
 }
 
+export const MAX_CONVERSATION_AUDIO_UPLOAD_BYTES =
+  10 * 1024 * 1024;
+
+export type ConversationAudioUploadInput = {
+  conversationId: string;
+  userId: string;
+  localUri: string;
+  mimeType: string;
+  byteSize?: number;
+  durationMs: number;
+};
+
+export type ConversationAudioUploadResult = {
+  objectPath: string;
+  mimeType: string;
+  byteSize: number;
+  durationMs: number;
+  extension: string;
+};
+
+export async function uploadConversationAudio(
+  input: ConversationAudioUploadInput,
+): Promise<ConversationAudioUploadResult | null> {
+  if (
+    !isSafeLocalAttachmentUri(
+      input.localUri,
+    )
+  ) {
+    console.warn(
+      '[Direct Gain] Audio upload rejected: unexpected file path.',
+    );
+
+    return null;
+  }
+
+  let cachedFile:
+    File;
+
+  try {
+    cachedFile =
+      new File(
+        input.localUri,
+      );
+  } catch (
+    error
+  ) {
+    console.warn(
+      '[Direct Gain] Audio upload rejected: invalid local file.',
+      error instanceof
+        Error
+        ? error.message
+        : error,
+    );
+
+    return null;
+  }
+
+  if (
+    !cachedFile.exists
+  ) {
+    console.warn(
+      '[Direct Gain] Audio upload rejected: cached file is missing.',
+    );
+
+    return null;
+  }
+
+  const byteSize =
+    input.byteSize &&
+    input.byteSize >
+      0
+      ? input.byteSize
+      : cachedFile.size;
+
+  if (
+    byteSize >
+    MAX_CONVERSATION_AUDIO_UPLOAD_BYTES
+  ) {
+    console.warn(
+      '[Direct Gain] Audio upload rejected: file too large.',
+    );
+
+    return null;
+  }
+
+  const mimeType =
+    input.mimeType.trim().toLowerCase();
+
+  if (
+    mimeType !==
+    'audio/mp4'
+  ) {
+    console.warn(
+      '[Direct Gain] Audio upload rejected: unsupported MIME type.',
+    );
+
+    return null;
+  }
+
+  const objectPath =
+    `${input.conversationId}/${input.userId}/${createAttachmentUniqueId()}.m4a`;
+
+  let fileBody:
+    Uint8Array;
+
+  try {
+    fileBody =
+      await cachedFile.bytes();
+  } catch (
+    error
+  ) {
+    console.warn(
+      '[Direct Gain] Audio upload rejected: unable to read file bytes.',
+      error instanceof
+        Error
+        ? error.message
+        : error,
+    );
+
+    return null;
+  }
+
+  const {
+    error,
+  } = await supabase.storage
+    .from(
+      CONVERSATION_ATTACHMENTS_BUCKET,
+    )
+    .upload(
+      objectPath,
+      fileBody,
+      {
+        contentType:
+          mimeType,
+        upsert:
+          false,
+        cacheControl:
+          '3600',
+      },
+    );
+
+  if (error) {
+    console.warn(
+      '[Direct Gain] Unable to upload conversation audio:',
+      error.message,
+    );
+
+    return null;
+  }
+
+  return {
+    objectPath,
+    mimeType,
+    byteSize,
+    durationMs:
+      input.durationMs,
+    extension:
+      'm4a',
+  };
+}
+
 function decodePercentEncodedFileName(
   value: string,
 ): string {
