@@ -13,11 +13,11 @@ import {
   selectionHaptic,
 } from '../utils/haptics';
 
+import DiscoverStack from './DiscoverStack';
 import MarketStack from './MarketStack';
 import MessagesStack from './MessagesStack';
 
 import CreateScreen from '../screens/CreateScreen';
-import DiscoverScreen from '../screens/DiscoverScreen';
 import LiveBidScreen from '../screens/LiveBidScreen';
 import MyGainScreen from '../screens/MyGainScreen';
 
@@ -207,7 +207,7 @@ function BottomTabsNavigator() {
     >
       <Tab.Screen
         name="Discover"
-        component={DiscoverScreen}
+        component={DiscoverStack}
         options={{
           tabBarLabel: 'Discover',
         }}

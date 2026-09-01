@@ -1,11 +1,10 @@
 import {
   useFocusEffect,
-  useNavigation,
 } from '@react-navigation/native';
 
 import type {
-  BottomTabNavigationProp,
-} from '@react-navigation/bottom-tabs';
+  NativeStackScreenProps,
+} from '@react-navigation/native-stack';
 
 import {
   useCallback,
@@ -53,6 +52,10 @@ import useFocusedUnreadTotal from '../hooks/useFocusedUnreadTotal';
 import useTabBarVisibility from '../hooks/useTabBarVisibility';
 
 import type {
+  DiscoverStackParamList,
+} from '../navigation/DiscoverStack';
+
+import type {
   BottomTabParamList,
 } from '../navigation/BottomTabs';
 
@@ -64,15 +67,15 @@ import {
   selectionHaptic,
 } from '../utils/haptics';
 
-type DiscoverNavigation =
-  BottomTabNavigationProp<
-    BottomTabParamList,
-    'Discover'
+type Props =
+  NativeStackScreenProps<
+    DiscoverStackParamList,
+    'DiscoverHome'
   >;
 
-export default function DiscoverScreen() {
-  const navigation =
-    useNavigation<DiscoverNavigation>();
+export default function DiscoverScreen({
+  navigation,
+}: Props) {
 
   const {
     updateFromScroll,
@@ -206,6 +209,19 @@ export default function DiscoverScreen() {
       [selectedFeedTab],
     );
 
+  function navigateTab(
+    name: keyof BottomTabParamList,
+  ) {
+    const parentNavigation =
+      navigation.getParent();
+
+    if (parentNavigation) {
+      parentNavigation.navigate(
+        name,
+      );
+    }
+  }
+
   function showComingSoon(
     feature: string,
   ) {
@@ -300,7 +316,7 @@ export default function DiscoverScreen() {
           );
         }}
         onMessagesPress={() => {
-          navigation.navigate(
+          navigateTab(
             'Messages',
           );
         }}
@@ -434,7 +450,7 @@ export default function DiscoverScreen() {
           handleSectionChange
         }
         onMarketPress={() => {
-          navigation.navigate(
+          navigateTab(
             'Market',
           );
         }}
@@ -446,7 +462,7 @@ export default function DiscoverScreen() {
             listingId,
           );
 
-          navigation.navigate(
+          navigateTab(
             'Market',
           );
         }}
@@ -456,17 +472,17 @@ export default function DiscoverScreen() {
           );
         }}
         onJobsPress={() => {
-          showComingSoon(
-            'Jobs',
+          navigation.navigate(
+            'DiscoverJobs',
           );
         }}
         onAuctionPress={() => {
-          navigation.navigate(
+          navigateTab(
             'Auctions',
           );
         }}
         onAuctionsPress={() => {
-          navigation.navigate(
+          navigateTab(
             'Auctions',
           );
         }}
@@ -489,7 +505,7 @@ export default function DiscoverScreen() {
 
       <DiscoverCreateSection
         onPress={() => {
-          navigation.navigate(
+          navigateTab(
             'Create',
           );
         }}
