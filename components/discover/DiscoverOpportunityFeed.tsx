@@ -11,7 +11,6 @@ import DGReveal from '../DGReveal';
 
 import type {
   DiscoverAuction,
-  DiscoverJob,
 } from '../../data/discoverMockData';
 
 import {
@@ -20,7 +19,6 @@ import {
 
 export type DiscoverSectionKey =
   | 'market'
-  | 'jobs'
   | 'auctions'
   | 'overview'
   | null;
@@ -28,7 +26,6 @@ export type DiscoverSectionKey =
 type DiscoverOpportunityFeedProps = {
   searchQuery: string;
 
-  jobs: DiscoverJob[];
   auctions: DiscoverAuction[];
 
   expandedSection:
@@ -49,12 +46,6 @@ type DiscoverOpportunityFeedProps = {
     listingId: string,
   ) => void;
 
-  onJobPress: (
-    job: DiscoverJob,
-  ) => void;
-
-  onJobsPress: () => void;
-
   onAuctionPress: (
     auction: DiscoverAuction,
   ) => void;
@@ -65,7 +56,6 @@ type DiscoverOpportunityFeedProps = {
 export default function DiscoverOpportunityFeed({
   searchQuery,
 
-  jobs,
   auctions,
 
   expandedSection,
@@ -73,9 +63,6 @@ export default function DiscoverOpportunityFeed({
 
   onMarketPress,
   onListingPress,
-
-  onJobPress,
-  onJobsPress,
 
   onAuctionPress,
   onAuctionsPress,
@@ -137,74 +124,6 @@ export default function DiscoverOpportunityFeed({
       <DGReveal
         delay={215}
         duration={440}
-        distance={10}
-        style={
-          styles.sectionSpacing
-        }
-      >
-        <DGExpandableSection
-          eyebrow="Work locally"
-          title="Work opportunities"
-          subtitle="Jobs from trusted businesses in your region."
-          icon="briefcase-outline"
-          badgeText={`${jobs.length}`}
-          expanded={
-            expandedSection ===
-            'jobs'
-          }
-          onExpandedChange={(
-            expanded,
-          ) => {
-            onSectionChange(
-              'jobs',
-              expanded,
-            );
-          }}
-        >
-          <View
-            style={
-              styles.opportunityList
-            }
-          >
-            {jobs.map((job) => (
-              <DGOpportunityCard
-                key={job.id}
-                type="job"
-                title={job.title}
-                subtitle={`${job.pay} · ${job.workType}`}
-                location={`${job.location} · ${job.distance}`}
-                badge={
-                  job.postedAt
-                }
-                gainScore={
-                  job.gainScore
-                }
-                verified={
-                  job.gainScore >= 85
-                }
-                onPress={() => {
-                  onJobPress(job);
-                }}
-              />
-            ))}
-
-            <DGButton
-              title="Explore Jobs"
-              icon="arrow-forward"
-              iconPosition="right"
-              variant="outline"
-              fullWidth
-              onPress={
-                onJobsPress
-              }
-            />
-          </View>
-        </DGExpandableSection>
-      </DGReveal>
-
-      <DGReveal
-        delay={265}
-        duration={450}
         distance={10}
         style={
           styles.sectionSpacing

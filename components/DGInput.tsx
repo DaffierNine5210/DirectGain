@@ -46,7 +46,6 @@ const DGInput = forwardRef<TextInput, DGInputProps>(
     },
     ref,
   ) => {
-    const [isFocused, setIsFocused] = useState(false);
     const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
     const hasError = Boolean(errorMessage);
@@ -66,6 +65,10 @@ const DGInput = forwardRef<TextInput, DGInputProps>(
       onRightIconPress?.();
     }
 
+    const iconColor = hasError
+      ? styles.errorText.color
+      : colors.textMuted;
+
     return (
       <View style={[styles.container, containerStyle]}>
         {label ? <Text style={styles.label}>{label}</Text> : null}
@@ -73,7 +76,6 @@ const DGInput = forwardRef<TextInput, DGInputProps>(
         <View
           style={[
             styles.inputContainer,
-            isFocused && styles.focusedInputContainer,
             hasError && styles.errorInputContainer,
             !editable && styles.disabledInputContainer,
             inputContainerStyle,
@@ -83,35 +85,21 @@ const DGInput = forwardRef<TextInput, DGInputProps>(
             <Ionicons
               name={leftIcon}
               size={20}
-              color={
-                hasError
-                  ? styles.errorText.color
-                  : isFocused
-                    ? colors.primary
-                    : colors.textMuted
-              }
+              color={iconColor}
               style={styles.leftIcon}
             />
           ) : null}
 
           <TextInput
             ref={ref}
+            placeholderTextColor={colors.textMuted}
+            selectionColor={colors.primary}
+            {...textInputProps}
             editable={editable}
             secureTextEntry={
               isPasswordInput ? !isPasswordVisible : secureTextEntry
             }
-            placeholderTextColor={colors.textMuted}
-            selectionColor={colors.primary}
             style={[styles.input, inputStyle]}
-            onFocus={(event) => {
-              setIsFocused(true);
-              textInputProps.onFocus?.(event);
-            }}
-            onBlur={(event) => {
-              setIsFocused(false);
-              textInputProps.onBlur?.(event);
-            }}
-            {...textInputProps}
           />
 
           {displayedRightIcon ? (
@@ -132,13 +120,7 @@ const DGInput = forwardRef<TextInput, DGInputProps>(
               <Ionicons
                 name={displayedRightIcon}
                 size={20}
-                color={
-                  hasError
-                    ? styles.errorText.color
-                    : isFocused
-                      ? colors.primary
-                      : colors.textMuted
-                }
+                color={iconColor}
               />
             </TouchableOpacity>
           ) : null}
@@ -174,23 +156,12 @@ const styles = StyleSheet.create({
     width: '100%',
     minHeight: 52,
     paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
     borderRadius: 18,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surfaceSoft,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  focusedInputContainer: {
-    borderColor: colors.primary,
-    shadowColor: colors.primary,
-    shadowOpacity: 0.16,
-    shadowRadius: 10,
-    shadowOffset: {
-      width: 0,
-      height: 0,
-    },
   },
 
   errorInputContainer: {

@@ -5,6 +5,7 @@ import {
 import DGHeader from '../DGHeader';
 import DGHeroCard from '../DGHeroCard';
 import DGReveal from '../DGReveal';
+import DiscoverServiceNav from './DiscoverServiceNav';
 
 import {
   spacing,
@@ -27,6 +28,7 @@ type DiscoverTopSectionProps = {
   onMessagesPress: () => void;
   onNotificationsPress: () => void;
   onExplorePress: () => void;
+  onJobsPress: () => void;
 };
 
 export default function DiscoverTopSection({
@@ -46,6 +48,7 @@ export default function DiscoverTopSection({
   onMessagesPress,
   onNotificationsPress,
   onExplorePress,
+  onJobsPress,
 }: DiscoverTopSectionProps) {
   return (
     <>
@@ -86,6 +89,16 @@ export default function DiscoverTopSection({
             onPress:
               onNotificationsPress,
           }}
+        />
+      </DGReveal>
+
+      <DGReveal
+        delay={35}
+        duration={400}
+        distance={8}
+      >
+        <DiscoverServiceNav
+          onJobsPress={onJobsPress}
         />
       </DGReveal>
 

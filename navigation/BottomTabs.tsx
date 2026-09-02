@@ -13,11 +13,18 @@ import {
   selectionHaptic,
 } from '../utils/haptics';
 
-import DiscoverStack from './DiscoverStack';
+import type {
+  NavigatorScreenParams,
+} from '@react-navigation/native';
+
+import CreateStack, {
+  type CreateStackParamList,
+} from './CreateStack';
+import DiscoverStack, {
+  type DiscoverStackParamList,
+} from './DiscoverStack';
 import MarketStack from './MarketStack';
 import MessagesStack from './MessagesStack';
-
-import CreateScreen from '../screens/CreateScreen';
 import LiveBidScreen from '../screens/LiveBidScreen';
 import MyGainScreen from '../screens/MyGainScreen';
 
@@ -27,9 +34,13 @@ import TabBarVisibilityProvider from '../providers/TabBarVisibilityProvider';
 import { colors } from '../theme/colors';
 
 export type BottomTabParamList = {
-  Discover: undefined;
+  Discover:
+    | NavigatorScreenParams<DiscoverStackParamList>
+    | undefined;
   Market: undefined;
-  Create: undefined;
+  Create:
+    | NavigatorScreenParams<CreateStackParamList>
+    | undefined;
   Auctions: undefined;
   'My Gain': undefined;
   Messages: undefined;
@@ -223,7 +234,7 @@ function BottomTabsNavigator() {
 
       <Tab.Screen
         name="Create"
-        component={CreateScreen}
+        component={CreateStack}
         options={{
           tabBarLabel: '',
         }}

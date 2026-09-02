@@ -208,6 +208,10 @@ export default function DiscoverJobsScreen({
   const jobsRef = useRef<Job[]>([]);
   const refreshingRef = useRef(false);
   const mountedRef = useRef(true);
+  const hasLoadedOnceRef = useRef(false);
+  const loadJobsRef = useRef<
+    (mode: 'replace' | 'append') => Promise<void>
+  >(async () => {});
 
   const regionReady = Boolean(
     region?.state || region?.suburb,
@@ -226,12 +230,6 @@ export default function DiscoverJobsScreen({
     localOnly && regionReady
       ? region
       : null;
-
-  useFocusEffect(
-    useCallback(() => {
-      showTabBar();
-    }, [showTabBar]),
-  );
 
   useEffect(() => {
     mountedRef.current = true;
@@ -290,6 +288,7 @@ export default function DiscoverJobsScreen({
         refreshingRef.current = false;
         setLoadingMore(false);
         loadingMoreRef.current = false;
+        hasLoadedOnceRef.current = true;
         return;
       }
 
@@ -355,6 +354,7 @@ export default function DiscoverJobsScreen({
         refreshingRef.current = false;
         setLoadingMore(false);
         loadingMoreRef.current = false;
+        hasLoadedOnceRef.current = true;
         return;
       }
 
@@ -381,6 +381,7 @@ export default function DiscoverJobsScreen({
       refreshingRef.current = false;
       setLoadingMore(false);
       loadingMoreRef.current = false;
+      hasLoadedOnceRef.current = true;
     },
     [
       blockedByRegion,
@@ -390,6 +391,23 @@ export default function DiscoverJobsScreen({
       payType,
       searchQuery,
     ],
+  );
+
+  loadJobsRef.current = loadJobs;
+
+  useFocusEffect(
+    useCallback(() => {
+      showTabBar();
+
+      if (!hasLoadedOnceRef.current) {
+        return;
+      }
+
+      refreshingRef.current = true;
+      void loadJobsRef.current(
+        'replace',
+      );
+    }, [showTabBar]),
   );
 
   useEffect(() => {

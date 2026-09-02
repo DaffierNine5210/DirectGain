@@ -2,12 +2,17 @@ import { supabase } from '../../lib/supabase';
 
 import { adaptJobRow } from './jobAdapter';
 
-import type {
-  Job,
-  JobPosterRow,
-  JobRow,
-  ListOpenJobsInput,
-  ViewerJobRegion,
+import {
+  JOB_CATEGORIES,
+  JOB_PAY_TYPES,
+  JOB_TYPES,
+  JOB_WORK_SITES,
+  type CreateOpenJobInput,
+  type Job,
+  type JobPosterRow,
+  type JobRow,
+  type ListOpenJobsInput,
+  type ViewerJobRegion,
 } from '../../types/jobs';
 
 const JOB_SELECT_COLUMNS =
@@ -29,6 +34,70 @@ function formatError(
   }
 
   return error.message;
+}
+
+function formatCreateJobError(
+  error: {
+    message?: string;
+    code?: string;
+  } | null,
+): string {
+  if (!error?.message) {
+    return 'This job could not be published. Try again.';
+  }
+
+  const message =
+    error.message.toLowerCase();
+  const code = error.code ?? '';
+
+  if (
+    code === '42501' ||
+    message.includes(
+      'row-level security',
+    )
+  ) {
+    return 'You do not have permission to publish this job.';
+  }
+
+  if (
+    message.includes(
+      'jobs_title_length',
+    )
+  ) {
+    return 'The job title must be between 3 and 80 characters.';
+  }
+
+  if (
+    message.includes(
+      'jobs_description_length',
+    )
+  ) {
+    return 'The description must be between 10 and 4,000 characters.';
+  }
+
+  if (
+    message.includes(
+      'jobs_suburb_length',
+    ) ||
+    message.includes(
+      'jobs_state_length',
+    )
+  ) {
+    return 'Check the suburb and state, then try again.';
+  }
+
+  if (
+    message.includes(
+      'jobs_pay_required',
+    ) ||
+    message.includes(
+      'jobs_pay_values',
+    )
+  ) {
+    return 'Enter a valid pay amount, or choose Negotiable.';
+  }
+
+  return 'This job could not be published. Try again.';
 }
 
 function isMissingRelationship(
@@ -389,6 +458,235 @@ export async function getJobById(
         row.poster_id,
       ]);
   }
+
+  return {
+    job: adaptJobRow(row, postersById),
+    error: null,
+  };
+}
+
+function sanitiseCreateInput(
+  input: CreateOpenJobInput,
+):
+  | {
+      ok: true;
+      title: string;
+      description: string;
+      suburb: string;
+      state: string;
+      payAmount: number | null;
+      workSite: CreateOpenJobInput['workSite'];
+    }
+  | {
+      ok: false;
+      error: string;
+    } {
+  const title = input.title.trim();
+  const description =
+    input.description.trim();
+  const suburb = input.suburb.trim();
+  const state = input.state.trim();
+
+  if (
+    title.length < 3 ||
+    title.length > 80
+  ) {
+    return {
+      ok: false,
+      error:
+        'The job title must be between 3 and 80 characters.',
+    };
+  }
+
+  if (
+    description.length < 10 ||
+    description.length > 4000
+  ) {
+    return {
+      ok: false,
+      error:
+        'The description must be between 10 and 4,000 characters.',
+    };
+  }
+
+  if (
+    suburb.length < 1 ||
+    suburb.length > 60
+  ) {
+    return {
+      ok: false,
+      error:
+        'Enter a suburb between 1 and 60 characters.',
+    };
+  }
+
+  if (
+    state.length < 1 ||
+    state.length > 40
+  ) {
+    return {
+      ok: false,
+      error:
+        'Enter a state between 1 and 40 characters.',
+    };
+  }
+
+  if (
+    !JOB_CATEGORIES.includes(
+      input.category,
+    ) ||
+    !JOB_TYPES.includes(
+      input.jobType,
+    ) ||
+    !JOB_PAY_TYPES.includes(
+      input.payType,
+    )
+  ) {
+    return {
+      ok: false,
+      error:
+        'Choose a valid category, job type, and pay type.',
+    };
+  }
+
+  const workSite = input.workSite ?? null;
+
+  if (
+    workSite !== null &&
+    !JOB_WORK_SITES.includes(workSite)
+  ) {
+    return {
+      ok: false,
+      error:
+        'Choose a valid work site.',
+    };
+  }
+
+  if (input.payType === 'negotiable') {
+    return {
+      ok: true,
+      title,
+      description,
+      suburb,
+      state,
+      payAmount: null,
+      workSite,
+    };
+  }
+
+  const payAmount = input.payAmount;
+
+  if (
+    typeof payAmount !== 'number' ||
+    !Number.isFinite(payAmount) ||
+    payAmount <= 0 ||
+    payAmount > 9_999_999_999.99
+  ) {
+    return {
+      ok: false,
+      error:
+        'Enter a valid pay amount greater than 0.',
+    };
+  }
+
+  const rounded =
+    Math.round(payAmount * 100) / 100;
+
+  if (
+    Math.abs(payAmount - rounded) >
+    0.001
+  ) {
+    return {
+      ok: false,
+      error:
+        'Enter a valid amount with up to two decimal places.',
+    };
+  }
+
+  return {
+    ok: true,
+    title,
+    description,
+    suburb,
+    state,
+    payAmount: rounded,
+    workSite,
+  };
+}
+
+export async function createOpenJob(
+  input: CreateOpenJobInput,
+): Promise<{
+  job: Job | null;
+  error: string | null;
+}> {
+  const {
+    data: userData,
+  } =
+    await supabase.auth.getUser();
+
+  const userId = userData.user?.id;
+
+  if (!userId) {
+    return {
+      job: null,
+      error:
+        'Sign in to publish a job.',
+    };
+  }
+
+  const sanitised =
+    sanitiseCreateInput(input);
+
+  if (!sanitised.ok) {
+    return {
+      job: null,
+      error: sanitised.error,
+    };
+  }
+
+  const payload = {
+    poster_id: userId,
+    title: sanitised.title,
+    description: sanitised.description,
+    category: input.category,
+    job_type: input.jobType,
+    pay_type: input.payType,
+    pay_amount: sanitised.payAmount,
+    suburb: sanitised.suburb,
+    state: sanitised.state,
+    work_site: sanitised.workSite,
+  };
+
+  const inserted = await supabase
+    .from('jobs')
+    .insert(payload)
+    .select(JOB_SELECT_COLUMNS)
+    .maybeSingle();
+
+  if (inserted.error) {
+    return {
+      job: null,
+      error: formatCreateJobError(
+        inserted.error,
+      ),
+    };
+  }
+
+  const row = inserted.data;
+
+  if (!isJobRow(row)) {
+    return {
+      job: null,
+      error:
+        'This job could not be published. Try again.',
+    };
+  }
+
+  const postersById =
+    await fetchPostersById([
+      row.poster_id,
+    ]);
 
   return {
     job: adaptJobRow(row, postersById),

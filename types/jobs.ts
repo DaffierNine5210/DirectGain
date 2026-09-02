@@ -70,6 +70,25 @@ export const JOB_TYPES: JobType[] = [
   'contract',
 ];
 
+export const JOB_WORK_SITES: JobWorkSite[] =
+  [
+    'on_site',
+    'remote',
+    'hybrid',
+  ];
+
+export type CreateOpenJobInput = {
+  title: string;
+  description: string;
+  category: JobCategory;
+  jobType: JobType;
+  payType: JobPayType;
+  payAmount?: number | null;
+  suburb: string;
+  state: string;
+  workSite?: JobWorkSite | null;
+};
+
 export type JobPosterRow = {
   id: string;
   display_name: string;

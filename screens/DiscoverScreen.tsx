@@ -40,7 +40,6 @@ import DiscoverTopSection from '../components/discover/DiscoverTopSection';
 
 import {
   liveAuctions,
-  nearbyJobs,
   regionSummary,
 } from '../data/discoverMockData';
 
@@ -142,37 +141,6 @@ export default function DiscoverScreen({
     searchQuery
       .trim()
       .toLowerCase();
-
-  const filteredJobs =
-    useMemo(() => {
-      if (!normalizedSearch) {
-        return nearbyJobs;
-      }
-
-      return nearbyJobs.filter(
-        (job) =>
-          job.title
-            .toLowerCase()
-            .includes(
-              normalizedSearch,
-            ) ||
-          job.businessName
-            .toLowerCase()
-            .includes(
-              normalizedSearch,
-            ) ||
-          job.location
-            .toLowerCase()
-            .includes(
-              normalizedSearch,
-            ) ||
-          job.workType
-            .toLowerCase()
-            .includes(
-              normalizedSearch,
-            ),
-      );
-    }, [normalizedSearch]);
 
   const filteredAuctions =
     useMemo(() => {
@@ -332,6 +300,13 @@ export default function DiscoverScreen({
 
           void selectionHaptic();
         }}
+        onJobsPress={() => {
+          void selectionHaptic();
+
+          navigation.navigate(
+            'DiscoverJobs',
+          );
+        }}
       />
 
       <DiscoverSearchSection
@@ -439,7 +414,6 @@ export default function DiscoverScreen({
         searchQuery={
           searchQuery
         }
-        jobs={filteredJobs}
         auctions={
           filteredAuctions
         }
@@ -464,16 +438,6 @@ export default function DiscoverScreen({
 
           navigateTab(
             'Market',
-          );
-        }}
-        onJobPress={(job) => {
-          showComingSoon(
-            job.title,
-          );
-        }}
-        onJobsPress={() => {
-          navigation.navigate(
-            'DiscoverJobs',
           );
         }}
         onAuctionPress={() => {

@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
@@ -25,7 +26,7 @@ import { getJobById } from '../../services/jobs/jobRepository';
 
 import {
   alpha,
-  layout,
+  iconSize,
   palette,
   radius,
   spacing,
@@ -41,12 +42,18 @@ type Props = NativeStackScreenProps<
   'JobDetail'
 >;
 
+type IoniconName = React.ComponentProps<
+  typeof Ionicons
+>['name'];
+
 export default function JobDetailScreen({
   navigation,
   route,
 }: Props) {
-  const { showTabBar } =
-    useTabBarVisibility();
+  const {
+    hideTabBar,
+    showTabBar,
+  } = useTabBarVisibility();
 
   const jobId = route.params.jobId;
   const mountedRef = useRef(true);
@@ -71,8 +78,12 @@ export default function JobDetailScreen({
 
   useFocusEffect(
     useCallback(() => {
-      showTabBar();
-    }, [showTabBar]),
+      hideTabBar();
+
+      return () => {
+        showTabBar();
+      };
+    }, [hideTabBar, showTabBar]),
   );
 
   const loadJob = useCallback(
@@ -179,140 +190,232 @@ export default function JobDetailScreen({
           </Text>
         </View>
       ) : (
-        <ScrollView
-          contentContainerStyle={
-            styles.scroll
-          }
-          showsVerticalScrollIndicator={
-            false
-          }
-        >
-          <Text style={styles.category}>
-            {job.categoryLabel}
-          </Text>
-          <Text
-            style={styles.title}
-            accessibilityRole="header"
+        <View style={styles.detailRoot}>
+          <ScrollView
+            style={styles.flex}
+            contentContainerStyle={
+              styles.scroll
+            }
+            showsVerticalScrollIndicator={
+              false
+            }
           >
-            {job.title}
-          </Text>
-          <Text style={styles.pay}>
-            {job.payLabel}
-          </Text>
-          <Text style={styles.heroMeta}>
-            {[
-              job.locationLabel,
-              job.postedLabel,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </Text>
+            <View style={styles.hero}>
+              <View style={styles.categoryPill}>
+                <Text style={styles.category}>
+                  {job.categoryLabel}
+                </Text>
+              </View>
 
-          {closed ? (
-            <View style={styles.statusNote}>
-              <Text style={styles.statusText}>
-                This job is no longer open.
+              <Text
+                style={styles.title}
+                accessibilityRole="header"
+              >
+                {job.title}
               </Text>
-            </View>
-          ) : null}
 
-          <View style={styles.card}>
-            <Text style={styles.cardEyebrow}>
-              Job info
-            </Text>
-            <View style={styles.factGrid}>
-              <Fact
-                label="Location"
-                value={job.locationLabel}
-              />
-              <Fact
-                label="Type"
-                value={job.jobTypeLabel}
-              />
-              {job.workSiteLabel ? (
-                <Fact
-                  label="Work site"
-                  value={job.workSiteLabel}
-                />
-              ) : null}
-              <Fact
-                label="Pay type"
-                value={formatPayTypeLabel(
-                  job.payType,
-                )}
-              />
-              {startsLabel ? (
-                <Fact
-                  label="Starts"
-                  value={startsLabel}
-                />
-              ) : null}
-            </View>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardEyebrow}>
-              About this job
-            </Text>
-            <Text style={styles.description}>
-              {job.description}
-            </Text>
-          </View>
-
-          {job.poster ? (
-            <View
-              style={styles.card}
-              accessibilityLabel={`Posted by ${job.poster.displayName}`}
-            >
-              <Text style={styles.cardEyebrow}>
-                Posted by
+              <Text style={styles.pay}>
+                {job.payLabel}
               </Text>
-              <View style={styles.posterRow}>
-                <View style={styles.avatar}>
-                  <Text style={styles.initials}>
-                    {posterInitials(
-                      job.poster.displayName,
-                    )}
-                  </Text>
-                </View>
-                <View style={styles.posterText}>
-                  <Text style={styles.posterName}>
-                    {job.poster.displayName}
-                  </Text>
-                  <Text style={styles.posterMeta}>
-                    {job.poster.accountType ===
-                    'business'
-                      ? 'Business'
-                      : 'Direct Gain member'}
-                  </Text>
-                </View>
+
+              <View style={styles.heroMetaRow}>
+                <Ionicons
+                  name="location-outline"
+                  size={iconSize.sm}
+                  color={textColor.muted}
+                />
+                <Text style={styles.heroMeta}>
+                  {job.locationLabel}
+                </Text>
+                <Text style={styles.heroMetaDot}>
+                  ·
+                </Text>
+                <Text style={styles.heroMeta}>
+                  {job.postedLabel}
+                </Text>
+              </View>
+
+              <View style={styles.pillRow}>
+                <MetaPill
+                  icon="briefcase-outline"
+                  label={job.jobTypeLabel}
+                />
+                {job.workSiteLabel ? (
+                  <MetaPill
+                    icon="business-outline"
+                    label={job.workSiteLabel}
+                  />
+                ) : null}
               </View>
             </View>
-          ) : null}
-        </ScrollView>
+
+            {closed ? (
+              <View style={styles.statusNote}>
+                <Text style={styles.statusText}>
+                  This job is no longer open.
+                </Text>
+              </View>
+            ) : null}
+
+            <View style={styles.specSection}>
+              {(
+                [
+                  {
+                    icon: 'cash-outline' as const,
+                    label: 'Pay type',
+                    value: formatPayTypeLabel(
+                      job.payType,
+                    ),
+                  },
+                  {
+                    icon: 'location-outline' as const,
+                    label: 'Location',
+                    value: job.locationLabel,
+                  },
+                  {
+                    icon: 'briefcase-outline' as const,
+                    label: 'Job type',
+                    value: job.jobTypeLabel,
+                  },
+                  ...(job.workSiteLabel
+                    ? [
+                        {
+                          icon: 'business-outline' as const,
+                          label: 'Work site',
+                          value:
+                            job.workSiteLabel,
+                        },
+                      ]
+                    : []),
+                  ...(startsLabel
+                    ? [
+                        {
+                          icon: 'calendar-outline' as const,
+                          label: 'Starts',
+                          value: startsLabel,
+                        },
+                      ]
+                    : []),
+                ] as const
+              ).map((item, index, items) => (
+                <SpecRow
+                  key={item.label}
+                  icon={item.icon}
+                  label={item.label}
+                  value={item.value}
+                  last={
+                    index ===
+                    items.length - 1
+                  }
+                />
+              ))}
+            </View>
+
+            <View style={styles.aboutSection}>
+              <Text style={styles.aboutEyebrow}>
+                About this job
+              </Text>
+              <Text style={styles.description}>
+                {job.description}
+              </Text>
+            </View>
+
+            {job.poster ? (
+              <View
+                style={styles.posterCard}
+                accessibilityLabel={`Posted by ${job.poster.displayName}`}
+              >
+                <Text style={styles.posterEyebrow}>
+                  Posted by
+                </Text>
+                <View style={styles.posterRow}>
+                  <View style={styles.avatarRing}>
+                    <View style={styles.avatar}>
+                      <Text style={styles.initials}>
+                        {posterInitials(
+                          job.poster.displayName,
+                        )}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.posterText}>
+                    <Text style={styles.posterName}>
+                      {job.poster.displayName}
+                    </Text>
+                    <Text style={styles.posterMeta}>
+                      {job.poster.accountType ===
+                      'business'
+                        ? 'Business account'
+                        : 'Direct Gain member'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ) : null}
+          </ScrollView>
+        </View>
       )}
     </SafeAreaView>
   );
 }
 
-function Fact({
+function MetaPill({
+  icon,
   label,
-  value,
 }: {
+  icon: IoniconName;
   label: string;
-  value: string;
 }) {
   return (
-    <View style={styles.fact}>
-      <Text style={styles.factLabel}>
+    <View style={styles.metaPill}>
+      <Ionicons
+        name={icon}
+        size={iconSize.xs}
+        color={textColor.secondary}
+      />
+      <Text style={styles.metaPillLabel}>
         {label}
       </Text>
-      <Text
-        style={styles.factValue}
-        numberOfLines={2}
-      >
-        {value}
-      </Text>
+    </View>
+  );
+}
+
+function SpecRow({
+  icon,
+  label,
+  value,
+  last = false,
+}: {
+  icon: IoniconName;
+  label: string;
+  value: string;
+  last?: boolean;
+}) {
+  return (
+    <View
+      style={[
+        styles.specRow,
+        last && styles.specRowLast,
+      ]}
+    >
+      <View style={styles.specIcon}>
+        <Ionicons
+          name={icon}
+          size={iconSize.sm}
+          color={palette.opportunityGreen}
+        />
+      </View>
+      <View style={styles.specCopy}>
+        <Text style={styles.specLabel}>
+          {label}
+        </Text>
+        <Text
+          style={styles.specValue}
+          numberOfLines={2}
+        >
+          {value}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -345,6 +448,14 @@ const styles = StyleSheet.create({
     backgroundColor: surface.page,
   },
 
+  flex: {
+    flex: 1,
+  },
+
+  detailRoot: {
+    flex: 1,
+  },
+
   body: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
@@ -366,32 +477,53 @@ const styles = StyleSheet.create({
   scroll: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xs,
-    paddingBottom:
-      layout.bottomNavigationClearance,
-    gap: spacing.md,
+    paddingBottom: spacing.massive,
+    gap: spacing.xl,
+  },
+
+  hero: {
+    gap: spacing.sm,
+  },
+
+  categoryPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    backgroundColor: alpha.green08,
+    borderWidth: 1,
+    borderColor: alpha.green16,
   },
 
   category: {
-    color: textColor.muted,
+    color: palette.opportunityGreen,
     fontSize: 11,
     lineHeight: 14,
     fontWeight: '800',
-    letterSpacing: 0.4,
+    letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
 
   title: {
     color: textColor.primary,
-    ...typography.headingMedium,
-    fontSize: 26,
-    lineHeight: 32,
+    ...typography.headingLarge,
+    fontSize: 28,
+    lineHeight: 34,
   },
 
   pay: {
     color: palette.opportunityGreen,
-    fontSize: 22,
-    lineHeight: 28,
+    fontSize: 28,
+    lineHeight: 34,
     fontWeight: '800',
+    letterSpacing: -0.4,
+  },
+
+  heroMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
   },
 
   heroMeta: {
@@ -399,6 +531,38 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '600',
+  },
+
+  heroMetaDot: {
+    color: textColor.muted,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+
+  pillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginTop: spacing.xxs,
+  },
+
+  metaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: radius.pill,
+    backgroundColor: alpha.white05,
+    borderWidth: 1,
+    borderColor: alpha.white08,
+  },
+
+  metaPillLabel: {
+    color: textColor.secondary,
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: '700',
   },
 
   statusNote: {
@@ -414,56 +578,84 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  card: {
-    borderRadius: radius.lg,
-    borderWidth: 1,
+  specSection: {
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
     borderColor: alpha.white08,
-    backgroundColor: surface.cardRaised,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.xs,
   },
 
-  cardEyebrow: {
-    marginBottom: spacing.sm,
-    color: textColor.muted,
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '800',
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
-  },
-
-  factGrid: {
+  specRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    columnGap: spacing.md,
-    rowGap: spacing.md,
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: alpha.white05,
   },
 
-  fact: {
-    width: '47%',
-    minWidth: 132,
+  specRowLast: {
+    borderBottomWidth: 0,
   },
 
-  factLabel: {
+  specIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: alpha.green08,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  specCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  specLabel: {
     color: textColor.muted,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '700',
   },
 
-  factValue: {
-    marginTop: 2,
+  specValue: {
+    marginTop: 1,
     color: textColor.primary,
     fontSize: 15,
     lineHeight: 20,
     fontWeight: '800',
   },
 
+  aboutSection: {
+    gap: spacing.sm,
+  },
+
+  aboutEyebrow: {
+    ...typography.eyebrow,
+    color: textColor.muted,
+  },
+
   description: {
-    color: textColor.secondary,
+    color: textColor.primary,
     fontSize: 16,
-    lineHeight: 24,
+    lineHeight: 26,
+    fontWeight: '500',
+  },
+
+  posterCard: {
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: alpha.green10,
+    backgroundColor: alpha.white03,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+
+  posterEyebrow: {
+    marginBottom: spacing.sm,
+    ...typography.eyebrow,
+    color: textColor.muted,
   },
 
   posterRow: {
@@ -473,18 +665,25 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
 
+  avatarRing: {
+    padding: 2,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: alpha.green20,
+  },
+
   avatar: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     borderRadius: 16,
-    backgroundColor: alpha.white08,
+    backgroundColor: alpha.green10,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   initials: {
-    color: textColor.primary,
-    fontSize: 14,
+    color: palette.opportunityGreen,
+    fontSize: 16,
     fontWeight: '800',
   },
 
@@ -495,8 +694,8 @@ const styles = StyleSheet.create({
 
   posterName: {
     color: textColor.primary,
-    fontSize: 16,
-    lineHeight: 21,
+    fontSize: 17,
+    lineHeight: 22,
     fontWeight: '800',
   },
 
