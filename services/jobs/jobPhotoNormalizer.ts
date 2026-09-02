@@ -220,4 +220,3 @@ export async function normalizeJobPhoto(
 }
 
 export const JOB_PHOTO_JPEG_MIME = JPEG_MIME;
-
