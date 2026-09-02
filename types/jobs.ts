@@ -163,3 +163,47 @@ export type ListOpenJobsInput = {
 };
 
 export const JOB_PAGE_SIZE = 20;
+
+export const MAX_JOB_PHOTOS = 5;
+
+export const JOB_MEDIA_MAX_BYTES = 2 * 1024 * 1024;
+
+export const JOB_MEDIA_TARGET_BYTES = Math.floor(
+  1.7 * 1024 * 1024,
+);
+
+export type PendingJobPhoto = {
+  localId: string;
+  uri: string;
+  byteSize: number;
+};
+
+export type JobMediaInsert = {
+  job_id: string;
+  uploader_id: string;
+  storage_path: string;
+  position: number;
+  media_type: 'photo';
+  mime_type: 'image/jpeg';
+  byte_size: number;
+};
+
+export type JobPhotoAttachResult =
+  | {
+      status: 'skipped';
+    }
+  | {
+      status: 'full_success';
+      uploaded: number;
+    }
+  | {
+      status: 'partial_failure';
+      uploaded: number;
+      failed: number;
+      message: string;
+    }
+  | {
+      status: 'complete_failure';
+      failed: number;
+      message: string;
+    };

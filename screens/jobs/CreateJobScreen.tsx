@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react';
 import {
+  Alert,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -21,6 +22,7 @@ import DGButton from '../../components/DGButton';
 import DGChip from '../../components/DGChip';
 import DGHeader from '../../components/DGHeader';
 import DGInput from '../../components/DGInput';
+import CreateJobPhotos from '../../components/jobs/CreateJobPhotos';
 
 import useTabBarVisibility from '../../hooks/useTabBarVisibility';
 
@@ -31,10 +33,12 @@ import {
   formatJobType,
   formatWorkSite,
 } from '../../services/jobs/jobAdapter';
+import { attachJobPhotos } from '../../services/jobs/jobMediaRepository';
 import {
   createOpenJob,
   getViewerJobRegion,
 } from '../../services/jobs/jobRepository';
+import { pickAndPrepareJobPhotos } from '../../services/jobs/pickJobPhotos';
 
 import {
   alpha,
@@ -50,10 +54,12 @@ import {
   JOB_PAY_TYPES,
   JOB_TYPES,
   JOB_WORK_SITES,
+  MAX_JOB_PHOTOS,
   type JobCategory,
   type JobPayType,
   type JobType,
   type JobWorkSite,
+  type PendingJobPhoto,
 } from '../../types/jobs';
 
 type Props = NativeStackScreenProps<
@@ -190,6 +196,7 @@ export default function CreateJobScreen({
 
   const mountedRef = useRef(true);
   const submittingRef = useRef(false);
+  const allowLeaveAfterSubmitRef = useRef(false);
 
   const [
     title,
@@ -252,6 +259,27 @@ export default function CreateJobScreen({
     setSubmitting,
   ] = useState(false);
 
+  const [
+    photos,
+    setPhotos,
+  ] = useState<PendingJobPhoto[]>([]);
+
+  const [
+    preparingPhotos,
+    setPreparingPhotos,
+  ] = useState(false);
+
+  const [
+    submitProgress,
+    setSubmitProgress,
+  ] = useState('Publish job');
+
+  const photosRef = useRef<PendingJobPhoto[]>(
+    [],
+  );
+
+  photosRef.current = photos;
+
   useFocusEffect(
     useCallback(() => {
       hideTabBar();
@@ -296,6 +324,25 @@ export default function CreateJobScreen({
       mountedRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener(
+      'beforeRemove',
+      (event) => {
+        if (allowLeaveAfterSubmitRef.current) {
+          return;
+        }
+
+        if (!submittingRef.current) {
+          return;
+        }
+
+        event.preventDefault();
+      },
+    );
+
+    return unsubscribe;
+  }, [navigation]);
 
   function validate():
     | FormErrors
@@ -370,6 +417,96 @@ export default function CreateJobScreen({
       : null;
   }
 
+  function movePhoto(
+    localId: string,
+    direction: -1 | 1,
+  ) {
+    if (submittingRef.current) {
+      return;
+    }
+
+    setPhotos((current) => {
+      const index = current.findIndex(
+        (photo) => photo.localId === localId,
+      );
+
+      const nextIndex = index + direction;
+
+      if (
+        index < 0 ||
+        nextIndex < 0 ||
+        nextIndex >= current.length
+      ) {
+        return current;
+      }
+
+      const next = [...current];
+      const [moved] = next.splice(index, 1);
+      next.splice(nextIndex, 0, moved);
+      return next;
+    });
+  }
+
+  async function handleAddPhotos() {
+    if (
+      submittingRef.current ||
+      preparingPhotos ||
+      photos.length >= MAX_JOB_PHOTOS
+    ) {
+      return;
+    }
+
+    setPreparingPhotos(true);
+
+    const result = await pickAndPrepareJobPhotos(
+      MAX_JOB_PHOTOS - photos.length,
+    );
+
+    if (!mountedRef.current) {
+      return;
+    }
+
+    setPreparingPhotos(false);
+
+    if (result.kind === 'permission_denied') {
+      Alert.alert(
+        'Photo access needed',
+        'Direct Gain needs access to your photo library so you can add pictures to a job. You can still post the job without photos.',
+      );
+      return;
+    }
+
+    if (result.kind === 'unavailable') {
+      Alert.alert(
+        'Unable to add photos',
+        result.message,
+      );
+      return;
+    }
+
+    if (result.kind === 'cancelled') {
+      return;
+    }
+
+    if (result.photos.length > 0) {
+      setPhotos((current) =>
+        [...current, ...result.photos].slice(
+          0,
+          MAX_JOB_PHOTOS,
+        ),
+      );
+    }
+
+    if (result.failedCount > 0) {
+      Alert.alert(
+        'Some photos could not be added',
+        result.failedCount === 1
+          ? 'One selected photo could not be prepared. You can try a different image.'
+          : `${result.failedCount} selected photos could not be prepared. You can try different images.`,
+      );
+    }
+  }
+
   async function handlePublish() {
     if (submittingRef.current) {
       return;
@@ -392,8 +529,16 @@ export default function CreateJobScreen({
       return;
     }
 
+    if (preparingPhotos) {
+      return;
+    }
+
     submittingRef.current = true;
+    navigation.setOptions({
+      gestureEnabled: false,
+    });
     setSubmitting(true);
+    setSubmitProgress('Posting job…');
     setErrors({});
 
     const parsedPay =
@@ -406,9 +551,13 @@ export default function CreateJobScreen({
       parsedPay.ok === false
     ) {
       submittingRef.current = false;
+      navigation.setOptions({
+        gestureEnabled: true,
+      });
 
       if (mountedRef.current) {
         setSubmitting(false);
+        setSubmitProgress('Publish job');
         setErrors({
           payAmount: parsedPay.error,
         });
@@ -432,36 +581,96 @@ export default function CreateJobScreen({
       workSite,
     });
 
-    if (!mountedRef.current) {
-      return;
-    }
-
     if (result.error || !result.job) {
       submittingRef.current = false;
-      setSubmitting(false);
-      setErrors({
-        form:
-          result.error ??
-          'This job could not be published. Try again.',
+      navigation.setOptions({
+        gestureEnabled: true,
       });
+
+      if (mountedRef.current) {
+        setSubmitting(false);
+        setSubmitProgress('Publish job');
+        setErrors({
+          form:
+            result.error ??
+            'This job could not be published. Try again.',
+        });
+      }
+
       return;
     }
 
     const jobId = result.job.id;
-    const parent = navigation.getParent();
+    const photosToUpload = photosRef.current.slice(
+      0,
+      MAX_JOB_PHOTOS,
+    );
 
-    parent?.navigate('Discover', {
-      screen: 'DiscoverJobs',
-    });
+    let attachResult: Awaited<
+      ReturnType<typeof attachJobPhotos>
+    > = { status: 'skipped' };
 
-    parent?.navigate('Discover', {
-      screen: 'JobDetail',
-      params: {
+    if (photosToUpload.length > 0) {
+      if (mountedRef.current) {
+        setSubmitProgress(
+          `Uploading photo 1 of ${photosToUpload.length}…`,
+        );
+      }
+
+      attachResult = await attachJobPhotos(
         jobId,
-      },
-    });
+        photosToUpload,
+        (progress) => {
+          if (mountedRef.current) {
+            setSubmitProgress(
+              `Uploading photo ${progress.current} of ${progress.total}…`,
+            );
+          }
+        },
+      );
+    }
 
-    navigation.popToTop();
+    function openCreatedJob() {
+      allowLeaveAfterSubmitRef.current = true;
+
+      const parent = navigation.getParent();
+
+      parent?.navigate('Discover', {
+        screen: 'DiscoverJobs',
+      });
+
+      parent?.navigate('Discover', {
+        screen: 'JobDetail',
+        params: {
+          jobId,
+        },
+      });
+
+      navigation.popToTop();
+    }
+
+    if (!mountedRef.current) {
+      return;
+    }
+
+    if (
+      attachResult.status === 'partial_failure' ||
+      attachResult.status === 'complete_failure'
+    ) {
+      Alert.alert(
+        'Job posted',
+        attachResult.message,
+        [
+          {
+            text: 'OK',
+            onPress: openCreatedJob,
+          },
+        ],
+      );
+      return;
+    }
+
+    openCreatedJob();
   }
 
   const descriptionLength =
@@ -476,6 +685,10 @@ export default function CreateJobScreen({
         showBackButton
         title="Post a Job"
         onBackPress={() => {
+          if (submittingRef.current) {
+            return;
+          }
+
           navigation.goBack();
         }}
       />
@@ -536,6 +749,32 @@ export default function CreateJobScreen({
             inputStyle={
               styles.descriptionField
             }
+          />
+
+          <CreateJobPhotos
+            photos={photos}
+            disabled={submitting || preparingPhotos}
+            preparing={preparingPhotos}
+            onAdd={() => {
+              void handleAddPhotos();
+            }}
+            onRemove={(localId) => {
+              if (submittingRef.current) {
+                return;
+              }
+
+              setPhotos((current) =>
+                current.filter(
+                  (photo) => photo.localId !== localId,
+                ),
+              );
+            }}
+            onMoveLeft={(localId) => {
+              movePhoto(localId, -1);
+            }}
+            onMoveRight={(localId) => {
+              movePhoto(localId, 1);
+            }}
           />
 
           <Text style={styles.section}>
@@ -817,15 +1056,23 @@ export default function CreateJobScreen({
           ) : null}
 
           <DGButton
-            title="Publish job"
+            title={
+              submitting
+                ? submitProgress
+                : 'Publish job'
+            }
             fullWidth
             loading={submitting}
-            disabled={submitting}
+            disabled={submitting || preparingPhotos}
             onPress={() => {
               void handlePublish();
             }}
             style={styles.submit}
-            accessibilityLabel="Publish job"
+            accessibilityLabel={
+              submitting
+                ? submitProgress
+                : 'Publish job'
+            }
           />
           </View>
         </ScrollView>
