@@ -1,11 +1,15 @@
 import { supabase } from '../../lib/supabase';
 
+import { getJobById } from './jobRepository';
+
 import {
   JOB_APPLICATION_MESSAGE_MAX,
   JOB_APPLICATION_MESSAGE_MIN,
   JOB_APPLICATION_STATUSES,
+  type JobApplicantProfile,
   type JobApplication,
   type JobApplicationStatus,
+  type PosterJobApplication,
 } from '../../types/jobs';
 
 const UUID_PATTERN =
@@ -371,6 +375,471 @@ export async function withdrawJobApplication(
       ok: false,
       error:
         'Your application could not be withdrawn. Try again.',
+    };
+  }
+
+  return {
+    ok: true,
+    error: null,
+  };
+}
+
+const POSTER_APPLICATION_SELECT =
+  'id, job_id, applicant_id, status, message, created_at';
+
+type PosterApplicationRow = JobApplicationRow & {
+  message: string | null;
+};
+
+type ApplicantProfileRow = {
+  id: string;
+  display_name: string;
+  bio: string | null;
+  suburb: string | null;
+  state: string | null;
+  account_type: string;
+};
+
+function isPosterApplicationRow(
+  value: unknown,
+): value is PosterApplicationRow {
+  if (!isApplicationRow(value)) {
+    return false;
+  }
+
+  const row = value as PosterApplicationRow;
+
+  return (
+    row.message === null ||
+    typeof row.message === 'string'
+  );
+}
+
+function adaptApplicantProfile(
+  row: ApplicantProfileRow,
+): JobApplicantProfile {
+  return {
+    displayName:
+      row.display_name.trim() ||
+      'Direct Gain member',
+    bio: row.bio?.trim() ? row.bio.trim() : null,
+    suburb: row.suburb?.trim() ? row.suburb.trim() : null,
+    state: row.state?.trim() ? row.state.trim() : null,
+    accountType:
+      row.account_type === 'business'
+        ? 'business'
+        : 'personal',
+  };
+}
+
+async function assertPosterOwnsJob(
+  jobId: string,
+): Promise<
+  | { ok: true }
+  | { ok: false; error: string }
+> {
+  const userId = await getSessionUserId();
+
+  if (!userId) {
+    return {
+      ok: false,
+      error: 'Sign in to manage applications.',
+    };
+  }
+
+  const jobResult = await getJobById(jobId);
+
+  if (jobResult.error || !jobResult.job) {
+    return {
+      ok: false,
+      error:
+        'These applications could not be loaded.',
+    };
+  }
+
+  if (jobResult.job.posterId.toLowerCase() !== userId) {
+    return {
+      ok: false,
+      error:
+        'Only the job poster can view these applications.',
+    };
+  }
+
+  return { ok: true };
+}
+
+async function fetchApplicantProfiles(
+  applicantIds: string[],
+): Promise<Map<string, JobApplicantProfile>> {
+  const uniqueIds = [
+    ...new Set(
+      applicantIds.filter((id) => isUuid(id)),
+    ),
+  ];
+  const profiles = new Map<string, JobApplicantProfile>();
+
+  if (uniqueIds.length === 0) {
+    return profiles;
+  }
+
+  const result = await supabase
+    .from('profiles')
+    .select('id, display_name, bio, suburb, state, account_type')
+    .in('id', uniqueIds);
+
+  if (result.error || !result.data) {
+    return profiles;
+  }
+
+  for (const row of result.data) {
+    if (
+      row &&
+      typeof row.id === 'string' &&
+      typeof row.display_name === 'string'
+    ) {
+      profiles.set(
+        row.id.toLowerCase(),
+        adaptApplicantProfile(row as ApplicantProfileRow),
+      );
+    }
+  }
+
+  return profiles;
+}
+
+function statusRank(status: JobApplicationStatus): number {
+  if (status === 'submitted') {
+    return 0;
+  }
+
+  if (status === 'selected') {
+    return 1;
+  }
+
+  return 2;
+}
+
+export async function countSubmittedApplicationsForJob(
+  jobId: string,
+): Promise<{
+  count: number | null;
+  error: string | null;
+}> {
+  const id = jobId.trim().toLowerCase();
+
+  if (!isUuid(id)) {
+    return {
+      count: null,
+      error: 'This job could not be found.',
+    };
+  }
+
+  const ownership = await assertPosterOwnsJob(id);
+
+  if (!ownership.ok) {
+    return {
+      count: null,
+      error: ownership.error,
+    };
+  }
+
+  const result = await supabase
+    .from('job_applications')
+    .select('id', {
+      count: 'exact',
+      head: true,
+    })
+    .eq('job_id', id)
+    .eq('status', 'submitted');
+
+  if (result.error) {
+    return {
+      count: null,
+      error: null,
+    };
+  }
+
+  return {
+    count: result.count ?? 0,
+    error: null,
+  };
+}
+
+export async function listApplicationsForJob(
+  jobId: string,
+): Promise<{
+  applications: PosterJobApplication[];
+  error: string | null;
+}> {
+  const id = jobId.trim().toLowerCase();
+
+  if (!isUuid(id)) {
+    return {
+      applications: [],
+      error: 'This job could not be found.',
+    };
+  }
+
+  const ownership = await assertPosterOwnsJob(id);
+
+  if (!ownership.ok) {
+    return {
+      applications: [],
+      error: ownership.error,
+    };
+  }
+
+  const result = await supabase
+    .from('job_applications')
+    .select(POSTER_APPLICATION_SELECT)
+    .eq('job_id', id)
+    .order('created_at', { ascending: false });
+
+  if (result.error) {
+    return {
+      applications: [],
+      error: 'Applications could not be loaded.',
+    };
+  }
+
+  const rows = (result.data ?? []).filter(
+    isPosterApplicationRow,
+  );
+
+  const profiles = await fetchApplicantProfiles(
+    rows.map((row) => row.applicant_id),
+  );
+
+  const applications = rows
+    .map((row) => ({
+      id: row.id,
+      jobId: row.job_id,
+      status: row.status as JobApplicationStatus,
+      message: row.message,
+      createdAt: row.created_at,
+      applicant:
+        profiles.get(row.applicant_id.toLowerCase()) ??
+        null,
+    }))
+    .sort((left, right) => {
+      const rank =
+        statusRank(left.status) - statusRank(right.status);
+
+      if (rank !== 0) {
+        return rank;
+      }
+
+      return (
+        Date.parse(right.createdAt) -
+        Date.parse(left.createdAt)
+      );
+    });
+
+  return {
+    applications,
+    error: null,
+  };
+}
+
+export async function getPosterApplication(
+  jobId: string,
+  applicationId: string,
+): Promise<{
+  application: PosterJobApplication | null;
+  error: string | null;
+}> {
+  const job = jobId.trim().toLowerCase();
+  const id = applicationId.trim().toLowerCase();
+
+  if (!isUuid(job) || !isUuid(id)) {
+    return {
+      application: null,
+      error: 'That application could not be found.',
+    };
+  }
+
+  const ownership = await assertPosterOwnsJob(job);
+
+  if (!ownership.ok) {
+    return {
+      application: null,
+      error: ownership.error,
+    };
+  }
+
+  const result = await supabase
+    .from('job_applications')
+    .select(POSTER_APPLICATION_SELECT)
+    .eq('job_id', job)
+    .eq('id', id)
+    .maybeSingle();
+
+  if (result.error) {
+    return {
+      application: null,
+      error: 'That application could not be loaded.',
+    };
+  }
+
+  if (!isPosterApplicationRow(result.data)) {
+    return {
+      application: null,
+      error: 'That application could not be found.',
+    };
+  }
+
+  const profiles = await fetchApplicantProfiles([
+    result.data.applicant_id,
+  ]);
+
+  return {
+    application: {
+      id: result.data.id,
+      jobId: result.data.job_id,
+      status: result.data.status as JobApplicationStatus,
+      message: result.data.message,
+      createdAt: result.data.created_at,
+      applicant:
+        profiles.get(result.data.applicant_id.toLowerCase()) ??
+        null,
+    },
+    error: null,
+  };
+}
+
+function formatLifecycleError(
+  error: {
+    message?: string;
+  } | null,
+  fallback: string,
+): string {
+  if (!error?.message) {
+    return fallback;
+  }
+
+  const message = error.message.toLowerCase();
+
+  if (
+    message.includes('no longer open for hiring') ||
+    message.includes('already has a hired applicant')
+  ) {
+    return 'This job has already been assigned.';
+  }
+
+  if (
+    message.includes('only the job poster')
+  ) {
+    return 'Only the job poster can do this.';
+  }
+
+  if (
+    message.includes('only a submitted application can be hired')
+  ) {
+    return 'Only a submitted application can be hired.';
+  }
+
+  if (
+    message.includes('only a submitted application can be declined')
+  ) {
+    return 'Only a submitted application can be declined.';
+  }
+
+  if (
+    message.includes('can only be declined while the job is open')
+  ) {
+    return 'This job is no longer open.';
+  }
+
+  return fallback;
+}
+
+export async function hireJobApplicant(input: {
+  jobId: string;
+  applicationId: string;
+}): Promise<{
+  ok: boolean;
+  error: string | null;
+}> {
+  const jobId = input.jobId.trim().toLowerCase();
+  const applicationId = input.applicationId.trim().toLowerCase();
+
+  if (!isUuid(jobId) || !isUuid(applicationId)) {
+    return {
+      ok: false,
+      error: 'This applicant could not be hired.',
+    };
+  }
+
+  const ownership = await assertPosterOwnsJob(jobId);
+
+  if (!ownership.ok) {
+    return {
+      ok: false,
+      error: ownership.error,
+    };
+  }
+
+  const result = await supabase.rpc('hire_job_applicant', {
+    p_job_id: jobId,
+    p_application_id: applicationId,
+  });
+
+  if (result.error) {
+    return {
+      ok: false,
+      error: formatLifecycleError(
+        result.error,
+        'This applicant could not be hired. Try again.',
+      ),
+    };
+  }
+
+  return {
+    ok: true,
+    error: null,
+  };
+}
+
+export async function declineJobApplication(
+  applicationId: string,
+  jobId: string,
+): Promise<{
+  ok: boolean;
+  error: string | null;
+}> {
+  const id = applicationId.trim().toLowerCase();
+  const job = jobId.trim().toLowerCase();
+
+  if (!isUuid(id) || !isUuid(job)) {
+    return {
+      ok: false,
+      error: 'This application could not be declined.',
+    };
+  }
+
+  const ownership = await assertPosterOwnsJob(job);
+
+  if (!ownership.ok) {
+    return {
+      ok: false,
+      error: ownership.error,
+    };
+  }
+
+  const result = await supabase.rpc(
+    'decline_job_application',
+    {
+      p_application_id: id,
+    },
+  );
+
+  if (result.error) {
+    return {
+      ok: false,
+      error: formatLifecycleError(
+        result.error,
+        'This application could not be declined. Try again.',
+      ),
     };
   }
 

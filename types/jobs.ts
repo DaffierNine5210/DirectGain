@@ -262,3 +262,20 @@ export type JobApplication = {
   status: JobApplicationStatus;
   createdAt: string;
 };
+
+export type JobApplicantProfile = {
+  displayName: string;
+  bio: string | null;
+  suburb: string | null;
+  state: string | null;
+  accountType: JobAccountType;
+};
+
+export type PosterJobApplication = {
+  id: string;
+  jobId: string;
+  status: JobApplicationStatus;
+  message: string | null;
+  createdAt: string;
+  applicant: JobApplicantProfile | null;
+};

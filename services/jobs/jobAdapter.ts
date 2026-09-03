@@ -1,6 +1,7 @@
 import type {
   Job,
   JobAccountType,
+  JobApplicationStatus,
   JobCategory,
   JobPayType,
   JobPosterPreview,
@@ -268,6 +269,50 @@ export function formatStartsOn(
       year: 'numeric',
     },
   );
+}
+
+export function formatApplicationStatus(
+  status: JobApplicationStatus,
+): string {
+  if (status === 'submitted') {
+    return 'Submitted';
+  }
+
+  if (status === 'withdrawn') {
+    return 'Withdrawn';
+  }
+
+  if (status === 'declined') {
+    return 'Declined';
+  }
+
+  if (status === 'selected') {
+    return 'Selected';
+  }
+
+  if (status === 'not_selected') {
+    return 'Not selected';
+  }
+
+  return 'Cancelled';
+}
+
+export function previewApplicationMessage(
+  message: string | null,
+): string {
+  const collapsed = (message ?? '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!collapsed) {
+    return 'No message included.';
+  }
+
+  if (collapsed.length <= 90) {
+    return collapsed;
+  }
+
+  return `${collapsed.slice(0, 90).trimEnd()}…`;
 }
 
 export function posterInitials(

@@ -28,6 +28,7 @@ import { getJobById } from '../../services/jobs/jobRepository';
 import {
   getAuthenticatedUserId,
   getMyApplicationForJob,
+  countSubmittedApplicationsForJob,
   withdrawJobApplication,
 } from '../../services/jobs/jobApplicationRepository';
 import { listResolvedJobPhotos } from '../../services/jobs/jobMediaRepository';
@@ -74,6 +75,7 @@ export default function JobDetailScreen({
   const applicationRequestIdRef = useRef(0);
   const withdrawingRef = useRef(false);
   const hasLoadedJobRef = useRef(false);
+  const isOwnerRef = useRef(false);
   const loadApplicationRef = useRef<
     () => Promise<void>
   >(async () => {});
@@ -132,18 +134,62 @@ export default function JobDetailScreen({
   ] =
     useState(false);
 
+  const [
+    submittedApplicantCount,
+    setSubmittedApplicantCount,
+  ] =
+    useState<number | null>(null);
+
+  const refreshJobQuietly = useCallback(
+    async () => {
+      const result = await getJobById(jobId);
+
+      if (
+        !mountedRef.current ||
+        result.error ||
+        !result.job
+      ) {
+        return;
+      }
+
+      setJob(result.job);
+    },
+    [jobId],
+  );
+
   useFocusEffect(
     useCallback(() => {
       hideTabBar();
 
       if (hasLoadedJobRef.current) {
+        void refreshJobQuietly();
         void loadApplicationRef.current();
+
+        if (isOwnerRef.current) {
+          void (async () => {
+            const result =
+              await countSubmittedApplicationsForJob(
+                jobId,
+              );
+
+            if (!mountedRef.current) {
+              return;
+            }
+
+            if (result.error) {
+              setSubmittedApplicantCount(null);
+              return;
+            }
+
+            setSubmittedApplicantCount(result.count);
+          })();
+        }
       }
 
       return () => {
         showTabBar();
       };
-    }, [hideTabBar, showTabBar]),
+    }, [hideTabBar, showTabBar, refreshJobQuietly]),
   );
 
   const loadApplication = useCallback(
@@ -254,6 +300,40 @@ export default function JobDetailScreen({
     viewerId &&
     job.posterId.toLowerCase() === viewerId,
   );
+
+  isOwnerRef.current = isOwner;
+
+  useEffect(() => {
+    if (!isOwner || !job) {
+      setSubmittedApplicantCount(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      const result =
+        await countSubmittedApplicationsForJob(job.id);
+
+      if (
+        cancelled ||
+        !mountedRef.current
+      ) {
+        return;
+      }
+
+      if (result.error) {
+        setSubmittedApplicantCount(null);
+        return;
+      }
+
+      setSubmittedApplicantCount(result.count);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOwner, job?.id]);
 
   async function handleWithdraw() {
     if (
@@ -419,7 +499,13 @@ export default function JobDetailScreen({
             {closed ? (
               <View style={styles.statusNote}>
                 <Text style={styles.statusText}>
-                  This job is no longer open.
+                  {job.status === 'assigned'
+                    ? 'This job has been assigned.'
+                    : job.status === 'completed'
+                      ? 'This job is completed.'
+                      : job.status === 'cancelled'
+                        ? 'This job was cancelled.'
+                        : 'This job is no longer open.'}
                 </Text>
               </View>
             ) : null}
@@ -527,6 +613,11 @@ export default function JobDetailScreen({
               applicationError={applicationError}
               applicationLoading={applicationLoading}
               withdrawing={withdrawing}
+              submittedApplicantCount={
+                isOwner
+                  ? submittedApplicantCount
+                  : null
+              }
               onApply={() => {
                 navigation.navigate('ApplyToJob', {
                   jobId: job.id,
@@ -538,6 +629,12 @@ export default function JobDetailScreen({
               }}
               onWithdraw={() => {
                 void handleWithdraw();
+              }}
+              onViewApplicants={() => {
+                navigation.navigate('JobApplicants', {
+                  jobId: job.id,
+                  jobTitle: job.title,
+                });
               }}
             />
           </ScrollView>

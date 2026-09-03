@@ -23,9 +23,11 @@ type JobApplicationActionsProps = {
   applicationError: string | null;
   applicationLoading: boolean;
   withdrawing: boolean;
+  submittedApplicantCount?: number | null;
   onApply: () => void;
   onRetry: () => void;
   onWithdraw: () => void;
+  onViewApplicants?: () => void;
 };
 
 export default function JobApplicationActions({
@@ -35,17 +37,48 @@ export default function JobApplicationActions({
   applicationError,
   applicationLoading,
   withdrawing,
+  submittedApplicantCount = null,
   onApply,
   onRetry,
   onWithdraw,
+  onViewApplicants,
 }: JobApplicationActionsProps) {
   if (isOwner) {
+    const countLabel =
+      typeof submittedApplicantCount === 'number' &&
+      submittedApplicantCount > 0
+        ? `View applicants (${submittedApplicantCount})`
+        : 'View applicants';
+
+    const countHint =
+      jobStatus === 'open' &&
+      typeof submittedApplicantCount === 'number'
+        ? submittedApplicantCount === 0
+          ? 'No submitted applications yet. Past applications still appear in the list.'
+          : submittedApplicantCount === 1
+            ? '1 submitted application waiting for review.'
+            : `${submittedApplicantCount} submitted applications waiting for review.`
+        : jobStatus === 'open'
+          ? 'Review submitted applications and hire from here.'
+          : 'Review applications and hiring history.';
+
     return (
       <View style={styles.card}>
         <Text style={styles.title}>Your job</Text>
-        <Text style={styles.body}>
-          You posted this job. Manage applications and hiring from your jobs.
-        </Text>
+        <Text style={styles.body}>{countHint}</Text>
+        {onViewApplicants ? (
+          <DGButton
+            title={countLabel}
+            fullWidth
+            onPress={onViewApplicants}
+            accessibilityLabel={
+              typeof submittedApplicantCount === 'number' &&
+              submittedApplicantCount > 0
+                ? `View applicants, ${submittedApplicantCount} submitted`
+                : 'View applicants'
+            }
+          />
+        ) : null}
       </View>
     );
   }

@@ -3,6 +3,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import DiscoverScreen from '../screens/DiscoverScreen';
 import ApplyToJobScreen from '../screens/jobs/ApplyToJobScreen';
 import DiscoverJobsScreen from '../screens/jobs/DiscoverJobsScreen';
+import JobApplicantDetailScreen from '../screens/jobs/JobApplicantDetailScreen';
+import JobApplicantsScreen from '../screens/jobs/JobApplicantsScreen';
 import JobDetailScreen from '../screens/jobs/JobDetailScreen';
 
 export type DiscoverStackParamList = {
@@ -14,6 +16,15 @@ export type DiscoverStackParamList = {
   ApplyToJob: {
     jobId: string;
     jobTitle: string;
+  };
+  JobApplicants: {
+    jobId: string;
+    jobTitle: string;
+  };
+  JobApplicantDetail: {
+    jobId: string;
+    jobTitle: string;
+    applicationId: string;
   };
 };
 
@@ -58,6 +69,24 @@ export default function DiscoverStack() {
       <Stack.Screen
         name="ApplyToJob"
         component={ApplyToJobScreen}
+        options={{
+          animation: 'slide_from_right',
+          gestureDirection: 'horizontal',
+        }}
+      />
+
+      <Stack.Screen
+        name="JobApplicants"
+        component={JobApplicantsScreen}
+        options={{
+          animation: 'slide_from_right',
+          gestureDirection: 'horizontal',
+        }}
+      />
+
+      <Stack.Screen
+        name="JobApplicantDetail"
+        component={JobApplicantDetailScreen}
         options={{
           animation: 'slide_from_right',
           gestureDirection: 'horizontal',
