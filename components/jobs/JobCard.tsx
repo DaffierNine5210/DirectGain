@@ -1,4 +1,11 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { posterInitials } from '../../services/jobs/jobAdapter';
 
@@ -17,13 +24,29 @@ import {
 
 type JobCardProps = {
   job: Job;
+  coverUrl?: string | null;
+  photoCount?: number;
   onPress: (jobId: string) => void;
 };
 
 export default function JobCard({
   job,
+  coverUrl = null,
+  photoCount = 0,
   onPress,
 }: JobCardProps) {
+  const [
+    imageFailed,
+    setImageFailed,
+  ] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [coverUrl]);
+
+  const showCover =
+    Boolean(coverUrl) && !imageFailed;
+
   const detailParts = [
     job.locationLabel,
     job.jobTypeLabel,
@@ -37,84 +60,118 @@ export default function JobCard({
     job.poster?.accountType ===
     'business';
 
+  const accessibilityLabel = showCover
+    ? `${job.title}. ${job.categoryLabel}. ${job.payLabel}. ${job.locationLabel}. Includes photo.`
+    : `${job.title}. ${job.categoryLabel}. ${job.payLabel}. ${job.locationLabel}.`;
+
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${job.title}. ${job.categoryLabel}. ${job.payLabel}. ${job.locationLabel}.`}
+      accessibilityLabel={accessibilityLabel}
       onPress={() => {
         onPress(job.id);
       }}
       style={({ pressed }) => [
         styles.card,
+        showCover && styles.photoCard,
         pressed && styles.pressed,
       ]}
     >
-      <View style={styles.topRow}>
-        <Text
-          style={styles.category}
-          numberOfLines={1}
-        >
-          {job.categoryLabel}
-        </Text>
-        <Text
-          style={styles.posted}
-          numberOfLines={1}
-        >
-          {job.postedLabel}
-        </Text>
-      </View>
-
-      <Text
-        style={styles.title}
-        numberOfLines={2}
-      >
-        {job.title}
-      </Text>
-
-      <Text
-        style={styles.pay}
-        numberOfLines={1}
-      >
-        {job.payLabel}
-      </Text>
-
-      {job.descriptionPreview ? (
-        <Text
-          style={styles.preview}
-          numberOfLines={2}
-        >
-          {job.descriptionPreview}
-        </Text>
-      ) : null}
-
-      {detailParts.length > 0 ? (
-        <Text
-          style={styles.details}
-          numberOfLines={1}
-        >
-          {detailParts.join(' · ')}
-        </Text>
-      ) : null}
-
-      {posterName ? (
-        <View style={styles.posterRow}>
-          <View
-            style={styles.avatar}
-            accessibilityElementsHidden
-          >
-            <Text style={styles.initials}>
-              {posterInitials(posterName)}
-            </Text>
-          </View>
-          <Text
-            style={styles.posterName}
-            numberOfLines={1}
-          >
-            {posterName}
-            {showBusiness ? ' · Business' : ''}
-          </Text>
+      {showCover && coverUrl ? (
+        <View style={styles.coverWrap}>
+          <Image
+            source={{ uri: coverUrl }}
+            style={styles.cover}
+            resizeMode="cover"
+            accessibilityIgnoresInvertColors
+            accessibilityLabel="Job photo"
+            onError={() => {
+              setImageFailed(true);
+            }}
+          />
+          {photoCount > 1 ? (
+            <View
+              style={styles.countBadge}
+              accessibilityElementsHidden
+            >
+              <Text style={styles.countText}>
+                {photoCount}
+              </Text>
+            </View>
+          ) : null}
         </View>
       ) : null}
+
+      <View
+        style={showCover ? styles.photoBody : undefined}
+      >
+        <View style={styles.topRow}>
+          <Text
+            style={styles.category}
+            numberOfLines={1}
+          >
+            {job.categoryLabel}
+          </Text>
+          <Text
+            style={styles.posted}
+            numberOfLines={1}
+          >
+            {job.postedLabel}
+          </Text>
+        </View>
+
+        <Text
+          style={styles.title}
+          numberOfLines={2}
+        >
+          {job.title}
+        </Text>
+
+        <Text
+          style={styles.pay}
+          numberOfLines={1}
+        >
+          {job.payLabel}
+        </Text>
+
+        {job.descriptionPreview ? (
+          <Text
+            style={styles.preview}
+            numberOfLines={2}
+          >
+            {job.descriptionPreview}
+          </Text>
+        ) : null}
+
+        {detailParts.length > 0 ? (
+          <Text
+            style={styles.details}
+            numberOfLines={1}
+          >
+            {detailParts.join(' · ')}
+          </Text>
+        ) : null}
+
+        {posterName ? (
+          <View style={styles.posterRow}>
+            <View
+              style={styles.avatar}
+              accessibilityElementsHidden
+            >
+              <Text style={styles.initials}>
+                {posterInitials(posterName)}
+              </Text>
+            </View>
+            <Text
+              style={styles.posterName}
+              numberOfLines={1}
+            >
+              {posterName}
+              {showBusiness ? ' · Business' : ''}
+            </Text>
+          </View>
+        ) : null}
+      </View>
     </Pressable>
   );
 }
@@ -129,6 +186,12 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
 
+  photoCard: {
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    overflow: 'hidden',
+  },
+
   pressed: {
     opacity: 0.86,
     transform: [
@@ -136,6 +199,43 @@ const styles = StyleSheet.create({
         scale: motion.pressedScale,
       },
     ],
+  },
+
+  coverWrap: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    backgroundColor: alpha.white05,
+  },
+
+  cover: {
+    width: '100%',
+    height: '100%',
+  },
+
+  countBadge: {
+    position: 'absolute',
+    right: spacing.sm,
+    bottom: spacing.sm,
+    minWidth: 28,
+    minHeight: 22,
+    paddingHorizontal: 8,
+    borderRadius: radius.pill,
+    backgroundColor: alpha.black56,
+    borderWidth: 1,
+    borderColor: alpha.white14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  countText: {
+    color: textColor.primary,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+
+  photoBody: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
   },
 
   topRow: {

@@ -33,6 +33,7 @@ import useTabBarVisibility from '../../hooks/useTabBarVisibility';
 import type { DiscoverStackParamList } from '../../navigation/DiscoverStack';
 
 import { formatJobCategory, formatJobType, formatViewerRegionLabel } from '../../services/jobs/jobAdapter';
+import { resolveJobCoverPhotos } from '../../services/jobs/jobMediaRepository';
 import {
   getViewerJobRegion,
   listOpenJobs,
@@ -56,6 +57,7 @@ import {
   JOB_TYPES,
   type Job,
   type JobCategory,
+  type JobCoverPresentation,
   type JobPayType,
   type JobType,
   type ViewerJobRegion,
@@ -173,6 +175,14 @@ export default function DiscoverJobsScreen({
     useState<Job[]>([]);
 
   const [
+    covers,
+    setCovers,
+  ] =
+    useState<
+      Record<string, JobCoverPresentation>
+    >({});
+
+  const [
     loading,
     setLoading,
   ] =
@@ -280,6 +290,7 @@ export default function DiscoverJobsScreen({
         requestIdRef.current += 1;
         setJobs([]);
         jobsRef.current = [];
+        setCovers({});
         setError(null);
         setHasMore(false);
         hasMoreRef.current = false;
@@ -346,6 +357,7 @@ export default function DiscoverJobsScreen({
         if (mode === 'replace') {
           setJobs([]);
           jobsRef.current = [];
+          setCovers({});
         }
 
         setError(result.error);
@@ -366,8 +378,44 @@ export default function DiscoverJobsScreen({
             )
           : result.jobs;
 
+      const mediaJobIds =
+        mode === 'append'
+          ? nextJobs
+              .filter(
+                (job) =>
+                  !jobsRef.current.some(
+                    (current) =>
+                      current.id === job.id,
+                  ),
+              )
+              .map((job) => job.id)
+          : nextJobs.map((job) => job.id);
+
+      const nextCovers =
+        await resolveJobCoverPhotos(
+          mediaJobIds,
+        );
+
+      if (
+        requestId !==
+          requestIdRef.current ||
+        !mountedRef.current
+      ) {
+        return;
+      }
+
       jobsRef.current = nextJobs;
       setJobs(nextJobs);
+
+      if (mode === 'replace') {
+        setCovers(nextCovers);
+      } else {
+        setCovers((current) => ({
+          ...current,
+          ...nextCovers,
+        }));
+      }
+
       setError(null);
 
       const more =
@@ -489,6 +537,14 @@ export default function DiscoverJobsScreen({
           <View style={styles.cardWrap}>
             <JobCard
               job={item}
+              coverUrl={
+                covers[item.id.toLowerCase()]
+                  ?.url ?? null
+              }
+              photoCount={
+                covers[item.id.toLowerCase()]
+                  ?.photoCount ?? 0
+              }
               onPress={jobId => {
                 navigation.navigate(
                   'JobDetail',

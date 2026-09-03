@@ -13,6 +13,7 @@ import { useFocusEffect } from '@react-navigation/native';
 
 import DGHeader from '../../components/DGHeader';
 import DGSkeleton from '../../components/DGSkeleton';
+import JobMediaGallery from '../../components/jobs/JobMediaGallery';
 
 import useTabBarVisibility from '../../hooks/useTabBarVisibility';
 
@@ -23,6 +24,7 @@ import {
   posterInitials,
 } from '../../services/jobs/jobAdapter';
 import { getJobById } from '../../services/jobs/jobRepository';
+import { listResolvedJobPhotos } from '../../services/jobs/jobMediaRepository';
 
 import {
   alpha,
@@ -35,7 +37,11 @@ import {
   typography,
 } from '../../theme/designSystem';
 
-import type { Job, JobPayType } from '../../types/jobs';
+import type {
+  Job,
+  JobPayType,
+  ResolvedJobPhoto,
+} from '../../types/jobs';
 
 type Props = NativeStackScreenProps<
   DiscoverStackParamList,
@@ -57,6 +63,7 @@ export default function JobDetailScreen({
 
   const jobId = route.params.jobId;
   const mountedRef = useRef(true);
+  const mediaRequestIdRef = useRef(0);
 
   const [
     job,
@@ -76,6 +83,12 @@ export default function JobDetailScreen({
   ] =
     useState<string | null>(null);
 
+  const [
+    photos,
+    setPhotos,
+  ] =
+    useState<ResolvedJobPhoto[]>([]);
+
   useFocusEffect(
     useCallback(() => {
       hideTabBar();
@@ -90,6 +103,25 @@ export default function JobDetailScreen({
     async () => {
       setLoading(true);
       setError(null);
+      setPhotos([]);
+
+      const mediaRequestId =
+        ++mediaRequestIdRef.current;
+
+      void (async () => {
+        const media =
+          await listResolvedJobPhotos(jobId);
+
+        if (
+          mediaRequestId !==
+            mediaRequestIdRef.current ||
+          !mountedRef.current
+        ) {
+          return;
+        }
+
+        setPhotos(media);
+      })();
 
       const result =
         await getJobById(jobId);
@@ -201,6 +233,12 @@ export default function JobDetailScreen({
             }
           >
             <View style={styles.hero}>
+              {photos.length > 0 ? (
+                <JobMediaGallery
+                  photos={photos}
+                />
+              ) : null}
+
               <View style={styles.categoryPill}>
                 <Text style={styles.category}>
                   {job.categoryLabel}

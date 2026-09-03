@@ -207,3 +207,25 @@ export type JobPhotoAttachResult =
       failed: number;
       message: string;
     };
+
+export type JobMediaRecord = {
+  id: string;
+  jobId: string;
+  storagePath: string;
+  position: number;
+  mediaType: 'photo';
+  mimeType: string;
+  byteSize: number;
+  createdAt: string;
+};
+
+export type ResolvedJobPhoto = {
+  id: string;
+  position: number;
+  signedUrl: string;
+};
+
+export type JobCoverPresentation = {
+  url: string;
+  photoCount: number;
+};

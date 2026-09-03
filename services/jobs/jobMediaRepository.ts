@@ -5,9 +5,12 @@ import { supabase } from '../../lib/supabase';
 import {
   JOB_MEDIA_MAX_BYTES,
   MAX_JOB_PHOTOS,
+  type JobCoverPresentation,
   type JobMediaInsert,
+  type JobMediaRecord,
   type JobPhotoAttachResult,
   type PendingJobPhoto,
+  type ResolvedJobPhoto,
 } from '../../types/jobs';
 
 import { JOB_PHOTO_JPEG_MIME } from './jobPhotoNormalizer';
@@ -340,4 +343,343 @@ export async function attachJobPhotos(
     failed,
     message: userFacingAttachMessage(uploaded, failed),
   };
+}
+
+const JOB_MEDIA_SELECT_COLUMNS =
+  'id, job_id, storage_path, position, media_type, mime_type, byte_size, created_at';
+
+const SIGNED_URL_TTL_SECONDS = 60 * 60;
+
+const SIGNED_URL_REFRESH_MARGIN_MS =
+  5 * 60 * 1000;
+
+type SignedUrlCacheEntry = {
+  url: string;
+  expiresAt: number;
+};
+
+const signedUrlCache = new Map<
+  string,
+  SignedUrlCacheEntry
+>();
+
+type JobMediaRow = {
+  id: string;
+  job_id: string;
+  storage_path: string;
+  position: number;
+  media_type: string;
+  mime_type: string;
+  byte_size: number;
+  created_at: string;
+};
+
+function uniqueJobIds(
+  jobIds: readonly string[],
+): string[] {
+  const seen = new Set<string>();
+  const next: string[] = [];
+
+  for (const value of jobIds) {
+    const id = value.trim().toLowerCase();
+
+    if (!isUuid(id) || seen.has(id)) {
+      continue;
+    }
+
+    seen.add(id);
+    next.push(id);
+  }
+
+  return next;
+}
+
+function isJobMediaRow(
+  value: unknown,
+): value is JobMediaRow {
+  if (
+    typeof value !== 'object' ||
+    value === null
+  ) {
+    return false;
+  }
+
+  const row = value as JobMediaRow;
+
+  return (
+    typeof row.id === 'string' &&
+    isUuid(row.id) &&
+    typeof row.job_id === 'string' &&
+    isUuid(row.job_id) &&
+    typeof row.storage_path === 'string' &&
+    typeof row.position === 'number' &&
+    row.position >= 0 &&
+    row.position <= 4 &&
+    row.media_type === 'photo' &&
+    typeof row.mime_type === 'string' &&
+    typeof row.byte_size === 'number' &&
+    typeof row.created_at === 'string' &&
+    JOB_MEDIA_OBJECT_PATH.test(row.storage_path) &&
+    row.storage_path.split('/')[0] ===
+      row.job_id.toLowerCase()
+  );
+}
+
+function adaptJobMediaRow(
+  row: JobMediaRow,
+): JobMediaRecord {
+  return {
+    id: row.id,
+    jobId: row.job_id.toLowerCase(),
+    storagePath: row.storage_path,
+    position: row.position,
+    mediaType: 'photo',
+    mimeType: row.mime_type,
+    byteSize: row.byte_size,
+    createdAt: row.created_at,
+  };
+}
+
+function cachedSignedUrl(
+  storagePath: string,
+): string | null {
+  const entry = signedUrlCache.get(storagePath);
+
+  if (!entry) {
+    return null;
+  }
+
+  if (
+    entry.expiresAt - Date.now() <=
+    SIGNED_URL_REFRESH_MARGIN_MS
+  ) {
+    signedUrlCache.delete(storagePath);
+    return null;
+  }
+
+  return entry.url;
+}
+
+function rememberSignedUrl(
+  storagePath: string,
+  url: string,
+) {
+  signedUrlCache.set(storagePath, {
+    url,
+    expiresAt:
+      Date.now() + SIGNED_URL_TTL_SECONDS * 1000,
+  });
+}
+
+async function createJobMediaSignedUrls(
+  storagePaths: readonly string[],
+): Promise<Map<string, string>> {
+  const urls = new Map<string, string>();
+  const pending: string[] = [];
+
+  for (const path of storagePaths) {
+    if (!JOB_MEDIA_OBJECT_PATH.test(path)) {
+      continue;
+    }
+
+    const cached = cachedSignedUrl(path);
+
+    if (cached) {
+      urls.set(path, cached);
+      continue;
+    }
+
+    pending.push(path);
+  }
+
+  if (pending.length === 0) {
+    return urls;
+  }
+
+  const signed = await supabase.storage
+    .from(JOB_MEDIA_BUCKET)
+    .createSignedUrls(pending, SIGNED_URL_TTL_SECONDS);
+
+  if (signed.error) {
+    console.warn(
+      '[Direct Gain] Job media signed URLs could not be created.',
+    );
+    return urls;
+  }
+
+  for (const item of signed.data ?? []) {
+    const path = item.path;
+    const url = item.signedUrl;
+
+    if (
+      !path ||
+      !url ||
+      item.error ||
+      !JOB_MEDIA_OBJECT_PATH.test(path)
+    ) {
+      continue;
+    }
+
+    rememberSignedUrl(path, url);
+    urls.set(path, url);
+  }
+
+  return urls;
+}
+
+export async function listJobMedia(
+  jobId: string,
+): Promise<JobMediaRecord[]> {
+  const id = jobId.trim().toLowerCase();
+
+  if (!isUuid(id)) {
+    return [];
+  }
+
+  const result = await supabase
+    .from('job_media')
+    .select(JOB_MEDIA_SELECT_COLUMNS)
+    .eq('job_id', id)
+    .order('position', { ascending: true })
+    .limit(MAX_JOB_PHOTOS);
+
+  if (result.error) {
+    console.warn(
+      '[Direct Gain] Job media metadata could not be loaded.',
+    );
+    return [];
+  }
+
+  return (result.data ?? [])
+    .filter(isJobMediaRow)
+    .map(adaptJobMediaRow);
+}
+
+export async function listJobMediaForJobs(
+  jobIds: readonly string[],
+): Promise<JobMediaRecord[]> {
+  const ids = uniqueJobIds(jobIds);
+
+  if (ids.length === 0) {
+    return [];
+  }
+
+  const result = await supabase
+    .from('job_media')
+    .select(JOB_MEDIA_SELECT_COLUMNS)
+    .in('job_id', ids)
+    .order('position', { ascending: true })
+    .limit(ids.length * MAX_JOB_PHOTOS);
+
+  if (result.error) {
+    console.warn(
+      '[Direct Gain] Job media metadata could not be loaded.',
+    );
+    return [];
+  }
+
+  return (result.data ?? [])
+    .filter(isJobMediaRow)
+    .filter((row) => ids.includes(row.job_id.toLowerCase()))
+    .map(adaptJobMediaRow);
+}
+
+export async function listResolvedJobPhotos(
+  jobId: string,
+): Promise<ResolvedJobPhoto[]> {
+  const records = await listJobMedia(jobId);
+
+  if (records.length === 0) {
+    return [];
+  }
+
+  const urls = await createJobMediaSignedUrls(
+    records.map((record) => record.storagePath),
+  );
+
+  const photos: ResolvedJobPhoto[] = [];
+
+  for (const record of records) {
+    const signedUrl = urls.get(record.storagePath);
+
+    if (!signedUrl) {
+      continue;
+    }
+
+    photos.push({
+      id: record.id,
+      position: record.position,
+      signedUrl,
+    });
+  }
+
+  return photos;
+}
+
+export async function resolveJobCoverPhotos(
+  jobIds: readonly string[],
+): Promise<Record<string, JobCoverPresentation>> {
+  const records = await listJobMediaForJobs(jobIds);
+  const byJobId = new Map<string, JobMediaRecord[]>();
+
+  for (const record of records) {
+    const current = byJobId.get(record.jobId) ?? [];
+    current.push(record);
+    byJobId.set(record.jobId, current);
+  }
+
+  const coversToSign: JobMediaRecord[] = [];
+  const presentations: Record<string, JobCoverPresentation> =
+    {};
+
+  for (const [jobId, jobRecords] of byJobId) {
+    const ordered = [...jobRecords].sort(
+      (left, right) => left.position - right.position,
+    );
+    const cover = ordered.find(
+      (record) => record.position === 0,
+    );
+
+    if (!cover) {
+      continue;
+    }
+
+    const cached = cachedSignedUrl(cover.storagePath);
+
+    if (cached) {
+      presentations[jobId] = {
+        url: cached,
+        photoCount: ordered.length,
+      };
+      continue;
+    }
+
+    coversToSign.push(cover);
+  }
+
+  if (coversToSign.length === 0) {
+    return presentations;
+  }
+
+  const urls = await createJobMediaSignedUrls(
+    coversToSign.map((record) => record.storagePath),
+  );
+
+  for (const cover of coversToSign) {
+    const signedUrl = urls.get(cover.storagePath);
+
+    if (!signedUrl) {
+      continue;
+    }
+
+    const photoCount =
+      byJobId.get(cover.jobId)?.length ?? 1;
+
+    presentations[cover.jobId] = {
+      url: signedUrl,
+      photoCount,
+    };
+  }
+
+  return presentations;
 }
