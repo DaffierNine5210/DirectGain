@@ -7,6 +7,7 @@ import type {
   JobPosterPreview,
   JobPosterRow,
   JobRow,
+  JobStatus,
   JobType,
   JobWorkSite,
 } from '../../types/jobs';
@@ -269,6 +270,24 @@ export function formatStartsOn(
       year: 'numeric',
     },
   );
+}
+
+export function formatJobStatus(
+  status: JobStatus,
+): string {
+  if (status === 'open') {
+    return 'Open';
+  }
+
+  if (status === 'assigned') {
+    return 'Assigned';
+  }
+
+  if (status === 'completed') {
+    return 'Completed';
+  }
+
+  return 'Cancelled';
 }
 
 export function formatApplicationStatus(

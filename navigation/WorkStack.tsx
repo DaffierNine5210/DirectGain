@@ -1,23 +1,27 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import DiscoverScreen from '../screens/DiscoverScreen';
 import ApplyToJobScreen from '../screens/jobs/ApplyToJobScreen';
-import DiscoverJobsScreen from '../screens/jobs/DiscoverJobsScreen';
+import AssignedWorkScreen from '../screens/jobs/AssignedWorkScreen';
 import JobApplicantDetailScreen from '../screens/jobs/JobApplicantDetailScreen';
 import JobApplicantsScreen from '../screens/jobs/JobApplicantsScreen';
 import JobDetailScreen from '../screens/jobs/JobDetailScreen';
+import MyApplicationsScreen from '../screens/jobs/MyApplicationsScreen';
+import MyJobsScreen from '../screens/jobs/MyJobsScreen';
+import WorkHomeScreen from '../screens/jobs/WorkHomeScreen';
 
 import type { JobsFlowParamList } from './jobsFlow';
 
-export type DiscoverStackParamList = {
-  DiscoverHome: undefined;
-  DiscoverJobs: undefined;
+export type WorkStackParamList = {
+  WorkHome: undefined;
+  MyJobs: undefined;
+  MyApplications: undefined;
+  AssignedWork: undefined;
 } & JobsFlowParamList;
 
 const Stack =
-  createNativeStackNavigator<DiscoverStackParamList>();
+  createNativeStackNavigator<WorkStackParamList>();
 
-export default function DiscoverStack() {
+export default function WorkStack() {
   return (
     <Stack.Navigator
       screenOptions={{
@@ -25,58 +29,52 @@ export default function DiscoverStack() {
         contentStyle: {
           backgroundColor: '#080B09',
         },
-        animation: 'fade_from_bottom',
+        animation: 'slide_from_right',
         gestureEnabled: true,
+        gestureDirection: 'horizontal',
       }}
     >
       <Stack.Screen
-        name="DiscoverHome"
-        component={DiscoverScreen}
+        name="WorkHome"
+        component={WorkHomeScreen}
+        options={{
+          animation: 'slide_from_right',
+        }}
       />
 
       <Stack.Screen
-        name="DiscoverJobs"
-        component={DiscoverJobsScreen}
-        options={{
-          animation: 'slide_from_right',
-          gestureDirection: 'horizontal',
-        }}
+        name="MyJobs"
+        component={MyJobsScreen}
+      />
+
+      <Stack.Screen
+        name="MyApplications"
+        component={MyApplicationsScreen}
+      />
+
+      <Stack.Screen
+        name="AssignedWork"
+        component={AssignedWorkScreen}
       />
 
       <Stack.Screen
         name="JobDetail"
         component={JobDetailScreen}
-        options={{
-          animation: 'slide_from_right',
-          gestureDirection: 'horizontal',
-        }}
       />
 
       <Stack.Screen
         name="ApplyToJob"
         component={ApplyToJobScreen}
-        options={{
-          animation: 'slide_from_right',
-          gestureDirection: 'horizontal',
-        }}
       />
 
       <Stack.Screen
         name="JobApplicants"
         component={JobApplicantsScreen}
-        options={{
-          animation: 'slide_from_right',
-          gestureDirection: 'horizontal',
-        }}
       />
 
       <Stack.Screen
         name="JobApplicantDetail"
         component={JobApplicantDetailScreen}
-        options={{
-          animation: 'slide_from_right',
-          gestureDirection: 'horizontal',
-        }}
       />
     </Stack.Navigator>
   );

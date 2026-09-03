@@ -1,6 +1,6 @@
 import { supabase } from '../../lib/supabase';
 
-import { getJobById } from './jobRepository';
+import { getJobById, listJobsByIds } from './jobRepository';
 
 import {
   JOB_APPLICATION_MESSAGE_MAX,
@@ -10,6 +10,7 @@ import {
   type JobApplication,
   type JobApplicationStatus,
   type PosterJobApplication,
+  type MyWorkApplication,
 } from '../../types/jobs';
 
 const UUID_PATTERN =
@@ -380,6 +381,99 @@ export async function withdrawJobApplication(
 
   return {
     ok: true,
+    error: null,
+  };
+}
+
+function applicationWorkRank(
+  status: JobApplicationStatus,
+): number {
+  if (status === 'selected') {
+    return 0;
+  }
+
+  if (status === 'submitted') {
+    return 1;
+  }
+
+  return 2;
+}
+
+export async function listMyApplications(): Promise<{
+  applications: MyWorkApplication[];
+  error: string | null;
+}> {
+  const userId = await getSessionUserId();
+
+  if (!userId) {
+    return {
+      applications: [],
+      error: 'Sign in to view your applications.',
+    };
+  }
+
+  const result = await supabase
+    .from('job_applications')
+    .select(APPLICATION_SELECT)
+    .eq('applicant_id', userId)
+    .order('created_at', {
+      ascending: false,
+    });
+
+  if (result.error) {
+    return {
+      applications: [],
+      error:
+        'Your applications could not be loaded. Try again.',
+    };
+  }
+
+  const rows = (result.data ?? []).filter(
+    isApplicationRow,
+  );
+
+  const jobsResult = await listJobsByIds(
+    rows.map((row) => row.job_id),
+  );
+
+  if (jobsResult.error) {
+    return {
+      applications: [],
+      error: jobsResult.error,
+    };
+  }
+
+  const jobsById = new Map(
+    jobsResult.jobs.map((job) => [
+      job.id.toLowerCase(),
+      job,
+    ]),
+  );
+
+  const applications = rows
+    .map((row) => ({
+      id: row.id,
+      status: row.status as JobApplicationStatus,
+      createdAt: row.created_at,
+      job: jobsById.get(row.job_id.toLowerCase()) ?? null,
+    }))
+    .sort((left, right) => {
+      const rank =
+        applicationWorkRank(left.status) -
+        applicationWorkRank(right.status);
+
+      if (rank !== 0) {
+        return rank;
+      }
+
+      return (
+        Date.parse(right.createdAt) -
+        Date.parse(left.createdAt)
+      );
+    });
+
+  return {
+    applications,
     error: null,
   };
 }

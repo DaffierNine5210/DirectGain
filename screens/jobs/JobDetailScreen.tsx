@@ -18,7 +18,7 @@ import JobMediaGallery from '../../components/jobs/JobMediaGallery';
 
 import useTabBarVisibility from '../../hooks/useTabBarVisibility';
 
-import type { DiscoverStackParamList } from '../../navigation/DiscoverStack';
+import type { JobsFlowParamList } from '../../navigation/jobsFlow';
 
 import {
   formatStartsOn,
@@ -52,7 +52,7 @@ import type {
 } from '../../types/jobs';
 
 type Props = NativeStackScreenProps<
-  DiscoverStackParamList,
+  JobsFlowParamList,
   'JobDetail'
 >;
 

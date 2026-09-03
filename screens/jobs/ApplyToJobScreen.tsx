@@ -23,7 +23,7 @@ import DGInput from '../../components/DGInput';
 
 import useTabBarVisibility from '../../hooks/useTabBarVisibility';
 
-import type { DiscoverStackParamList } from '../../navigation/DiscoverStack';
+import type { JobsFlowParamList } from '../../navigation/jobsFlow';
 
 import {
   createJobApplication,
@@ -41,7 +41,7 @@ import {
 import { JOB_APPLICATION_MESSAGE_MAX } from '../../types/jobs';
 
 type Props = NativeStackScreenProps<
-  DiscoverStackParamList,
+  JobsFlowParamList,
   'ApplyToJob'
 >;
 

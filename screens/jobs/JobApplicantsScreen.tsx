@@ -16,7 +16,7 @@ import DGSkeleton from '../../components/DGSkeleton';
 
 import useTabBarVisibility from '../../hooks/useTabBarVisibility';
 
-import type { DiscoverStackParamList } from '../../navigation/DiscoverStack';
+import type { JobsFlowParamList } from '../../navigation/jobsFlow';
 
 import {
   formatApplicationStatus,
@@ -39,7 +39,7 @@ import {
 import type { PosterJobApplication } from '../../types/jobs';
 
 type Props = NativeStackScreenProps<
-  DiscoverStackParamList,
+  JobsFlowParamList,
   'JobApplicants'
 >;
 

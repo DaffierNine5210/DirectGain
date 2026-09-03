@@ -25,8 +25,10 @@ import DiscoverStack, {
 } from './DiscoverStack';
 import MarketStack from './MarketStack';
 import MessagesStack from './MessagesStack';
+import MyGainStack, {
+  type MyGainStackParamList,
+} from './MyGainStack';
 import LiveBidScreen from '../screens/LiveBidScreen';
-import MyGainScreen from '../screens/MyGainScreen';
 
 import useTabBarVisibility from '../hooks/useTabBarVisibility';
 import TabBarVisibilityProvider from '../providers/TabBarVisibilityProvider';
@@ -42,7 +44,9 @@ export type BottomTabParamList = {
     | NavigatorScreenParams<CreateStackParamList>
     | undefined;
   Auctions: undefined;
-  'My Gain': undefined;
+  'My Gain':
+    | NavigatorScreenParams<MyGainStackParamList>
+    | undefined;
   Messages: undefined;
 };
 
@@ -250,7 +254,7 @@ function BottomTabsNavigator() {
 
       <Tab.Screen
         name="My Gain"
-        component={MyGainScreen}
+        component={MyGainStack}
         options={{
           tabBarLabel: 'My Gain',
         }}

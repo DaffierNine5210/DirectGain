@@ -279,3 +279,10 @@ export type PosterJobApplication = {
   createdAt: string;
   applicant: JobApplicantProfile | null;
 };
+
+export type MyWorkApplication = {
+  id: string;
+  status: JobApplicationStatus;
+  createdAt: string;
+  job: Job | null;
+};

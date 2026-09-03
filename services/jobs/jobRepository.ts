@@ -15,6 +15,9 @@ import {
   type ViewerJobRegion,
 } from '../../types/jobs';
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 const JOB_SELECT_COLUMNS =
   'id, title, description, category, job_type, status, pay_type, pay_amount, pay_min, pay_max, suburb, state, work_site, starts_on, published_at, created_at, poster_id';
 
@@ -22,6 +25,10 @@ const JOB_SELECT_WITH_POSTER = `${JOB_SELECT_COLUMNS}, poster:profiles!jobs_post
 
 const PROFILE_SELECT =
   'id, display_name, avatar_path, account_type';
+
+function isUuid(value: string): boolean {
+  return UUID_PATTERN.test(value.toLowerCase());
+}
 
 function formatError(
   error: {
@@ -461,6 +468,143 @@ export async function getJobById(
 
   return {
     job: adaptJobRow(row, postersById),
+    error: null,
+  };
+}
+
+async function getSessionUserId(): Promise<
+  string | null
+> {
+  const { data } = await supabase.auth.getUser();
+  const userId = data.user?.id;
+
+  if (!userId || !isUuid(userId)) {
+    return null;
+  }
+
+  return userId.toLowerCase();
+}
+
+function formatOwnedJobsError(): string {
+  return 'Your jobs could not be loaded. Try again.';
+}
+
+export async function listJobsByIds(
+  jobIds: string[],
+): Promise<{
+  jobs: Job[];
+  error: string | null;
+}> {
+  const uniqueIds = [
+    ...new Set(
+      jobIds
+        .map((id) => id.trim().toLowerCase())
+        .filter((id) => isUuid(id)),
+    ),
+  ];
+
+  if (uniqueIds.length === 0) {
+    return {
+      jobs: [],
+      error: null,
+    };
+  }
+
+  const result = await supabase
+    .from('jobs')
+    .select(JOB_SELECT_COLUMNS)
+    .in('id', uniqueIds);
+
+  if (result.error) {
+    return {
+      jobs: [],
+      error: formatOwnedJobsError(),
+    };
+  }
+
+  const jobRows = (result.data ?? []).filter(
+    isJobRow,
+  );
+
+  return {
+    jobs: jobRows.map((row) => adaptJobRow(row)),
+    error: null,
+  };
+}
+
+export async function listMyPostedJobs(): Promise<{
+  jobs: Job[];
+  error: string | null;
+}> {
+  const userId = await getSessionUserId();
+
+  if (!userId) {
+    return {
+      jobs: [],
+      error: 'Sign in to view jobs you have posted.',
+    };
+  }
+
+  const result = await supabase
+    .from('jobs')
+    .select(JOB_SELECT_COLUMNS)
+    .eq('poster_id', userId)
+    .order('created_at', {
+      ascending: false,
+    });
+
+  if (result.error) {
+    return {
+      jobs: [],
+      error: formatOwnedJobsError(),
+    };
+  }
+
+  const jobRows = (result.data ?? []).filter(
+    isJobRow,
+  );
+
+  return {
+    jobs: jobRows.map((row) => adaptJobRow(row)),
+    error: null,
+  };
+}
+
+export async function listMyAssignedJobs(): Promise<{
+  jobs: Job[];
+  error: string | null;
+}> {
+  const userId = await getSessionUserId();
+
+  if (!userId) {
+    return {
+      jobs: [],
+      error: 'Sign in to view assigned work.',
+    };
+  }
+
+  const result = await supabase
+    .from('jobs')
+    .select(JOB_SELECT_COLUMNS)
+    .eq('assigned_user_id', userId)
+    .eq('status', 'assigned')
+    .order('assigned_at', {
+      ascending: false,
+    });
+
+  if (result.error) {
+    return {
+      jobs: [],
+      error: formatOwnedJobsError(),
+    };
+  }
+
+  const jobRows = (result.data ?? []).filter(
+    isJobRow,
+  );
+
+  return {
+    jobs: jobRows.map((row) => adaptJobRow(row)),
     error: null,
   };
 }
