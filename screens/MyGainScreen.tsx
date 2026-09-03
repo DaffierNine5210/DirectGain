@@ -17,15 +17,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import DGButton from '../components/DGButton';
 import DGHeader from '../components/DGHeader';
 import DGSkeleton from '../components/DGSkeleton';
+import ProfileIdentityHeader from '../components/profile/ProfileIdentityHeader';
 
 import useTabBarVisibility from '../hooks/useTabBarVisibility';
 
 import type { MyGainStackParamList } from '../navigation/MyGainStack';
 
-import { posterInitials } from '../services/jobs/jobAdapter';
-import { getOwnProfile } from '../services/profile/ownProfileRepository';
+import { getOwnProfile } from '../services/profile/profileRepository';
 
 import {
   alpha,
@@ -39,7 +40,7 @@ import {
   typography,
 } from '../theme/designSystem';
 
-import type { OwnProfile } from '../types/profile';
+import type { DirectGainProfile } from '../types/profile';
 
 type Props = NativeStackScreenProps<
   MyGainStackParamList,
@@ -57,9 +58,10 @@ export default function MyGainScreen({
     (showSpinner: boolean) => Promise<void>
   >(async () => {});
 
-  const [profile, setProfile] = useState<OwnProfile | null>(
-    null,
-  );
+  const [
+    profile,
+    setProfile,
+  ] = useState<DirectGainProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -121,13 +123,6 @@ export default function MyGainScreen({
     };
   }, [loadProfile]);
 
-  const location = [
-    profile?.suburb,
-    profile?.state,
-  ]
-    .filter(Boolean)
-    .join(', ');
-
   return (
     <SafeAreaView
       style={styles.safe}
@@ -150,7 +145,7 @@ export default function MyGainScreen({
         }
       >
         {loading ? (
-          <View style={styles.identity}>
+          <View style={styles.identitySkeleton}>
             <DGSkeleton
               width={88}
               height={88}
@@ -184,46 +179,20 @@ export default function MyGainScreen({
           </View>
         ) : (
           <>
-            <View
-              style={styles.identity}
-              accessibilityLabel={`Your profile. ${profile.displayName}.`}
-            >
-              <View style={styles.avatarRing}>
-                <View style={styles.avatar}>
-                  <Text style={styles.initials}>
-                    {posterInitials(profile.displayName)}
-                  </Text>
-                </View>
-              </View>
+            <ProfileIdentityHeader
+              profile={profile}
+              mode="own"
+            />
 
-              <Text
-                style={styles.name}
-                accessibilityRole="header"
-              >
-                {profile.displayName}
-              </Text>
-
-              <Text style={styles.meta}>
-                {profile.accountType === 'business'
-                  ? 'Business'
-                  : 'Personal'}
-              </Text>
-
-              {location ? (
-                <View style={styles.locationRow}>
-                  <Ionicons
-                    name="location-outline"
-                    size={iconSize.sm}
-                    color={textColor.muted}
-                  />
-                  <Text style={styles.location}>{location}</Text>
-                </View>
-              ) : null}
-            </View>
-
-            {profile.bio ? (
-              <Text style={styles.bio}>{profile.bio}</Text>
-            ) : null}
+            <DGButton
+              title="Edit profile"
+              variant="outline"
+              fullWidth
+              onPress={() => {
+                navigation.navigate('EditProfile');
+              }}
+              accessibilityLabel="Edit profile"
+            />
 
             <Pressable
               accessibilityRole="button"
@@ -277,67 +246,10 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
   },
 
-  identity: {
+  identitySkeleton: {
     alignItems: 'center',
     gap: spacing.sm,
     paddingTop: spacing.md,
-  },
-
-  avatarRing: {
-    padding: 3,
-    borderRadius: 30,
-    borderWidth: 1,
-    borderColor: alpha.green20,
-  },
-
-  avatar: {
-    width: 88,
-    height: 88,
-    borderRadius: 26,
-    backgroundColor: alpha.green10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  initials: {
-    color: palette.opportunityGreen,
-    fontSize: 28,
-    fontWeight: '800',
-  },
-
-  name: {
-    color: textColor.primary,
-    ...typography.headingLarge,
-    textAlign: 'center',
-  },
-
-  meta: {
-    color: textColor.muted,
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
-  },
-
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-
-  location: {
-    color: textColor.secondary,
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '600',
-  },
-
-  bio: {
-    color: textColor.primary,
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: '500',
-    textAlign: 'center',
   },
 
   workCard: {

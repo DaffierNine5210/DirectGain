@@ -2,6 +2,7 @@ import type { NavigatorScreenParams } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import MyGainScreen from '../screens/MyGainScreen';
+import EditOwnProfileScreen from '../screens/profile/EditOwnProfileScreen';
 
 import WorkStack, {
   type WorkStackParamList,
@@ -9,6 +10,7 @@ import WorkStack, {
 
 export type MyGainStackParamList = {
   MyGainHome: undefined;
+  EditProfile: undefined;
   Work: NavigatorScreenParams<WorkStackParamList> | undefined;
 };
 
@@ -34,6 +36,11 @@ export default function MyGainStack() {
         options={{
           animation: 'fade',
         }}
+      />
+
+      <Stack.Screen
+        name="EditProfile"
+        component={EditOwnProfileScreen}
       />
 
       <Stack.Screen
