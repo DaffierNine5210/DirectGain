@@ -13,6 +13,7 @@ import { useFocusEffect } from '@react-navigation/native';
 
 import DGHeader from '../../components/DGHeader';
 import DGSkeleton from '../../components/DGSkeleton';
+import JobApplicationActions from '../../components/jobs/JobApplicationActions';
 import JobMediaGallery from '../../components/jobs/JobMediaGallery';
 
 import useTabBarVisibility from '../../hooks/useTabBarVisibility';
@@ -24,6 +25,11 @@ import {
   posterInitials,
 } from '../../services/jobs/jobAdapter';
 import { getJobById } from '../../services/jobs/jobRepository';
+import {
+  getAuthenticatedUserId,
+  getMyApplicationForJob,
+  withdrawJobApplication,
+} from '../../services/jobs/jobApplicationRepository';
 import { listResolvedJobPhotos } from '../../services/jobs/jobMediaRepository';
 
 import {
@@ -39,6 +45,7 @@ import {
 
 import type {
   Job,
+  JobApplication,
   JobPayType,
   ResolvedJobPhoto,
 } from '../../types/jobs';
@@ -64,6 +71,12 @@ export default function JobDetailScreen({
   const jobId = route.params.jobId;
   const mountedRef = useRef(true);
   const mediaRequestIdRef = useRef(0);
+  const applicationRequestIdRef = useRef(0);
+  const withdrawingRef = useRef(false);
+  const hasLoadedJobRef = useRef(false);
+  const loadApplicationRef = useRef<
+    () => Promise<void>
+  >(async () => {});
 
   const [
     job,
@@ -89,9 +102,43 @@ export default function JobDetailScreen({
   ] =
     useState<ResolvedJobPhoto[]>([]);
 
+  const [
+    viewerId,
+    setViewerId,
+  ] =
+    useState<string | null>(null);
+
+  const [
+    application,
+    setApplication,
+  ] =
+    useState<JobApplication | null>(null);
+
+  const [
+    applicationLoading,
+    setApplicationLoading,
+  ] =
+    useState(true);
+
+  const [
+    applicationError,
+    setApplicationError,
+  ] =
+    useState<string | null>(null);
+
+  const [
+    withdrawing,
+    setWithdrawing,
+  ] =
+    useState(false);
+
   useFocusEffect(
     useCallback(() => {
       hideTabBar();
+
+      if (hasLoadedJobRef.current) {
+        void loadApplicationRef.current();
+      }
 
       return () => {
         showTabBar();
@@ -99,11 +146,50 @@ export default function JobDetailScreen({
     }, [hideTabBar, showTabBar]),
   );
 
+  const loadApplication = useCallback(
+    async () => {
+      const requestId =
+        ++applicationRequestIdRef.current;
+
+      setApplicationLoading(true);
+      setApplicationError(null);
+
+      const [userId, result] = await Promise.all([
+        getAuthenticatedUserId(),
+        getMyApplicationForJob(jobId),
+      ]);
+
+      if (
+        requestId !==
+          applicationRequestIdRef.current ||
+        !mountedRef.current
+      ) {
+        return;
+      }
+
+      setViewerId(userId);
+      setApplicationLoading(false);
+
+      if (result.error) {
+        setApplication(null);
+        setApplicationError(result.error);
+        return;
+      }
+
+      setApplication(result.application);
+      setApplicationError(null);
+    },
+    [jobId],
+  );
+
+  loadApplicationRef.current = loadApplication;
+
   const loadJob = useCallback(
     async () => {
       setLoading(true);
       setError(null);
       setPhotos([]);
+      hasLoadedJobRef.current = false;
 
       const mediaRequestId =
         ++mediaRequestIdRef.current;
@@ -123,6 +209,8 @@ export default function JobDetailScreen({
         setPhotos(media);
       })();
 
+      void loadApplication();
+
       const result =
         await getJobById(jobId);
 
@@ -139,8 +227,9 @@ export default function JobDetailScreen({
       }
 
       setJob(result.job);
+      hasLoadedJobRef.current = true;
     },
-    [jobId],
+    [jobId, loadApplication],
   );
 
   useEffect(() => {
@@ -159,6 +248,46 @@ export default function JobDetailScreen({
   const startsLabel = job
     ? formatStartsOn(job.startsOn)
     : null;
+
+  const isOwner = Boolean(
+    job &&
+    viewerId &&
+    job.posterId.toLowerCase() === viewerId,
+  );
+
+  async function handleWithdraw() {
+    if (
+      withdrawingRef.current ||
+      !application ||
+      application.status !== 'submitted'
+    ) {
+      return;
+    }
+
+    withdrawingRef.current = true;
+    setWithdrawing(true);
+
+    const result = await withdrawJobApplication(
+      application.id,
+    );
+
+    if (!mountedRef.current) {
+      return;
+    }
+
+    withdrawingRef.current = false;
+    setWithdrawing(false);
+
+    if (!result.ok) {
+      setApplicationError(
+        result.error ??
+          'Your application could not be withdrawn. Try again.',
+      );
+      return;
+    }
+
+    await loadApplication();
+  }
 
   return (
     <SafeAreaView
@@ -390,6 +519,27 @@ export default function JobDetailScreen({
                 </View>
               </View>
             ) : null}
+
+            <JobApplicationActions
+              jobStatus={job.status}
+              isOwner={isOwner}
+              application={application}
+              applicationError={applicationError}
+              applicationLoading={applicationLoading}
+              withdrawing={withdrawing}
+              onApply={() => {
+                navigation.navigate('ApplyToJob', {
+                  jobId: job.id,
+                  jobTitle: job.title,
+                });
+              }}
+              onRetry={() => {
+                void loadApplication();
+              }}
+              onWithdraw={() => {
+                void handleWithdraw();
+              }}
+            />
           </ScrollView>
         </View>
       )}

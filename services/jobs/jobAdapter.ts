@@ -399,6 +399,7 @@ export function adaptJobRow(
     postedLabel: formatPostedLabel(
       publishedAt,
     ),
+    posterId: row.poster_id,
     poster,
   };
 }

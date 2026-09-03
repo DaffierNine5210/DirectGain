@@ -144,6 +144,7 @@ export type Job = {
   startsOn: string | null;
   publishedAt: string;
   postedLabel: string;
+  posterId: string;
   poster: JobPosterPreview | null;
 };
 
@@ -228,4 +229,36 @@ export type ResolvedJobPhoto = {
 export type JobCoverPresentation = {
   url: string;
   photoCount: number;
+};
+
+export type JobApplicationStatus =
+  | 'submitted'
+  | 'withdrawn'
+  | 'declined'
+  | 'selected'
+  | 'not_selected'
+  | 'cancelled';
+
+export const JOB_APPLICATION_STATUSES: JobApplicationStatus[] =
+  [
+    'submitted',
+    'withdrawn',
+    'declined',
+    'selected',
+    'not_selected',
+    'cancelled',
+  ];
+
+export const JOB_APPLICATION_MESSAGE_MAX =
+  500;
+
+export const JOB_APPLICATION_MESSAGE_MIN =
+  10;
+
+export type JobApplication = {
+  id: string;
+  jobId: string;
+  applicantId: string;
+  status: JobApplicationStatus;
+  createdAt: string;
 };
