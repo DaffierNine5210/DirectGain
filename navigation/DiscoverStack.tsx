@@ -6,6 +6,7 @@ import DiscoverJobsScreen from '../screens/jobs/DiscoverJobsScreen';
 import JobApplicantDetailScreen from '../screens/jobs/JobApplicantDetailScreen';
 import JobApplicantsScreen from '../screens/jobs/JobApplicantsScreen';
 import JobDetailScreen from '../screens/jobs/JobDetailScreen';
+import PublicProfileScreen from '../screens/profile/PublicProfileScreen';
 
 import type { JobsFlowParamList } from './jobsFlow';
 
@@ -73,6 +74,15 @@ export default function DiscoverStack() {
       <Stack.Screen
         name="JobApplicantDetail"
         component={JobApplicantDetailScreen}
+        options={{
+          animation: 'slide_from_right',
+          gestureDirection: 'horizontal',
+        }}
+      />
+
+      <Stack.Screen
+        name="PublicProfile"
+        component={PublicProfileScreen}
         options={{
           animation: 'slide_from_right',
           gestureDirection: 'horizontal',

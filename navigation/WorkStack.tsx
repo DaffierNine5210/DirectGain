@@ -8,6 +8,7 @@ import JobDetailScreen from '../screens/jobs/JobDetailScreen';
 import MyApplicationsScreen from '../screens/jobs/MyApplicationsScreen';
 import MyJobsScreen from '../screens/jobs/MyJobsScreen';
 import WorkHomeScreen from '../screens/jobs/WorkHomeScreen';
+import PublicProfileScreen from '../screens/profile/PublicProfileScreen';
 
 import type { JobsFlowParamList } from './jobsFlow';
 
@@ -75,6 +76,11 @@ export default function WorkStack() {
       <Stack.Screen
         name="JobApplicantDetail"
         component={JobApplicantDetailScreen}
+      />
+
+      <Stack.Screen
+        name="PublicProfile"
+        component={PublicProfileScreen}
       />
     </Stack.Navigator>
   );

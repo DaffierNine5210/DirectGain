@@ -3,7 +3,9 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import MyGainScreen from '../screens/MyGainScreen';
 import EditOwnProfileScreen from '../screens/profile/EditOwnProfileScreen';
+import PublicProfileScreen from '../screens/profile/PublicProfileScreen';
 
+import type { PublicProfileParamList } from './publicProfile';
 import WorkStack, {
   type WorkStackParamList,
 } from './WorkStack';
@@ -12,7 +14,7 @@ export type MyGainStackParamList = {
   MyGainHome: undefined;
   EditProfile: undefined;
   Work: NavigatorScreenParams<WorkStackParamList> | undefined;
-};
+} & PublicProfileParamList;
 
 const Stack =
   createNativeStackNavigator<MyGainStackParamList>();
@@ -41,6 +43,11 @@ export default function MyGainStack() {
       <Stack.Screen
         name="EditProfile"
         component={EditOwnProfileScreen}
+      />
+
+      <Stack.Screen
+        name="PublicProfile"
+        component={PublicProfileScreen}
       />
 
       <Stack.Screen

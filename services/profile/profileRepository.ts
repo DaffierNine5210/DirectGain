@@ -24,7 +24,7 @@ function isUuid(value: string): boolean {
   return UUID_PATTERN.test(value.toLowerCase());
 }
 
-async function getSessionUserId(): Promise<
+export async function getAuthenticatedUserId(): Promise<
   string | null
 > {
   const { data } = await supabase.auth.getUser();
@@ -121,7 +121,7 @@ export async function getOwnProfile(): Promise<{
   profile: DirectGainProfile | null;
   error: string | null;
 }> {
-  const userId = await getSessionUserId();
+  const userId = await getAuthenticatedUserId();
 
   if (!userId) {
     return {
@@ -155,6 +155,15 @@ export async function getProfileById(
   profile: DirectGainProfile | null;
   error: string | null;
 }> {
+  const userId = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return {
+      profile: null,
+      error: 'Sign in to view this profile.',
+    };
+  }
+
   const id = profileId.trim().toLowerCase();
 
   if (!isUuid(id)) {
@@ -173,7 +182,7 @@ export async function updateOwnProfile(
   profile: DirectGainProfile | null;
   error: string | null;
 }> {
-  const userId = await getSessionUserId();
+  const userId = await getAuthenticatedUserId();
 
   if (!userId) {
     return {
@@ -232,7 +241,7 @@ export async function updateOwnAvatarPath(
   profile: DirectGainProfile | null;
   error: string | null;
 }> {
-  const userId = await getSessionUserId();
+  const userId = await getAuthenticatedUserId();
 
   if (!userId) {
     return {

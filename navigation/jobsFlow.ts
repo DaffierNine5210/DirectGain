@@ -1,3 +1,5 @@
+import type { PublicProfileParamList } from './publicProfile';
+
 export type JobsFlowParamList = {
   JobDetail: {
     jobId: string;
@@ -15,4 +17,4 @@ export type JobsFlowParamList = {
     jobTitle: string;
     applicationId: string;
   };
-};
+} & PublicProfileParamList;

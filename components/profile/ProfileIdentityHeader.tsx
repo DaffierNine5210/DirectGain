@@ -42,7 +42,7 @@ export default function ProfileIdentityHeader({
   const accessibilityLabel =
     mode === 'own'
       ? `Your profile. ${profile.displayName}.`
-      : profile.displayName;
+      : `${profile.displayName}. Direct Gain profile.`;
 
   return (
     <View

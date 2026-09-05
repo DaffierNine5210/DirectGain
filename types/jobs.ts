@@ -277,6 +277,7 @@ export type PosterJobApplication = {
   status: JobApplicationStatus;
   message: string | null;
   createdAt: string;
+  applicantProfileId: string;
   applicant: JobApplicantProfile | null;
 };
 

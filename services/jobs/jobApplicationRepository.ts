@@ -711,6 +711,7 @@ export async function listApplicationsForJob(
       status: row.status as JobApplicationStatus,
       message: row.message,
       createdAt: row.created_at,
+      applicantProfileId: row.applicant_id.toLowerCase(),
       applicant:
         profiles.get(row.applicant_id.toLowerCase()) ??
         null,
@@ -793,6 +794,7 @@ export async function getPosterApplication(
       status: result.data.status as JobApplicationStatus,
       message: result.data.message,
       createdAt: result.data.created_at,
+      applicantProfileId: result.data.applicant_id.toLowerCase(),
       applicant:
         profiles.get(result.data.applicant_id.toLowerCase()) ??
         null,

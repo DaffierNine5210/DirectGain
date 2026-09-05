@@ -18,6 +18,7 @@ import DGSkeleton from '../../components/DGSkeleton';
 import useTabBarVisibility from '../../hooks/useTabBarVisibility';
 
 import type { JobsFlowParamList } from '../../navigation/jobsFlow';
+import { navigateToOwnMyGain } from '../../navigation/publicProfile';
 
 import {
   formatApplicationStatus,
@@ -30,6 +31,7 @@ import {
   hireJobApplicant,
 } from '../../services/jobs/jobApplicationRepository';
 import { getJobById } from '../../services/jobs/jobRepository';
+import { getAuthenticatedUserId } from '../../services/profile/profileRepository';
 
 import {
   alpha,
@@ -251,6 +253,24 @@ export default function JobApplicantDetailScreen({
     await loadDetail(false);
   }
 
+  async function openPublicProfile() {
+    if (!application?.applicantProfileId) {
+      return;
+    }
+
+    const profileId = application.applicantProfileId;
+    const userId = await getAuthenticatedUserId();
+
+    if (userId && userId === profileId) {
+      navigateToOwnMyGain(navigation);
+      return;
+    }
+
+    navigation.navigate('PublicProfile', {
+      profileId,
+    });
+  }
+
   const location = [
     application?.applicant?.suburb,
     application?.applicant?.state,
@@ -347,6 +367,18 @@ export default function JobApplicantDetailScreen({
             <Text style={styles.meta}>
               Applied {formatPostedLabel(application.createdAt)}
             </Text>
+
+            <DGButton
+              title="View profile"
+              variant="outline"
+              fullWidth
+              onPress={() => {
+                void openPublicProfile();
+              }}
+              accessibilityLabel={`View ${name}'s Direct Gain profile`}
+              accessibilityHint="Opens this member's shared Direct Gain profile"
+              style={styles.viewProfile}
+            />
           </View>
 
           {application.applicant?.bio ? (
@@ -538,6 +570,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '600',
+  },
+
+  viewProfile: {
+    marginTop: spacing.sm,
   },
 
   sectionTitle: {
