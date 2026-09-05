@@ -1,18 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
+import ProfileAvatar from './ProfileAvatar';
+
 import {
   formatAccountTypeLabel,
   formatProfileLocation,
-  profileInitials,
 } from '../../services/profile/profileAdapter';
 
 import type { DirectGainProfile } from '../../types/profile';
 
 import {
-  alpha,
   iconSize,
-  palette,
   spacing,
   textColor,
   typography,
@@ -21,11 +20,19 @@ import {
 type ProfileIdentityHeaderProps = {
   profile: DirectGainProfile;
   mode?: 'own' | 'public';
+  avatarUrl?: string | null;
+  avatarBusy?: boolean;
+  avatarUnavailable?: boolean;
+  onAvatarPress?: () => void;
 };
 
 export default function ProfileIdentityHeader({
   profile,
   mode = 'public',
+  avatarUrl = null,
+  avatarBusy = false,
+  avatarUnavailable = false,
+  onAvatarPress,
 }: ProfileIdentityHeaderProps) {
   const location = formatProfileLocation(
     profile.suburb,
@@ -42,13 +49,18 @@ export default function ProfileIdentityHeader({
       style={styles.identity}
       accessibilityLabel={accessibilityLabel}
     >
-      <View style={styles.avatarRing}>
-        <View style={styles.avatar}>
-          <Text style={styles.initials}>
-            {profileInitials(profile.displayName)}
-          </Text>
-        </View>
-      </View>
+      <ProfileAvatar
+        displayName={profile.displayName}
+        imageUri={avatarUrl}
+        hasStoredPhoto={Boolean(profile.avatarPath)}
+        photoUnavailable={avatarUnavailable}
+        size="xl"
+        editable={mode === 'own'}
+        busy={avatarBusy}
+        onPress={
+          mode === 'own' ? onAvatarPress : undefined
+        }
+      />
 
       <Text
         style={styles.name}
@@ -84,28 +96,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     paddingTop: spacing.md,
-  },
-
-  avatarRing: {
-    padding: 3,
-    borderRadius: 30,
-    borderWidth: 1,
-    borderColor: alpha.green20,
-  },
-
-  avatar: {
-    width: 88,
-    height: 88,
-    borderRadius: 26,
-    backgroundColor: alpha.green10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  initials: {
-    color: palette.opportunityGreen,
-    fontSize: 28,
-    fontWeight: '800',
   },
 
   name: {

@@ -26,7 +26,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Direct Gain uses your photo library so you can add pictures to jobs and messages."
+          "photosPermission": "Direct Gain uses your photo library so you can add pictures to jobs, messages and your profile.",
+          "cameraPermission": "Direct Gain uses the camera so you can take photos for jobs, messages and your profile."
         }
       ],
       [

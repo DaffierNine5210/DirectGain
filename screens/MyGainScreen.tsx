@@ -8,6 +8,7 @@ import {
   useState,
 } from 'react';
 import {
+  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -26,6 +27,15 @@ import useTabBarVisibility from '../hooks/useTabBarVisibility';
 
 import type { MyGainStackParamList } from '../navigation/MyGainStack';
 
+import {
+  captureProfileAvatar,
+  pickProfileAvatarFromLibrary,
+} from '../services/profile/pickProfileAvatar';
+import {
+  removeOwnProfileAvatar,
+  resolveProfileAvatarUrl,
+  uploadOwnProfileAvatar,
+} from '../services/profile/profileAvatarRepository';
 import { getOwnProfile } from '../services/profile/profileRepository';
 
 import {
@@ -54,6 +64,7 @@ export default function MyGainScreen({
   const mountedRef = useRef(true);
   const requestIdRef = useRef(0);
   const hasLoadedRef = useRef(false);
+  const mutatingRef = useRef(false);
   const loadRef = useRef<
     (showSpinner: boolean) => Promise<void>
   >(async () => {});
@@ -65,6 +76,18 @@ export default function MyGainScreen({
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(
+    null,
+  );
+  const [avatarUnavailable, setAvatarUnavailable] =
+    useState(false);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarProgress, setAvatarProgress] = useState<
+    string | null
+  >(null);
+  const [avatarError, setAvatarError] = useState<
+    string | null
+  >(null);
 
   const loadProfile = useCallback(
     async (showSpinner: boolean) => {
@@ -108,7 +131,7 @@ export default function MyGainScreen({
     useCallback(() => {
       showTabBar();
 
-      if (hasLoadedRef.current) {
+      if (hasLoadedRef.current && !mutatingRef.current) {
         void loadRef.current(false);
       }
     }, [showTabBar]),
@@ -122,6 +145,195 @@ export default function MyGainScreen({
       mountedRef.current = false;
     };
   }, [loadProfile]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener(
+      'beforeRemove',
+      (event) => {
+        if (!mutatingRef.current) {
+          return;
+        }
+
+        event.preventDefault();
+      },
+    );
+
+    return unsubscribe;
+  }, [navigation]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const path = profile?.avatarPath ?? null;
+
+    if (!path) {
+      setAvatarUrl(null);
+      setAvatarUnavailable(false);
+      return;
+    }
+
+    setAvatarUrl(null);
+    setAvatarUnavailable(false);
+
+    void (async () => {
+      const url = await resolveProfileAvatarUrl(path);
+
+      if (!cancelled && mountedRef.current) {
+        setAvatarUrl(url);
+        setAvatarUnavailable(url == null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.avatarPath]);
+
+  async function runAvatarCapture(
+    source: 'library' | 'camera',
+  ) {
+    if (mutatingRef.current) {
+      return;
+    }
+
+    mutatingRef.current = true;
+    setAvatarBusy(true);
+    setAvatarError(null);
+    setAvatarProgress('Preparing photo…');
+
+    const picked =
+      source === 'library'
+        ? await pickProfileAvatarFromLibrary()
+        : await captureProfileAvatar();
+
+    if (!mountedRef.current) {
+      return;
+    }
+
+    if (picked.kind !== 'prepared') {
+      mutatingRef.current = false;
+      setAvatarBusy(false);
+      setAvatarProgress(null);
+
+      if (picked.kind === 'permission_denied') {
+        Alert.alert(
+          picked.source === 'camera'
+            ? 'Camera access needed'
+            : 'Photo access needed',
+          picked.source === 'camera'
+            ? 'Direct Gain needs camera access to take a profile photo.'
+            : 'Direct Gain needs photo library access to choose a profile photo.',
+        );
+        return;
+      }
+
+      if (picked.kind === 'unavailable') {
+        setAvatarError(picked.message);
+      }
+
+      return;
+    }
+
+    setAvatarProgress('Uploading photo…');
+
+    const result = await uploadOwnProfileAvatar(picked.avatar);
+
+    if (!mountedRef.current) {
+      return;
+    }
+
+    mutatingRef.current = false;
+    setAvatarBusy(false);
+    setAvatarProgress(null);
+
+    if (result.error || !result.profile) {
+      setAvatarError(
+        result.error ??
+          'Your profile photo could not be updated. Try again.',
+      );
+      return;
+    }
+
+    setProfile(result.profile);
+  }
+
+  async function handleRemoveAvatar() {
+    if (mutatingRef.current) {
+      return;
+    }
+
+    mutatingRef.current = true;
+    setAvatarBusy(true);
+    setAvatarError(null);
+    setAvatarProgress('Updating profile…');
+
+    const result = await removeOwnProfileAvatar();
+
+    if (!mountedRef.current) {
+      return;
+    }
+
+    mutatingRef.current = false;
+    setAvatarBusy(false);
+    setAvatarProgress(null);
+
+    if (result.error || !result.profile) {
+      setAvatarError(
+        result.error ??
+          'Your profile photo could not be removed. Try again.',
+      );
+      return;
+    }
+
+    setProfile(result.profile);
+  }
+
+  function openAvatarActions() {
+    if (mutatingRef.current || !profile) {
+      return;
+    }
+
+    setAvatarError(null);
+
+    const buttons: {
+      text: string;
+      style?: 'cancel' | 'destructive';
+      onPress?: () => void;
+    }[] = [
+      {
+        text: profile.avatarPath
+          ? 'Change photo'
+          : 'Choose from library',
+        onPress: () => {
+          void runAvatarCapture('library');
+        },
+      },
+      {
+        text: 'Take photo',
+        onPress: () => {
+          void runAvatarCapture('camera');
+        },
+      },
+    ];
+
+    if (profile.avatarPath) {
+      buttons.push({
+        text: 'Remove photo',
+        style: 'destructive',
+        onPress: () => {
+          void handleRemoveAvatar();
+        },
+      });
+    }
+
+    buttons.push({
+      text: 'Cancel',
+      style: 'cancel',
+    });
+
+    Alert.alert('Profile photo', undefined, buttons);
+  }
+
+  const mutating = avatarBusy;
 
   return (
     <SafeAreaView
@@ -137,6 +349,10 @@ export default function MyGainScreen({
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => {
+              if (mutatingRef.current) {
+                return;
+              }
+
               setRefreshing(true);
               void loadProfile(false);
             }}
@@ -147,9 +363,9 @@ export default function MyGainScreen({
         {loading ? (
           <View style={styles.identitySkeleton}>
             <DGSkeleton
-              width={88}
-              height={88}
-              borderRadius={28}
+              width={104}
+              height={104}
+              borderRadius={52}
             />
             <DGSkeleton
               width="48%"
@@ -182,12 +398,29 @@ export default function MyGainScreen({
             <ProfileIdentityHeader
               profile={profile}
               mode="own"
+              avatarUrl={avatarUrl}
+              avatarBusy={avatarBusy}
+              avatarUnavailable={avatarUnavailable}
+              onAvatarPress={openAvatarActions}
             />
+
+            {avatarProgress ? (
+              <Text style={styles.progress}>
+                {avatarProgress}
+              </Text>
+            ) : null}
+
+            {avatarError ? (
+              <Text style={styles.avatarError}>
+                {avatarError}
+              </Text>
+            ) : null}
 
             <DGButton
               title="Edit profile"
               variant="outline"
               fullWidth
+              disabled={mutating}
               onPress={() => {
                 navigation.navigate('EditProfile');
               }}
@@ -197,6 +430,7 @@ export default function MyGainScreen({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Work. Manage jobs, applications and assigned work."
+              disabled={mutating}
               onPress={() => {
                 navigation.navigate('Work', {
                   screen: 'WorkHome',
@@ -205,6 +439,7 @@ export default function MyGainScreen({
               style={({ pressed }) => [
                 styles.workCard,
                 pressed && styles.pressed,
+                mutating && styles.disabled,
               ]}
             >
               <View style={styles.iconWrap}>
@@ -252,6 +487,21 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
   },
 
+  progress: {
+    color: textColor.muted,
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+
+  avatarError: {
+    color: palette.danger,
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 18,
+    textAlign: 'center',
+  },
+
   workCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -265,6 +515,10 @@ const styles = StyleSheet.create({
 
   pressed: {
     opacity: 0.86,
+  },
+
+  disabled: {
+    opacity: 0.5,
   },
 
   iconWrap: {

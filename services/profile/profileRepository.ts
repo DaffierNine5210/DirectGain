@@ -17,6 +17,9 @@ const UUID_PATTERN =
 const PROFILE_SELECT =
   'id, display_name, bio, avatar_path, suburb, state, account_type';
 
+const OWN_AVATAR_PATH =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jpg$/;
+
 function isUuid(value: string): boolean {
   return UUID_PATTERN.test(value.toLowerCase());
 }
@@ -71,8 +74,12 @@ function formatProfileError(
     return 'Check the state, then try again.';
   }
 
-  if (message.includes('account type cannot be changed')) {
-    return 'Account type cannot be changed here.';
+  if (message.includes('avatar path must belong')) {
+    return 'Your profile photo could not be updated.';
+  }
+
+  if (message.includes('only the profile owner can set an avatar')) {
+    return 'You do not have permission to update this profile.';
   }
 
   return fallback;
@@ -210,6 +217,69 @@ export async function updateOwnProfile(
     return {
       profile: null,
       error: 'Your profile could not be saved. Try again.',
+    };
+  }
+
+  return {
+    profile: adaptProfileRow(updated.data),
+    error: null,
+  };
+}
+
+export async function updateOwnAvatarPath(
+  avatarPath: string | null,
+): Promise<{
+  profile: DirectGainProfile | null;
+  error: string | null;
+}> {
+  const userId = await getSessionUserId();
+
+  if (!userId) {
+    return {
+      profile: null,
+      error: 'Sign in to update your profile photo.',
+    };
+  }
+
+  let nextPath: string | null = null;
+
+  if (avatarPath !== null) {
+    const path = avatarPath.trim().toLowerCase();
+    const owner = path.split('/')[0];
+
+    if (!OWN_AVATAR_PATH.test(path) || owner !== userId) {
+      return {
+        profile: null,
+        error: 'Your profile photo could not be updated.',
+      };
+    }
+
+    nextPath = path;
+  }
+
+  const updated = await supabase
+    .from('profiles')
+    .update({
+      avatar_path: nextPath,
+    })
+    .eq('id', userId)
+    .select(PROFILE_SELECT)
+    .maybeSingle();
+
+  if (updated.error) {
+    return {
+      profile: null,
+      error: formatProfileError(
+        updated.error,
+        'Your profile photo could not be updated. Try again.',
+      ),
+    };
+  }
+
+  if (!isProfileRow(updated.data)) {
+    return {
+      profile: null,
+      error: 'Your profile photo could not be updated. Try again.',
     };
   }
 

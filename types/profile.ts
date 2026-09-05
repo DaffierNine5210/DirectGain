@@ -24,3 +24,13 @@ export type UpdateOwnProfileInput = {
   suburb: string;
   state: string;
 };
+
+export const PROFILE_AVATAR_MAX_EDGE = 512;
+export const PROFILE_AVATAR_MAX_BYTES = 512 * 1024;
+export const PROFILE_AVATAR_TARGET_BYTES = 200 * 1024;
+export const PROFILE_AVATAR_JPEG_MIME = 'image/jpeg';
+
+export type PendingProfileAvatar = {
+  uri: string;
+  byteSize: number;
+};
