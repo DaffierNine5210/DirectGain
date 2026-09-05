@@ -269,6 +269,7 @@ export type JobApplicantProfile = {
   suburb: string | null;
   state: string | null;
   accountType: JobAccountType;
+  avatarPath: string | null;
 };
 
 export type PosterJobApplication = {

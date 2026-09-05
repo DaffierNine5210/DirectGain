@@ -489,6 +489,7 @@ type ApplicantProfileRow = {
   id: string;
   display_name: string;
   bio: string | null;
+  avatar_path: string | null;
   suburb: string | null;
   state: string | null;
   account_type: string;
@@ -523,6 +524,8 @@ function adaptApplicantProfile(
       row.account_type === 'business'
         ? 'business'
         : 'personal',
+    avatarPath:
+      row.avatar_path?.trim() ? row.avatar_path.trim() : null,
   };
 }
 
@@ -578,7 +581,7 @@ async function fetchApplicantProfiles(
 
   const result = await supabase
     .from('profiles')
-    .select('id, display_name, bio, suburb, state, account_type')
+    .select('id, display_name, bio, avatar_path, suburb, state, account_type')
     .in('id', uniqueIds);
 
   if (result.error || !result.data) {
@@ -593,7 +596,13 @@ async function fetchApplicantProfiles(
     ) {
       profiles.set(
         row.id.toLowerCase(),
-        adaptApplicantProfile(row as ApplicantProfileRow),
+        adaptApplicantProfile({
+          ...(row as ApplicantProfileRow),
+          avatar_path:
+            typeof row.avatar_path === 'string'
+              ? row.avatar_path
+              : null,
+        }),
       );
     }
   }

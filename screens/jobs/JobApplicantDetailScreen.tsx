@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import DGButton from '../../components/DGButton';
 import DGHeader from '../../components/DGHeader';
 import DGSkeleton from '../../components/DGSkeleton';
+import ResolvedProfileAvatar from '../../components/profile/ResolvedProfileAvatar';
 
 import useTabBarVisibility from '../../hooks/useTabBarVisibility';
 
@@ -23,7 +24,6 @@ import { navigateToOwnMyGain } from '../../navigation/publicProfile';
 import {
   formatApplicationStatus,
   formatPostedLabel,
-  posterInitials,
 } from '../../services/jobs/jobAdapter';
 import {
   declineJobApplication,
@@ -329,11 +329,11 @@ export default function JobApplicantDetailScreen({
 
           <View style={styles.card}>
             <View style={styles.identity}>
-              <View style={styles.avatar}>
-                <Text style={styles.initials}>
-                  {posterInitials(name)}
-                </Text>
-              </View>
+              <ResolvedProfileAvatar
+                displayName={name}
+                avatarPath={application.applicant?.avatarPath}
+                size="lg"
+              />
               <View style={styles.identityCopy}>
                 <Text style={styles.name}>{name}</Text>
                 <Text
@@ -523,21 +523,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-  },
-
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    backgroundColor: alpha.white08,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  initials: {
-    color: textColor.primary,
-    fontSize: 16,
-    fontWeight: '800',
   },
 
   identityCopy: {

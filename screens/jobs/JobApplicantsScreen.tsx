@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import DGHeader from '../../components/DGHeader';
 import DGSkeleton from '../../components/DGSkeleton';
+import ResolvedProfileAvatar from '../../components/profile/ResolvedProfileAvatar';
 
 import useTabBarVisibility from '../../hooks/useTabBarVisibility';
 
@@ -21,7 +22,6 @@ import type { JobsFlowParamList } from '../../navigation/jobsFlow';
 import {
   formatApplicationStatus,
   formatPostedLabel,
-  posterInitials,
   previewApplicationMessage,
 } from '../../services/jobs/jobAdapter';
 import { listApplicationsForJob } from '../../services/jobs/jobApplicationRepository';
@@ -231,11 +231,11 @@ export default function JobApplicantsScreen({
                 ]}
               >
                 <View style={styles.row}>
-                  <View style={styles.avatar}>
-                    <Text style={styles.initials}>
-                      {posterInitials(name)}
-                    </Text>
-                  </View>
+                  <ResolvedProfileAvatar
+                    displayName={name}
+                    avatarPath={item.applicant?.avatarPath}
+                    size="md"
+                  />
                   <View style={styles.copy}>
                     <View style={styles.nameRow}>
                       <Text
@@ -334,21 +334,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     minWidth: 0,
-  },
-
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: alpha.white08,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  initials: {
-    color: textColor.primary,
-    fontSize: 13,
-    fontWeight: '800',
   },
 
   copy: {
