@@ -1,5 +1,6 @@
 import type {
   ChatMessage,
+  MessageSender,
 } from '../../types/Messaging';
 
 import {
@@ -17,6 +18,10 @@ import {
 import type {
   SupabaseMessageRecord,
 } from './messageRepository';
+import {
+  isDatabaseSystemMessage,
+  isInvalidUserMessage,
+} from './messageKind';
 
 type MessageAdapterOptions = {
   currentUserId: string;
@@ -25,7 +30,17 @@ type MessageAdapterOptions = {
 export function supabaseMessageToChatMessage(
   message: SupabaseMessageRecord,
   options: MessageAdapterOptions,
-): ChatMessage {
+): ChatMessage | null {
+  if (
+    isInvalidUserMessage(message)
+  ) {
+    console.warn(
+      '[Direct Gain] Ignored a message with no sender.',
+    );
+
+    return null;
+  }
+
   const fileAttachment =
     getFileAttachmentMetadata(
       message,
@@ -49,10 +64,10 @@ export function supabaseMessageToChatMessage(
       message.conversation_id,
 
     sender:
-      message.sender_id ===
-      options.currentUserId
-        ? 'current-user'
-        : 'participant',
+      mapMessageSender(
+        message,
+        options.currentUserId,
+      ),
 
     kind:
       mapMessageType(
@@ -115,13 +130,41 @@ export function supabaseMessagesToChatMessages(
   options:
     MessageAdapterOptions,
 ): ChatMessage[] {
-  return messages.map(
-    message =>
-      supabaseMessageToChatMessage(
-        message,
-        options,
-      ),
+  return messages.flatMap(
+    message => {
+      const adapted =
+        supabaseMessageToChatMessage(
+          message,
+          options,
+        );
+
+      return adapted
+        ? [adapted]
+        : [];
+    },
   );
+}
+
+function mapMessageSender(
+  message: SupabaseMessageRecord,
+  currentUserId: string,
+): MessageSender {
+  if (
+    isDatabaseSystemMessage(
+      message,
+    )
+  ) {
+    return 'system';
+  }
+
+  if (
+    message.sender_id ===
+    currentUserId
+  ) {
+    return 'current-user';
+  }
+
+  return 'participant';
 }
 
 function mapMessageType(
@@ -209,7 +252,7 @@ export function getInboxMessagePreview(
       return 'Voice message';
 
     case 'system':
-      return 'Deal update';
+      return 'Conversation update';
 
     default:
       return 'New message';

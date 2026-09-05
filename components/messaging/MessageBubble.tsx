@@ -172,7 +172,7 @@ export default function MessageBubble({
               15
             }
             color={
-              colors.primary
+              colors.textMuted
             }
           />
 
@@ -1164,30 +1164,27 @@ const styles =
         'rgba(158, 246, 90, 0.045)',
 
       flexDirection:
-        'row',
+        'column',
 
       alignItems:
         'center',
     },
 
     systemText: {
-      flexShrink:
-        1,
-
-      marginLeft:
-        7,
+      marginTop:
+        6,
 
       color:
         colors.textMuted,
 
       fontSize:
-        9,
+        13,
 
       lineHeight:
-        14,
+        18,
 
       fontWeight:
-        '700',
+        '600',
 
       textAlign:
         'center',

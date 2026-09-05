@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import {
   getCurrentMessagingUser,
 } from './currentMessagingUser';
+import { unreadIncomingOrFilter } from './messageKind';
 
 export type MessageReadState = {
   conversation_id: string;
@@ -274,9 +275,10 @@ export async function getUnreadMessageCount(
         'conversation_id',
         conversationId,
       )
-      .neq(
-        'sender_id',
-        currentUser.userId,
+      .or(
+        unreadIncomingOrFilter(
+          currentUser.userId,
+        ),
       )
       .is(
         'deleted_at',
@@ -479,9 +481,10 @@ export async function getUnreadMessageCounts(
         'conversation_id',
         uniqueConversationIds,
       )
-      .neq(
-        'sender_id',
-        currentUser.userId,
+      .or(
+        unreadIncomingOrFilter(
+          currentUser.userId,
+        ),
       )
       .is(
         'deleted_at',

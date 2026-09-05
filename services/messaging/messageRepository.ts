@@ -29,7 +29,7 @@ export type SupabaseMessageRecord = {
 
   conversation_id: string;
 
-  sender_id: string;
+  sender_id: string | null;
 
   message_type:
     SupabaseMessageType;
@@ -195,7 +195,7 @@ export type InboxLatestMessage = {
 
   conversation_id: string;
 
-  sender_id: string;
+  sender_id: string | null;
 
   message_type:
     SupabaseMessageType;
@@ -439,6 +439,17 @@ export async function sendConversationMessage(
   const messageType =
     input.messageType ??
     'text';
+
+  if (
+    messageType ===
+    'system'
+  ) {
+    console.warn(
+      '[Direct Gain] SEND STEP 3 FAILED: System messages cannot be sent by the client.',
+    );
+
+    return null;
+  }
 
   const validatedLocationMetadata =
     messageType ===

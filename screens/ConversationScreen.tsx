@@ -92,8 +92,14 @@ import {
 } from '../services/messaging/messageAdapter';
 
 import {
+  isOwnUserMessage,
+  isUnreadEligibleIncomingMessage,
+} from '../services/messaging/messageKind';
+
+import {
   getConversationMessages,
   sendConversationMessage,
+  type SupabaseMessageRecord,
 } from '../services/messaging/messageRepository';
 
 import {
@@ -195,6 +201,30 @@ type Props = {
     goBack: () => void;
   };
 };
+
+function confirmedStoredChatMessage(
+  storedMessage: SupabaseMessageRecord,
+  currentUserId: string,
+  extra?: Partial<ChatMessage>,
+): ChatMessage | null {
+  const adapted =
+    supabaseMessageToChatMessage(
+      storedMessage,
+      {
+        currentUserId,
+      },
+    );
+
+  if (!adapted) {
+    return null;
+  }
+
+  return {
+    ...adapted,
+    status: 'delivered',
+    ...extra,
+  };
+}
 
 export default function ConversationScreen({
   route,
@@ -1269,6 +1299,10 @@ useFocusEffect(
                   },
                 );
 
+              if (!adaptedMessage) {
+                return;
+              }
+
               const newMessage:
                 ChatMessage =
                 adaptedMessage.sender ===
@@ -1299,9 +1333,10 @@ useFocusEffect(
               setConversation(
                 current => {
                   if (
-                    realtimeMessage
-                      .sender_id ===
-                      currentSupabaseUserId &&
+                    isOwnUserMessage(
+                      realtimeMessage,
+                      currentSupabaseUserId,
+                    ) &&
                     clientMessageId
                   ) {
                     const optimisticExists =
@@ -1359,9 +1394,10 @@ useFocusEffect(
               setTimeline(
                 current => {
                   if (
-                    realtimeMessage
-                      .sender_id ===
-                      currentSupabaseUserId &&
+                    isOwnUserMessage(
+                      realtimeMessage,
+                      currentSupabaseUserId,
+                    ) &&
                     clientMessageId
                   ) {
                     const optimisticExists =
@@ -1430,8 +1466,10 @@ useFocusEffect(
                * forward immediately.
                */
               if (
-                realtimeMessage.sender_id !==
-                currentSupabaseUserId
+                isUnreadEligibleIncomingMessage(
+                  realtimeMessage,
+                  currentSupabaseUserId,
+                )
               ) {
                 void markConversationRead(
                   conversationId,
@@ -1695,20 +1733,20 @@ useFocusEffect(
        * Supabase has now accepted the
        * message, so it is Delivered.
        */
-      const confirmedMessage:
-        ChatMessage = {
-        ...supabaseMessageToChatMessage(
+      const confirmedMessage =
+        confirmedStoredChatMessage(
           storedMessage,
+          userId,
+        );
 
-          {
-            currentUserId:
-              userId,
-          },
-        ),
+      if (!confirmedMessage) {
+        Alert.alert(
+          'Message not sent',
+          'Your message could not be sent. Please try again.',
+        );
 
-        status:
-          'delivered',
-      };
+        return;
+      }
 
       setConversation(
         current => {
@@ -2155,24 +2193,30 @@ useFocusEffect(
       return;
     }
 
-    const confirmedMessage:
-      ChatMessage = {
-      ...supabaseMessageToChatMessage(
+    const confirmedMessage =
+      confirmedStoredChatMessage(
         storedMessage,
+        userId,
         {
-          currentUserId:
-            userId,
+          image: {
+            uri:
+              asset.uri,
+          },
         },
-      ),
+      );
 
-      status:
-        'delivered',
+    if (!confirmedMessage) {
+      removeOptimisticMessage(
+        clientMessageId,
+      );
 
-      image: {
-        uri:
-          asset.uri,
-      },
-    };
+      Alert.alert(
+        'Photo not sent',
+        'The photo uploaded, but Direct Gain could not save the message. Please try again.',
+      );
+
+      return;
+    }
 
     setConversation(
       current => {
@@ -2537,19 +2581,24 @@ useFocusEffect(
       return;
     }
 
-    const confirmedMessage:
-      ChatMessage = {
-      ...supabaseMessageToChatMessage(
+    const confirmedMessage =
+      confirmedStoredChatMessage(
         storedMessage,
-        {
-          currentUserId:
-            userId,
-        },
-      ),
+        userId,
+      );
 
-      status:
-        'delivered',
-    };
+    if (!confirmedMessage) {
+      removeOptimisticMessage(
+        clientMessageId,
+      );
+
+      Alert.alert(
+        'File not sent',
+        'The file uploaded, but Direct Gain could not save the message. Please try again.',
+      );
+
+      return;
+    }
 
     setConversation(
       current => {
@@ -3140,18 +3189,24 @@ useFocusEffect(
       return;
     }
 
-    const confirmedMessage:
-      ChatMessage = {
-      ...supabaseMessageToChatMessage(
+    const confirmedMessage =
+      confirmedStoredChatMessage(
         storedMessage,
-        {
-          currentUserId:
-            userId,
-        },
-      ),
-      status:
-        'delivered',
-    };
+        userId,
+      );
+
+    if (!confirmedMessage) {
+      removeOptimisticMessage(
+        clientMessageId,
+      );
+
+      Alert.alert(
+        'Voice message not sent',
+        'The recording uploaded, but Direct Gain could not save the message. Please try again.',
+      );
+
+      return;
+    }
 
     setConversation(
       current => {
@@ -3589,19 +3644,24 @@ useFocusEffect(
       return;
     }
 
-    const confirmedMessage:
-      ChatMessage = {
-      ...supabaseMessageToChatMessage(
+    const confirmedMessage =
+      confirmedStoredChatMessage(
         storedMessage,
-        {
-          currentUserId:
-            userId,
-        },
-      ),
+        userId,
+      );
 
-      status:
-        'delivered',
-    };
+    if (!confirmedMessage) {
+      removeOptimisticMessage(
+        clientMessageId,
+      );
+
+      Alert.alert(
+        'Location not sent',
+        'Direct Gain could not send that location. Please try again.',
+      );
+
+      return;
+    }
 
     setConversation(
       current => {
@@ -3676,6 +3736,14 @@ useFocusEffect(
     message:
       ChatMessage,
   ) {
+    if (
+      message.sender ===
+        'system' ||
+      message.kind ===
+        'system'
+    ) {
+      return;
+    }
     if (
       message.kind ===
       'file'

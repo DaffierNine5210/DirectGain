@@ -48,6 +48,12 @@ import {
 } from '../services/messaging/messageAdapter';
 
 import {
+  isDatabaseSystemMessage,
+  isInvalidUserMessage,
+  isUnreadEligibleIncomingMessage,
+} from '../services/messaging/messageKind';
+
+import {
   getLatestMessagesForConversations,
   type SupabaseMessageRecord,
 } from '../services/messaging/messageRepository';
@@ -383,24 +389,35 @@ export default function MessagesInboxScreen({
       return;
     }
 
+    if (
+      isDatabaseSystemMessage(
+        message,
+      ) ||
+      isInvalidUserMessage(
+        message,
+      )
+    ) {
+      void loadInboxRef.current(
+        true,
+      );
+
+      return;
+    }
+
     const existing =
       current[
         matchingIndex
       ];
 
-    const isOwnMessage =
-      Boolean(
-        currentUserId,
-      ) &&
-      message.sender_id ===
-        currentUserId;
-
     const nextUnreadCount =
-      !currentUserId ||
-      isOwnMessage
-        ? existing.unreadCount
-        : existing.unreadCount +
-          1;
+      currentUserId &&
+      isUnreadEligibleIncomingMessage(
+        message,
+        currentUserId,
+      )
+        ? existing.unreadCount +
+          1
+        : existing.unreadCount;
 
     const next = [
       ...current,
