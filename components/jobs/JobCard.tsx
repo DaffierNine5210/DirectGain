@@ -7,7 +7,7 @@ import {
   View,
 } from 'react-native';
 
-import { posterInitials } from '../../services/jobs/jobAdapter';
+import ResolvedProfileAvatar from '../profile/ResolvedProfileAvatar';
 
 import type { Job } from '../../types/jobs';
 
@@ -154,14 +154,11 @@ export default function JobCard({
 
         {posterName ? (
           <View style={styles.posterRow}>
-            <View
-              style={styles.avatar}
-              accessibilityElementsHidden
-            >
-              <Text style={styles.initials}>
-                {posterInitials(posterName)}
-              </Text>
-            </View>
+            <ResolvedProfileAvatar
+              displayName={posterName}
+              avatarPath={job.poster?.avatarPath}
+              size="xs"
+            />
             <Text
               style={styles.posterName}
               numberOfLines={1}
@@ -299,21 +296,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
     minWidth: 0,
-  },
-
-  avatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 10,
-    backgroundColor: alpha.white08,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  initials: {
-    color: textColor.primary,
-    fontSize: 10,
-    fontWeight: '800',
   },
 
   posterName: {

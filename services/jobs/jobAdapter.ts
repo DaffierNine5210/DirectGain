@@ -404,7 +404,9 @@ function toPosterPreview(
     id: poster.id,
     displayName,
     avatarPath:
-      poster.avatar_path,
+      poster.avatar_path?.trim()
+        ? poster.avatar_path.trim()
+        : null,
     accountType,
   };
 }

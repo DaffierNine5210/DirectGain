@@ -15,15 +15,14 @@ import DGHeader from '../../components/DGHeader';
 import DGSkeleton from '../../components/DGSkeleton';
 import JobApplicationActions from '../../components/jobs/JobApplicationActions';
 import JobMediaGallery from '../../components/jobs/JobMediaGallery';
+import ResolvedProfileAvatar from '../../components/profile/ResolvedProfileAvatar';
 
 import useTabBarVisibility from '../../hooks/useTabBarVisibility';
 
 import type { JobsFlowParamList } from '../../navigation/jobsFlow';
+import { navigateToOwnMyGain } from '../../navigation/publicProfile';
 
-import {
-  formatStartsOn,
-  posterInitials,
-} from '../../services/jobs/jobAdapter';
+import { formatStartsOn } from '../../services/jobs/jobAdapter';
 import { getJobById } from '../../services/jobs/jobRepository';
 import {
   getAuthenticatedUserId,
@@ -71,6 +70,7 @@ export default function JobDetailScreen({
 
   const jobId = route.params.jobId;
   const mountedRef = useRef(true);
+  const jobRequestIdRef = useRef(0);
   const mediaRequestIdRef = useRef(0);
   const applicationRequestIdRef = useRef(0);
   const withdrawingRef = useRef(false);
@@ -142,9 +142,11 @@ export default function JobDetailScreen({
 
   const refreshJobQuietly = useCallback(
     async () => {
+      const requestId = ++jobRequestIdRef.current;
       const result = await getJobById(jobId);
 
       if (
+        requestId !== jobRequestIdRef.current ||
         !mountedRef.current ||
         result.error ||
         !result.job
@@ -232,6 +234,7 @@ export default function JobDetailScreen({
 
   const loadJob = useCallback(
     async () => {
+      const requestId = ++jobRequestIdRef.current;
       setLoading(true);
       setError(null);
       setPhotos([]);
@@ -260,7 +263,10 @@ export default function JobDetailScreen({
       const result =
         await getJobById(jobId);
 
-      if (!mountedRef.current) {
+      if (
+        requestId !== jobRequestIdRef.current ||
+        !mountedRef.current
+      ) {
         return;
       }
 
@@ -302,6 +308,26 @@ export default function JobDetailScreen({
   );
 
   isOwnerRef.current = isOwner;
+
+  async function openPosterProfile() {
+    if (!job?.poster?.id) {
+      return;
+    }
+
+    const profileId = job.poster.id.toLowerCase();
+    const userId =
+      viewerId ??
+      (await getAuthenticatedUserId());
+
+    if (userId && userId === profileId) {
+      navigateToOwnMyGain(navigation);
+      return;
+    }
+
+    navigation.navigate('PublicProfile', {
+      profileId,
+    });
+  }
 
   useEffect(() => {
     if (!isOwner || !job) {
@@ -574,23 +600,30 @@ export default function JobDetailScreen({
             </View>
 
             {job.poster ? (
-              <View
-                style={styles.posterCard}
-                accessibilityLabel={`Posted by ${job.poster.displayName}`}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.posterCard,
+                  pressed && styles.posterPressed,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  isOwner
+                    ? 'Open your Direct Gain profile'
+                    : `View ${job.poster.displayName}'s Direct Gain profile`
+                }
+                onPress={() => {
+                  void openPosterProfile();
+                }}
               >
                 <Text style={styles.posterEyebrow}>
                   Posted by
                 </Text>
                 <View style={styles.posterRow}>
-                  <View style={styles.avatarRing}>
-                    <View style={styles.avatar}>
-                      <Text style={styles.initials}>
-                        {posterInitials(
-                          job.poster.displayName,
-                        )}
-                      </Text>
-                    </View>
-                  </View>
+                  <ResolvedProfileAvatar
+                    displayName={job.poster.displayName}
+                    avatarPath={job.poster.avatarPath}
+                    size="md"
+                  />
                   <View style={styles.posterText}>
                     <Text style={styles.posterName}>
                       {job.poster.displayName}
@@ -602,8 +635,13 @@ export default function JobDetailScreen({
                         : 'Direct Gain member'}
                     </Text>
                   </View>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={iconSize.sm}
+                    color={textColor.muted}
+                  />
                 </View>
-              </View>
+              </Pressable>
             ) : null}
 
             <JobApplicationActions
@@ -937,6 +975,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
 
+  posterPressed: {
+    opacity: 0.86,
+  },
+
   posterEyebrow: {
     marginBottom: spacing.sm,
     ...typography.eyebrow,
@@ -948,28 +990,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     minWidth: 0,
-  },
-
-  avatarRing: {
-    padding: 2,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: alpha.green20,
-  },
-
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: alpha.green10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  initials: {
-    color: palette.opportunityGreen,
-    fontSize: 16,
-    fontWeight: '800',
   },
 
   posterText: {
