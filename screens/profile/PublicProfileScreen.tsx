@@ -12,7 +12,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import DGHeader from '../../components/DGHeader';
 import DGSkeleton from '../../components/DGSkeleton';
-import ProfileIdentityHeader from '../../components/profile/ProfileIdentityHeader';
+import ProfileHero from '../../components/profile/ProfileHero';
+import { presentProfileHeroIdentity } from '../../components/profile/profilePresentation';
 
 import useTabBarVisibility from '../../hooks/useTabBarVisibility';
 
@@ -242,8 +243,8 @@ export default function PublicProfileScreen({
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
         >
-          <ProfileIdentityHeader
-            profile={profile}
+          <ProfileHero
+            identity={presentProfileHeroIdentity(profile)}
             mode="public"
             avatarUrl={avatarUrl}
             avatarUnavailable={avatarUnavailable}
@@ -261,15 +262,14 @@ const styles = StyleSheet.create({
   },
 
   scroll: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
     paddingBottom: spacing.massive,
   },
 
   identitySkeleton: {
     alignItems: 'center',
     gap: spacing.sm,
-    paddingTop: spacing.md,
+    paddingTop: spacing.xxl,
+    paddingHorizontal: spacing.lg,
   },
 
   skeleton: {

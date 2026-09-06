@@ -18,10 +18,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import DGButton from '../components/DGButton';
 import DGHeader from '../components/DGHeader';
 import DGSkeleton from '../components/DGSkeleton';
-import ProfileIdentityHeader from '../components/profile/ProfileIdentityHeader';
+import ProfileHero from '../components/profile/ProfileHero';
+import { presentProfileHeroIdentity } from '../components/profile/profilePresentation';
 
 import useTabBarVisibility from '../hooks/useTabBarVisibility';
 
@@ -395,36 +395,19 @@ export default function MyGainScreen({
           </View>
         ) : (
           <>
-            <ProfileIdentityHeader
-              profile={profile}
-              mode="own"
+            <ProfileHero
+              identity={presentProfileHeroIdentity(profile)}
+              mode="owner"
               avatarUrl={avatarUrl}
               avatarBusy={avatarBusy}
               avatarUnavailable={avatarUnavailable}
+              avatarProgress={avatarProgress}
+              avatarError={avatarError}
               onAvatarPress={openAvatarActions}
-            />
-
-            {avatarProgress ? (
-              <Text style={styles.progress}>
-                {avatarProgress}
-              </Text>
-            ) : null}
-
-            {avatarError ? (
-              <Text style={styles.avatarError}>
-                {avatarError}
-              </Text>
-            ) : null}
-
-            <DGButton
-              title="Edit profile"
-              variant="outline"
-              fullWidth
-              disabled={mutating}
-              onPress={() => {
+              editProfileDisabled={mutating}
+              onEditProfilePress={() => {
                 navigation.navigate('EditProfile');
               }}
-              accessibilityLabel="Edit profile"
             />
 
             <Pressable
@@ -475,37 +458,22 @@ const styles = StyleSheet.create({
   },
 
   scroll: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
     paddingBottom: layout.bottomNavigationClearance,
-    gap: spacing.lg,
+    gap: spacing.sm,
   },
 
   identitySkeleton: {
     alignItems: 'center',
     gap: spacing.sm,
-    paddingTop: spacing.md,
-  },
-
-  progress: {
-    color: textColor.muted,
-    fontSize: 13,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-
-  avatarError: {
-    color: palette.danger,
-    fontSize: 13,
-    fontWeight: '700',
-    lineHeight: 18,
-    textAlign: 'center',
+    paddingTop: spacing.xxl,
+    paddingHorizontal: spacing.lg,
   },
 
   workCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    marginHorizontal: spacing.lg,
     padding: spacing.md,
     borderRadius: radius.lg,
     borderWidth: 1,
@@ -555,6 +523,8 @@ const styles = StyleSheet.create({
   },
 
   messageCard: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.lg,
     padding: spacing.lg,
     borderRadius: radius.card,
     borderWidth: 1,
