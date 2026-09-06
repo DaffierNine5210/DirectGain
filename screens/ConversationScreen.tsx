@@ -801,14 +801,14 @@ useFocusEffect(
       hideTabBar();
 
       if (
-        isSupabaseConversation &&
-        currentSupabaseUserId
+        isSupabaseConversation
       ) {
         void markConversationRead(
           conversationId,
         );
 
         if (
+          currentSupabaseUserId &&
           otherParticipantUserId
         ) {
           void applyReadReceipts(
@@ -1324,31 +1324,43 @@ useFocusEffect(
   );
 
   /*
-   * Once both users are known:
-   *
-   * 1. Mark this conversation read.
-   * 2. Check which of our outgoing
-   *    messages they have already read.
+   * Mark this conversation read as
+   * soon as the current user is
+   * known. Receipts still need the
+   * other participant.
    */
   useEffect(
     () => {
       if (
         !isSupabaseConversation ||
-        !currentSupabaseUserId ||
-        !otherParticipantUserId
+        !currentSupabaseUserId
       ) {
         return;
       }
 
       async function initialiseReadState() {
+        const currentUserId =
+          currentSupabaseUserId;
+
+        const otherUserId =
+          otherParticipantUserId;
+
+        if (!currentUserId) {
+          return;
+        }
+
         await markConversationRead(
           conversationId,
         );
 
+        if (!otherUserId) {
+          return;
+        }
+
         await applyReadReceipts(
-  currentSupabaseUserId!,
-  otherParticipantUserId!,
-);
+          currentUserId,
+          otherUserId,
+        );
       }
 
       void initialiseReadState();

@@ -26,9 +26,10 @@ export type MessageReceiptStatus =
  * in a conversation as read.
  *
  * One row is stored per user per
- * conversation. Each time they read
- * newer messages, last_read_at moves
- * forward.
+ * conversation. Opening the thread
+ * is enough; the latest stored
+ * message time is used so a
+ * system-only thread still clears.
  */
 export async function markConversationRead(
   conversationId: string,
@@ -44,43 +45,153 @@ export async function markConversationRead(
     return false;
   }
 
-  const now =
-    new Date().toISOString();
-
-  const {
-    error,
-  } = await supabase
-    .from('message_reads')
-    .upsert(
-      {
-        conversation_id:
-          conversationId,
-
-        user_id:
-          currentUser.userId,
-
-        last_read_at:
-          now,
-
-        updated_at:
-          now,
-      },
-      {
-        onConflict:
-          'conversation_id,user_id',
-      },
+  const lastReadAt =
+    await resolveConversationReadAt(
+      conversationId,
     );
 
-  if (error) {
+  const readRow = {
+    conversation_id:
+      conversationId,
+
+    user_id:
+      currentUser.userId,
+
+    last_read_at:
+      lastReadAt,
+
+    updated_at:
+      lastReadAt,
+  };
+
+  const {
+    error: insertError,
+  } = await supabase
+    .from('message_reads')
+    .insert(
+      readRow,
+    );
+
+  if (!insertError) {
+    return true;
+  }
+
+  const isUniqueConflict =
+    insertError.code ===
+      '23505' ||
+    insertError.code ===
+      '409';
+
+  if (!isUniqueConflict) {
     console.warn(
       '[Direct Gain] Unable to mark conversation as read:',
-      error.message,
+      insertError.message,
+    );
+
+    return false;
+  }
+
+  const {
+    error: updateError,
+  } = await supabase
+    .from('message_reads')
+    .update({
+      last_read_at:
+        lastReadAt,
+
+      updated_at:
+        lastReadAt,
+    })
+    .eq(
+      'conversation_id',
+      conversationId,
+    )
+    .eq(
+      'user_id',
+      currentUser.userId,
+    );
+
+  if (updateError) {
+    console.warn(
+      '[Direct Gain] Unable to mark conversation as read:',
+      updateError.message,
     );
 
     return false;
   }
 
   return true;
+}
+
+async function resolveConversationReadAt(
+  conversationId: string,
+): Promise<string> {
+  const clientNow =
+    new Date();
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('messages')
+    .select(
+      'created_at',
+    )
+    .eq(
+      'conversation_id',
+      conversationId,
+    )
+    .is(
+      'deleted_at',
+      null,
+    )
+    .order(
+      'created_at',
+      {
+        ascending:
+          false,
+      },
+    )
+    .limit(
+      1,
+    )
+    .maybeSingle();
+
+  if (error) {
+    console.warn(
+      '[Direct Gain] Unable to load latest message time for read state:',
+      error.message,
+    );
+
+    return clientNow.toISOString();
+  }
+
+  const latestCreatedAt =
+    typeof data?.created_at ===
+    'string'
+      ? data.created_at
+      : null;
+
+  if (!latestCreatedAt) {
+    return clientNow.toISOString();
+  }
+
+  const latestTime =
+    new Date(
+      latestCreatedAt,
+    ).getTime();
+
+  if (
+    Number.isNaN(
+      latestTime,
+    ) ||
+    clientNow.getTime() >=
+      latestTime
+  ) {
+    return clientNow.toISOString();
+  }
+
+  return latestCreatedAt;
 }
 
 /*

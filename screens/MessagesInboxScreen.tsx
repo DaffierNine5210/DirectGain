@@ -65,6 +65,7 @@ import {
 
 import {
   subscribeToIncomingMessages,
+  subscribeToOwnMessageReads,
   unsubscribeFromIncomingMessages,
 } from '../services/messaging/messageRealtime';
 
@@ -282,7 +283,7 @@ export default function MessagesInboxScreen({
 
         void load();
 
-        const channel =
+        const incomingChannel =
           subscribeToIncomingMessages({
             onMessage:
               message => {
@@ -306,12 +307,61 @@ export default function MessagesInboxScreen({
               },
           });
 
+        let readChannel:
+          ReturnType<
+            typeof subscribeToOwnMessageReads
+          > | null =
+          null;
+
+        void (async () => {
+          const user =
+            await getCurrentMessagingUser();
+
+          if (
+            !active ||
+            !user
+          ) {
+            return;
+          }
+
+          readChannel =
+            subscribeToOwnMessageReads({
+              userId:
+                user.userId,
+
+              onChange:
+                () => {
+                  if (
+                    !active
+                  ) {
+                    return;
+                  }
+
+                  void loadInboxRef.current(
+                    true,
+                  );
+                },
+
+              onError:
+                error => {
+                  console.warn(
+                    '[Direct Gain] Inbox read-state subscription error:',
+                    error.message,
+                  );
+                },
+            });
+        })();
+
         return () => {
           active =
             false;
 
           void unsubscribeFromIncomingMessages(
-            channel,
+            incomingChannel,
+          );
+
+          void unsubscribeFromIncomingMessages(
+            readChannel,
           );
         };
       },
@@ -978,6 +1028,9 @@ export default function MessagesInboxScreen({
               }
             >
               <Text
+                numberOfLines={
+                  1
+                }
                 style={
                   styles.eyebrow
                 }
@@ -991,6 +1044,9 @@ export default function MessagesInboxScreen({
                 }
               >
                 <Text
+                  numberOfLines={
+                    1
+                  }
                   style={
                     styles.title
                   }
@@ -1625,7 +1681,7 @@ const styles =
         72,
 
       paddingHorizontal:
-        18,
+        14,
 
       paddingVertical:
         12,
@@ -1644,14 +1700,14 @@ const styles =
 
       alignItems:
         'center',
-
-      justifyContent:
-        'space-between',
     },
 
     headerTitleArea: {
       flex:
         1,
+
+      minWidth:
+        0,
 
       flexDirection:
         'row',
@@ -1662,16 +1718,19 @@ const styles =
 
     logoMark: {
       width:
-        46,
+        40,
 
       height:
-        46,
+        40,
 
       marginRight:
-        12,
+        8,
+
+      flexShrink:
+        0,
 
       borderRadius:
-        16,
+        14,
 
       borderWidth:
         1,
@@ -1692,6 +1751,9 @@ const styles =
     headerTextArea: {
       flex:
         1,
+
+      minWidth:
+        96,
     },
 
     eyebrow: {
@@ -1720,6 +1782,9 @@ const styles =
     },
 
     title: {
+      flexShrink:
+        0,
+
       color:
         colors.text,
 
@@ -1741,7 +1806,10 @@ const styles =
         23,
 
       marginLeft:
-        8,
+        6,
+
+      flexShrink:
+        0,
 
       paddingHorizontal:
         6,
@@ -1772,7 +1840,10 @@ const styles =
 
     headerActions: {
       marginLeft:
-        12,
+        8,
+
+      flexShrink:
+        0,
 
       flexDirection:
         'row',
@@ -1783,16 +1854,19 @@ const styles =
 
     headerButton: {
       width:
-        43,
+        38,
 
       height:
-        43,
+        38,
 
       marginRight:
-        8,
+        6,
+
+      flexShrink:
+        0,
 
       borderRadius:
-        14,
+        13,
 
       borderWidth:
         1,

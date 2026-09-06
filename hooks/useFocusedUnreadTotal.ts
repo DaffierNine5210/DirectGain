@@ -8,11 +8,16 @@ import {
 } from '@react-navigation/native';
 
 import {
+  getCurrentMessagingUser,
+} from '../services/messaging/currentMessagingUser';
+
+import {
   getTotalUnreadMessageCount,
 } from '../services/messaging/messageReadRepository';
 
 import {
   subscribeToIncomingMessages,
+  subscribeToOwnMessageReads,
   unsubscribeFromIncomingMessages,
 } from '../services/messaging/messageRealtime';
 
@@ -23,8 +28,8 @@ import {
  * Loads from message_reads while
  * the screen is focused and
  * refreshes when a new message
- * arrives. The subscription is
- * removed on blur.
+ * arrives or the current user's
+ * read state changes.
  */
 export default function useFocusedUnreadTotal(): number {
   const [
@@ -56,7 +61,7 @@ export default function useFocusedUnreadTotal(): number {
 
         void loadTotal();
 
-        const channel =
+        const incomingChannel =
           subscribeToIncomingMessages({
             onMessage:
               () => {
@@ -72,12 +77,53 @@ export default function useFocusedUnreadTotal(): number {
               },
           });
 
+        let readChannel:
+          ReturnType<
+            typeof subscribeToOwnMessageReads
+          > | null =
+          null;
+
+        void (async () => {
+          const user =
+            await getCurrentMessagingUser();
+
+          if (
+            !active ||
+            !user
+          ) {
+            return;
+          }
+
+          readChannel =
+            subscribeToOwnMessageReads({
+              userId:
+                user.userId,
+
+              onChange:
+                () => {
+                  void loadTotal();
+                },
+
+              onError:
+                error => {
+                  console.warn(
+                    '[Direct Gain] Unread badge read-state subscription error:',
+                    error.message,
+                  );
+                },
+            });
+        })();
+
         return () => {
           active =
             false;
 
           void unsubscribeFromIncomingMessages(
-            channel,
+            incomingChannel,
+          );
+
+          void unsubscribeFromIncomingMessages(
+            readChannel,
           );
         };
       },
