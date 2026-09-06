@@ -31,6 +31,16 @@ export function navigateToOwnMyGain(
       return true;
     }
 
+    if (names.includes('Tabs')) {
+      current.navigate('Tabs', {
+        screen: 'My Gain',
+        params: {
+          screen: 'MyGainHome',
+        },
+      });
+      return true;
+    }
+
     current = current.getParent();
   }
 

@@ -27,10 +27,6 @@ import {
 
 import ConversationCard from '../components/messaging/ConversationCard';
 
-import {
-  listings,
-} from '../data/listings';
-
 import type {
   MessagesStackParamList,
 } from '../navigation/MessagesStack';
@@ -42,6 +38,11 @@ import {
 import {
   getCurrentMessagingUser,
 } from '../services/messaging/currentMessagingUser';
+
+import {
+  presentInboxConversations,
+  type InboxConversationRow,
+} from '../services/messaging/inboxConversationPresentation';
 
 import {
   getInboxMessagePreview,
@@ -73,7 +74,6 @@ import {
 
 import type {
   ConversationSummary,
-  ConversationType,
 } from '../components/messaging/ConversationCard';
 
 type Props =
@@ -130,47 +130,6 @@ type ParticipantRow = {
 
   role:
     string;
-};
-
-type RealInboxConversation = {
-  id:
-    string;
-
-  contextType:
-    ConversationType;
-
-  contextId?:
-    string;
-
-  title:
-    string;
-
-  participantId:
-    string;
-
-  participantName:
-    string;
-
-  participantGainScore?:
-    number;
-
-  participantVerified:
-    boolean;
-
-  lastMessage:
-    string;
-
-  lastMessageAt:
-    string;
-
-  unreadCount:
-    number;
-
-  itemPrice?:
-    number;
-
-  itemImage?:
-    any;
 };
 
 const filterOptions:
@@ -253,7 +212,7 @@ export default function MessagesInboxScreen({
     setConversations,
   ] =
     useState<
-      RealInboxConversation[]
+      InboxConversationRow[]
     >([]);
 
   const [
@@ -291,7 +250,7 @@ export default function MessagesInboxScreen({
 
   const conversationsRef =
     useRef<
-      RealInboxConversation[]
+      InboxConversationRow[]
     >(
       [],
     );
@@ -693,136 +652,20 @@ export default function MessagesInboxScreen({
        * ConversationCard.
        */
       const mapped =
-        databaseConversations.map(
-          databaseConversation => {
-            const otherParticipant =
-              allParticipants.find(
-                participant =>
-                  participant
-                    .conversation_id ===
-                    databaseConversation.id &&
-                  participant
-                    .user_id !==
-                    currentUser.userId,
-              );
+        await presentInboxConversations({
+          currentUserId:
+            currentUser.userId,
 
-            const linkedListing =
-              databaseConversation
-                .context_type ===
-                'market'
-                ? listings.find(
-                    listing =>
-                      listing.id ===
-                      databaseConversation
-                        .context_id,
-                  )
-                : undefined;
+          conversations:
+            databaseConversations,
 
-            /*
-             * For Market conversations,
-             * our existing listing data
-             * already knows the seller's
-             * trusted profile information.
-             */
-            const participantIsSeller =
-              otherParticipant?.role ===
-              'seller';
+          participants:
+            allParticipants,
 
-            const participantName =
-              participantIsSeller &&
-              linkedListing
-                ? linkedListing
-                    .seller
-                    .name
-                : otherParticipant
-                  ? 'Direct Gain Buyer'
-                  : 'Direct Gain Member';
+          latestMessages,
 
-            const participantGainScore =
-              participantIsSeller &&
-              linkedListing
-                ? linkedListing
-                    .seller
-                    .gainScore
-                : undefined;
-
-            const participantVerified =
-              participantIsSeller &&
-              linkedListing
-                ? linkedListing
-                    .seller
-                    .verification
-                    .includes(
-                      'identity',
-                    )
-                : false;
-
-            const latestMessage =
-              latestMessages[
-                databaseConversation.id
-              ];
-
-            return {
-              id:
-                databaseConversation.id,
-
-              contextType:
-                mapConversationType(
-                  databaseConversation
-                    .context_type,
-                ),
-
-              contextId:
-                databaseConversation
-                  .context_id ??
-                undefined,
-
-              title:
-                linkedListing
-                  ?.title ??
-                databaseConversation
-                  .title ??
-                'Direct Gain conversation',
-
-              participantId:
-                otherParticipant
-                  ?.user_id ??
-                '',
-
-              participantName,
-
-              participantGainScore,
-
-              participantVerified,
-
-              lastMessage:
-                getInboxMessagePreview(
-                  latestMessage,
-                ),
-
-              lastMessageAt:
-                latestMessage
-                  ?.created_at ??
-                databaseConversation
-                  .created_at,
-
-              unreadCount:
-                unreadCounts[
-                  databaseConversation
-                    .id
-                ] ??
-                0,
-
-              itemPrice:
-                linkedListing
-                  ?.price,
-
-              itemImage:
-                linkedListing
-                  ?.images?.[0],
-            } satisfies RealInboxConversation;
-          },
-        );
+          unreadCounts,
+        });
 
       const sorted =
         sortInboxConversations(
@@ -900,7 +743,7 @@ export default function MessagesInboxScreen({
 
             const searchableText = [
               conversation
-                .participantName,
+                .otherParticipantName,
 
               conversation
                 .title,
@@ -938,7 +781,7 @@ export default function MessagesInboxScreen({
 
   function handleConversationPress(
     conversation:
-      RealInboxConversation,
+      InboxConversationRow,
   ) {
     navigation.navigate(
       'Conversation',
@@ -1001,9 +844,27 @@ export default function MessagesInboxScreen({
     );
   }
 
+  function handleInboxBack() {
+    const parentNavigation =
+      navigation.getParent();
+
+    if (
+      parentNavigation?.canGoBack()
+    ) {
+      parentNavigation.goBack();
+      return;
+    }
+
+    if (
+      navigation.canGoBack()
+    ) {
+      navigation.goBack();
+    }
+  }
+
   function createSummary(
     conversation:
-      RealInboxConversation,
+      InboxConversationRow,
   ): ConversationSummary {
     return {
       id:
@@ -1011,7 +872,11 @@ export default function MessagesInboxScreen({
 
       participantName:
         conversation
-          .participantName,
+          .otherParticipantName,
+
+      participantAvatarPath:
+        conversation
+          .otherParticipantAvatarPath,
 
       title:
         conversation.title,
@@ -1026,20 +891,9 @@ export default function MessagesInboxScreen({
             .lastMessageAt,
         ),
 
-      gainScore:
-        conversation
-          .participantGainScore,
-
       unreadCount:
         conversation
           .unreadCount,
-
-      isOnline:
-        false,
-
-      isVerified:
-        conversation
-          .participantVerified,
 
       type:
         conversation
@@ -1071,6 +925,32 @@ export default function MessagesInboxScreen({
             styles.header
           }
         >
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            onPress={
+              handleInboxBack
+            }
+            style={({
+              pressed,
+            }) => [
+              styles.headerButton,
+
+              pressed &&
+                styles.pressed,
+            ]}
+          >
+            <Ionicons
+              name="chevron-back"
+              size={
+                22
+              }
+              color={
+                colors.text
+              }
+            />
+          </Pressable>
+
           <View
             style={
               styles.headerTitleArea
@@ -1558,7 +1438,7 @@ export default function MessagesInboxScreen({
                   styles.emptyText
                 }
               >
-                Conversations will appear here when you message another Direct Gain member.
+                When you connect with someone through Direct Gain, your conversations will appear here.
               </Text>
 
               <Pressable
@@ -1624,8 +1504,8 @@ export default function MessagesInboxScreen({
 
 function sortInboxConversations(
   conversations:
-    RealInboxConversation[],
-): RealInboxConversation[] {
+    InboxConversationRow[],
+): InboxConversationRow[] {
   return [
     ...conversations,
   ].sort(
@@ -1663,30 +1543,6 @@ function sortInboxConversations(
       );
     },
   );
-}
-
-function mapConversationType(
-  value:
-    string,
-): ConversationType {
-  switch (
-    value
-  ) {
-    case 'market':
-      return 'market';
-
-    case 'job':
-      return 'job';
-
-    case 'auction':
-      return 'auction';
-
-    case 'support':
-      return 'support';
-
-    default:
-      return 'market';
-  }
 }
 
 function formatInboxTime(

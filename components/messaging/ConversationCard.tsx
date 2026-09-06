@@ -8,6 +8,8 @@ import {
   View,
 } from 'react-native';
 
+import ResolvedProfileAvatar from '../profile/ResolvedProfileAvatar';
+
 import { colors } from '../../theme/colors';
 
 export type ConversationType =
@@ -19,15 +21,14 @@ export type ConversationType =
 export type ConversationSummary = {
   id: string;
   participantName: string;
+  participantAvatarPath?: string | null;
   participantImage?: ImageSourcePropType;
   title: string;
   lastMessage: string;
   lastMessageAt: string;
   gainScore?: number;
   unreadCount?: number;
-  isOnline?: boolean;
   isVerified?: boolean;
-  isTyping?: boolean;
   type: ConversationType;
   itemImage?: ImageSourcePropType;
   itemPrice?: number;
@@ -37,15 +38,6 @@ type Props = {
   conversation: ConversationSummary;
   onPress: (conversationId: string) => void;
 };
-
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .map(part => part.charAt(0))
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
-}
 
 function getConversationIcon(
   type: ConversationType,
@@ -103,16 +95,15 @@ export default function ConversationCard({
   conversation,
   onPress,
 }: Props) {
-  const initials = getInitials(
-    conversation.participantName,
-  );
-
   const formattedPrice = formatPrice(
     conversation.itemPrice,
   );
 
   const hasUnreadMessages =
     (conversation.unreadCount ?? 0) > 0;
+
+  const isJobConversation =
+    conversation.type === 'job';
 
   return (
     <Pressable
@@ -121,29 +112,17 @@ export default function ConversationCard({
       onPress={() => onPress(conversation.id)}
       style={({ pressed }) => [
         styles.container,
+        isJobConversation && styles.containerCompact,
         hasUnreadMessages && styles.containerUnread,
         pressed && styles.pressed,
       ]}
     >
       <View style={styles.avatarArea}>
-        <View style={styles.avatar}>
-          {conversation.participantImage ? (
-            <Image
-              source={conversation.participantImage}
-              style={styles.avatarImage}
-            />
-          ) : (
-            <Text style={styles.avatarInitials}>
-              {initials}
-            </Text>
-          )}
-        </View>
-
-        {conversation.isOnline && (
-          <View style={styles.onlineIndicator}>
-            <View style={styles.onlineDot} />
-          </View>
-        )}
+        <ResolvedProfileAvatar
+          displayName={conversation.participantName}
+          avatarPath={conversation.participantAvatarPath}
+          size="md"
+        />
       </View>
 
       <View style={styles.content}>
@@ -182,36 +161,45 @@ export default function ConversationCard({
           </Text>
         </View>
 
-        <View style={styles.contextRow}>
-          <View style={styles.typeBadge}>
-            <Ionicons
-              name={getConversationIcon(
-                conversation.type,
-              )}
-              size={12}
-              color={colors.primary}
-            />
-
-            <Text style={styles.typeText}>
-              {getConversationLabel(
-                conversation.type,
-              )}
-            </Text>
-          </View>
-
+        {isJobConversation ? (
           <Text
-            style={styles.contextTitle}
+            style={styles.jobTitle}
             numberOfLines={1}
           >
             {conversation.title}
           </Text>
+        ) : (
+          <View style={styles.contextRow}>
+            <View style={styles.typeBadge}>
+              <Ionicons
+                name={getConversationIcon(
+                  conversation.type,
+                )}
+                size={12}
+                color={colors.primary}
+              />
 
-          {formattedPrice && (
-            <Text style={styles.price}>
-              {formattedPrice}
+              <Text style={styles.typeText}>
+                {getConversationLabel(
+                  conversation.type,
+                )}
+              </Text>
+            </View>
+
+            <Text
+              style={styles.contextTitle}
+              numberOfLines={1}
+            >
+              {conversation.title}
             </Text>
-          )}
-        </View>
+
+            {formattedPrice && (
+              <Text style={styles.price}>
+                {formattedPrice}
+              </Text>
+            )}
+          </View>
+        )}
 
         <View style={styles.messageRow}>
           <Text
@@ -219,14 +207,10 @@ export default function ConversationCard({
               styles.lastMessage,
               hasUnreadMessages &&
                 styles.lastMessageUnread,
-              conversation.isTyping &&
-                styles.typingText,
             ]}
             numberOfLines={1}
           >
-            {conversation.isTyping
-              ? 'Typing...'
-              : conversation.lastMessage}
+            {conversation.lastMessage}
           </Text>
 
           {hasUnreadMessages && (
@@ -241,8 +225,9 @@ export default function ConversationCard({
           )}
         </View>
 
-        <View style={styles.trustRow}>
-          {conversation.gainScore !== undefined && (
+        {!isJobConversation &&
+          conversation.gainScore !== undefined && (
+          <View style={styles.trustRow}>
             <View style={styles.gainScoreBadge}>
               <Ionicons
                 name="trending-up"
@@ -254,25 +239,25 @@ export default function ConversationCard({
                 Gain Score {conversation.gainScore}
               </Text>
             </View>
-          )}
 
-          {conversation.isVerified && (
-            <View style={styles.trustBadge}>
-              <Ionicons
-                name="shield-checkmark-outline"
-                size={12}
-                color={colors.primary}
-              />
+            {conversation.isVerified && (
+              <View style={styles.trustBadge}>
+                <Ionicons
+                  name="shield-checkmark-outline"
+                  size={12}
+                  color={colors.primary}
+                />
 
-              <Text style={styles.trustText}>
-                Verified
-              </Text>
-            </View>
-          )}
-        </View>
+                <Text style={styles.trustText}>
+                  Verified
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
       </View>
 
-      {conversation.itemImage && (
+      {!isJobConversation && conversation.itemImage && (
         <Image
           source={conversation.itemImage}
           style={styles.itemImage}
@@ -301,59 +286,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
+  containerCompact: {
+    minHeight: 96,
+  },
+
   containerUnread: {
     borderColor: 'rgba(158, 246, 90, 0.18)',
     backgroundColor: 'rgba(158, 246, 90, 0.045)',
   },
 
   avatarArea: {
-    position: 'relative',
     marginRight: 12,
-  },
-
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(158, 246, 90, 0.18)',
-    backgroundColor: 'rgba(158, 246, 90, 0.08)',
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-
-  avatarInitials: {
-    color: colors.primary,
-    fontSize: 16,
-    fontWeight: '900',
-  },
-
-  onlineIndicator: {
-    position: 'absolute',
-    right: -2,
-    bottom: -2,
-    width: 17,
-    height: 17,
-    padding: 3,
-    borderRadius: 9,
-    backgroundColor: '#101511',
-  },
-
-  onlineDot: {
-    flex: 1,
-    borderRadius: 6,
-    backgroundColor: colors.primary,
-  },
-
-  content: {
-    flex: 1,
-    minWidth: 0,
   },
 
   nameRow: {
@@ -398,6 +341,18 @@ const styles = StyleSheet.create({
   timeUnread: {
     color: colors.primary,
     fontWeight: '900',
+  },
+
+  content: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  jobTitle: {
+    marginTop: 4,
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
   },
 
   contextRow: {
@@ -453,11 +408,6 @@ const styles = StyleSheet.create({
 
   lastMessageUnread: {
     color: colors.text,
-    fontWeight: '800',
-  },
-
-  typingText: {
-    color: colors.primary,
     fontWeight: '800',
   },
 

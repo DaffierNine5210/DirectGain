@@ -2,8 +2,15 @@ import {
   createNativeStackNavigator,
 } from '@react-navigation/native-stack';
 
+import ApplyToJobScreen from '../screens/jobs/ApplyToJobScreen';
 import ConversationScreen from '../screens/ConversationScreen';
+import JobApplicantDetailScreen from '../screens/jobs/JobApplicantDetailScreen';
+import JobApplicantsScreen from '../screens/jobs/JobApplicantsScreen';
+import JobDetailScreen from '../screens/jobs/JobDetailScreen';
 import MessagesInboxScreen from '../screens/MessagesInboxScreen';
+import PublicProfileScreen from '../screens/profile/PublicProfileScreen';
+
+import type { JobsFlowParamList } from './jobsFlow';
 
 export type ConversationEntryIntent =
   | 'message'
@@ -19,7 +26,7 @@ export type MessagesStackParamList = {
 
     intent?: ConversationEntryIntent;
   };
-};
+} & JobsFlowParamList;
 
 const Stack =
   createNativeStackNavigator<MessagesStackParamList>();
@@ -52,6 +59,31 @@ export default function MessagesStack() {
         component={
           ConversationScreen
         }
+      />
+
+      <Stack.Screen
+        name="PublicProfile"
+        component={PublicProfileScreen}
+      />
+
+      <Stack.Screen
+        name="JobDetail"
+        component={JobDetailScreen}
+      />
+
+      <Stack.Screen
+        name="ApplyToJob"
+        component={ApplyToJobScreen}
+      />
+
+      <Stack.Screen
+        name="JobApplicants"
+        component={JobApplicantsScreen}
+      />
+
+      <Stack.Screen
+        name="JobApplicantDetail"
+        component={JobApplicantDetailScreen}
       />
     </Stack.Navigator>
   );

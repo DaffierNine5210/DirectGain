@@ -31,6 +31,9 @@ import useFocusedUnreadTotal from '../../hooks/useFocusedUnreadTotal';
 import useTabBarVisibility from '../../hooks/useTabBarVisibility';
 
 import type { DiscoverStackParamList } from '../../navigation/DiscoverStack';
+import {
+  openMessagesInbox,
+} from '../../navigation/messages';
 
 import { formatJobCategory, formatJobType, formatViewerRegionLabel } from '../../services/jobs/jobAdapter';
 import { resolveJobCoverPhotos } from '../../services/jobs/jobMediaRepository';
@@ -463,13 +466,11 @@ export default function DiscoverJobsScreen({
   }, [loadJobs]);
 
   function openMessages() {
-    const parentNavigation =
-      navigation.getParent();
-
-    if (parentNavigation) {
-      parentNavigation.navigate(
-        'Messages',
-      );
+    if (
+      openMessagesInbox(
+        navigation,
+      )
+    ) {
       return;
     }
 
@@ -567,7 +568,7 @@ export default function DiscoverJobsScreen({
                 icon:
                   'chatbubble-ellipses-outline',
                 accessibilityLabel:
-                  'Open messages',
+                  'Open Direct Gain Inbox',
                 onPress: openMessages,
                 badgeCount:
                   unreadMessageCount,

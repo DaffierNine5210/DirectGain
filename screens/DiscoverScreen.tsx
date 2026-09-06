@@ -54,6 +54,10 @@ import type {
   DiscoverStackParamList,
 } from '../navigation/DiscoverStack';
 
+import {
+  openMessagesInbox,
+} from '../navigation/messages';
+
 import type {
   BottomTabParamList,
 } from '../navigation/BottomTabs';
@@ -284,9 +288,16 @@ export default function DiscoverScreen({
           );
         }}
         onMessagesPress={() => {
-          navigateTab(
-            'Messages',
-          );
+          if (
+            !openMessagesInbox(
+              navigation,
+            )
+          ) {
+            Alert.alert(
+              'Messages',
+              'Messages could not be opened.',
+            );
+          }
         }}
         onNotificationsPress={() => {
           showComingSoon(

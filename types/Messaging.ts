@@ -34,6 +34,9 @@ export type ConversationParticipant = {
 
   username?: string;
 
+  avatarPath?:
+    string | null;
+
   profileImage?:
     ImageSourcePropType;
 
@@ -63,6 +66,10 @@ export type ConversationContext = {
   itemPrice?: number;
 
   location?: string;
+
+  payLabel?: string;
+
+  statusLabel?: string;
 };
 
 export type ChatMessage = {
@@ -156,6 +163,9 @@ export function createConversationSummary(
     participantName:
       conversation.participant.name,
 
+    participantAvatarPath:
+      conversation.participant.avatarPath,
+
     participantImage:
       conversation.participant.profileImage,
 
@@ -175,9 +185,6 @@ export function createConversationSummary(
 
     unreadCount:
       conversation.unreadCount,
-
-    isOnline:
-      conversation.participant.isOnline,
 
     isVerified:
       conversation.participant.isVerified,

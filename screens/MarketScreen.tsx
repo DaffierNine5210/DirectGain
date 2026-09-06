@@ -33,6 +33,9 @@ import {
 import useFocusedUnreadTotal from '../hooks/useFocusedUnreadTotal';
 import useTabBarVisibility from '../hooks/useTabBarVisibility';
 import type { MarketStackParamList } from '../navigation/MarketStack';
+import {
+  openMessagesInbox,
+} from '../navigation/messages';
 
 import {
   alpha,
@@ -291,14 +294,11 @@ export default function MarketScreen({
   }
 
   function openMessages() {
-    const parentNavigation =
-      navigation.getParent();
-
-    if (parentNavigation) {
-      parentNavigation.navigate(
-        'Messages',
-      );
-
+    if (
+      openMessagesInbox(
+        navigation,
+      )
+    ) {
       return;
     }
 
@@ -489,7 +489,7 @@ export default function MarketScreen({
                   'chatbubble-ellipses-outline',
 
                 accessibilityLabel:
-                  'Open messages',
+                  'Open Direct Gain Inbox',
 
                 onPress:
                   openMessages,

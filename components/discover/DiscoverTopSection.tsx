@@ -68,7 +68,7 @@ export default function DiscoverTopSection({
               'chatbubble-ellipses-outline',
 
             accessibilityLabel:
-              'Open messages',
+              'Open Direct Gain Inbox',
 
             onPress:
               onMessagesPress,

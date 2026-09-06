@@ -176,6 +176,49 @@ export async function getProfileById(
   return readProfileById(id);
 }
 
+export async function getProfilesByIds(
+  profileIds: string[],
+): Promise<{
+  profiles: DirectGainProfile[];
+  error: string | null;
+}> {
+  const uniqueIds = [
+    ...new Set(
+      profileIds
+        .map(id => id.trim().toLowerCase())
+        .filter(id => isUuid(id)),
+    ),
+  ];
+
+  if (uniqueIds.length === 0) {
+    return {
+      profiles: [],
+      error: null,
+    };
+  }
+
+  const result = await supabase
+    .from('profiles')
+    .select(PROFILE_SELECT)
+    .in('id', uniqueIds);
+
+  if (result.error) {
+    return {
+      profiles: [],
+      error: 'Profiles could not be loaded. Try again.',
+    };
+  }
+
+  const profiles = (result.data ?? [])
+    .filter(isProfileRow)
+    .map(adaptProfileRow);
+
+  return {
+    profiles,
+    error: null,
+  };
+}
+
 export async function updateOwnProfile(
   input: UpdateOwnProfileInput,
 ): Promise<{

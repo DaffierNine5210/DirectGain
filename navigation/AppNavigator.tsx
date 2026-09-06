@@ -1,5 +1,5 @@
 import AuthStack from './AuthStack';
-import BottomTabs from './BottomTabs';
+import AuthenticatedApp from './AuthenticatedApp';
 import OnboardingStack from './OnboardingStack';
 
 type AppNavigatorProps = {
@@ -16,7 +16,7 @@ export default function AppNavigator({
   }
 
   if (isAuthenticated) {
-    return <BottomTabs />;
+    return <AuthenticatedApp />;
   }
 
   return <AuthStack />;

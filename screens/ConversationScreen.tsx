@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   useFocusEffect,
 } from '@react-navigation/native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import {
   useCallback,
@@ -31,6 +32,7 @@ import ChatInput, {
   type VoiceComposerMode,
 } from '../components/messaging/ChatInput';
 import ConversationHeader from '../components/messaging/ConversationHeader';
+import JobConversationBanner from '../components/messaging/JobConversationBanner';
 import LocationShareConfirmModal from '../components/messaging/LocationShareConfirmModal';
 import MessageBubble from '../components/messaging/MessageBubble';
 
@@ -74,13 +76,32 @@ import {
 
 import useTabBarVisibility from '../hooks/useTabBarVisibility';
 
+import type {
+  MessagesStackParamList,
+} from '../navigation/MessagesStack';
+
+import {
+  navigateToOwnMyGain,
+} from '../navigation/publicProfile';
+
 import {
   supabase,
 } from '../lib/supabase';
 
+import { formatJobStatus } from '../services/jobs/jobAdapter';
+import { getJobById } from '../services/jobs/jobRepository';
 import {
+  getConversationById,
   getCurrentUserConversationRole,
 } from '../services/messaging/conversationRepository';
+import {
+  getAuthenticatedUserId,
+  getProfileById,
+} from '../services/profile/profileRepository';
+
+import {
+  mapConversationType,
+} from '../services/messaging/inboxConversationPresentation';
 
 import {
   getCurrentMessagingUser,
@@ -180,27 +201,32 @@ import type {
   Conversation,
 } from '../types/Messaging';
 
-type ConversationEntryIntent =
-  | 'message'
-  | 'offer';
-
 type ConversationRole =
   | 'buyer'
   | 'seller';
 
-type Props = {
-  route?: {
-    params?: {
-      conversationId?: string;
-      listingId?: string;
-      intent?: ConversationEntryIntent;
-    };
-  };
+type Props = NativeStackScreenProps<
+  MessagesStackParamList,
+  'Conversation'
+>;
 
-  navigation?: {
-    goBack: () => void;
+function createLiveConversationPlaceholder(
+  conversationId: string,
+): Conversation {
+  return {
+    id: conversationId,
+    participant: {
+      id: '',
+      name: 'Direct Gain member',
+    },
+    context: {
+      type: 'market',
+      title: 'Conversation',
+    },
+    messages: [],
+    unreadCount: 0,
   };
-};
+}
 
 function confirmedStoredChatMessage(
   storedMessage: SupabaseMessageRecord,
@@ -307,16 +333,28 @@ export default function ConversationScreen({
 
   const initialConversation =
     useMemo(
-      () =>
-        conversations.find(
-          item =>
-            item.id ===
+      () => {
+        if (
+          isSupabaseConversation
+        ) {
+          return createLiveConversationPlaceholder(
             conversationId,
-        ) ??
-        conversations[0],
+          );
+        }
+
+        return (
+          conversations.find(
+            item =>
+              item.id ===
+              conversationId,
+          ) ??
+          conversations[0]
+        );
+      },
 
       [
         conversationId,
+        isSupabaseConversation,
       ],
     );
 
@@ -406,6 +444,14 @@ export default function ConversationScreen({
       string | null
     >(
       null,
+    );
+
+  const [
+    contextReady,
+    setContextReady,
+  ] =
+    useState(
+      !isSupabaseConversation,
     );
 
   const [
@@ -533,10 +579,18 @@ export default function ConversationScreen({
     );
 
   const isMarketConversation =
+    contextReady &&
     conversation
       .context
       .type ===
     'market';
+
+  const isJobConversation =
+    contextReady &&
+    conversation
+      .context
+      .type ===
+    'job';
 
   const linkedListing =
     useMemo(
@@ -993,6 +1047,137 @@ useFocusEffect(
           );
         }
 
+        const [
+          conversationRecord,
+          profileResult,
+        ] =
+          await Promise.all([
+            getConversationById(
+              conversationId,
+            ),
+            otherUserId
+              ? getProfileById(
+                  otherUserId,
+                )
+              : Promise.resolve({
+                  profile: null,
+                  error: null,
+                }),
+          ]);
+
+        if (
+          profileResult.error
+        ) {
+          console.warn(
+            '[Direct Gain] Unable to load conversation partner profile:',
+            profileResult.error,
+          );
+        }
+
+        let jobTitle: string | undefined;
+        let jobPayLabel: string | undefined;
+        let jobStatusLabel: string | undefined;
+        let jobItemId: string | undefined;
+
+        if (
+          conversationRecord?.context_type ===
+          'job'
+        ) {
+          const jobId =
+            conversationRecord
+              .context_id
+              ?.trim();
+
+          jobItemId = jobId;
+
+          if (jobId) {
+            const jobResult =
+              await getJobById(
+                jobId,
+              );
+
+            if (
+              jobResult.error
+            ) {
+              console.warn(
+                '[Direct Gain] Unable to load job conversation context:',
+                jobResult.error,
+              );
+            }
+
+            if (
+              jobResult.job
+            ) {
+              jobTitle =
+                jobResult.job.title;
+              jobPayLabel =
+                jobResult.job.payLabel;
+              jobStatusLabel =
+                formatJobStatus(
+                  jobResult.job.status,
+                );
+              jobItemId =
+                jobResult.job.id;
+            }
+          }
+        }
+
+        if (
+          !active
+        ) {
+          return;
+        }
+
+        setConversation(
+          current => ({
+            ...current,
+            participant: {
+              ...current.participant,
+              id:
+                otherUserId ??
+                current.participant.id,
+              name:
+                profileResult.profile
+                  ?.displayName
+                  ?.trim() ||
+                current.participant.name,
+              avatarPath:
+                profileResult.profile
+                  ?.avatarPath ??
+                null,
+              isOnline: false,
+            },
+            context: {
+              ...current.context,
+              type:
+                conversationRecord
+                  ? mapConversationType(
+                      conversationRecord.context_type,
+                    )
+                  : current.context.type,
+              title:
+                jobTitle ??
+                conversationRecord
+                  ?.title
+                  ?.trim() ??
+                current.context.title,
+              itemId:
+                jobItemId ??
+                conversationRecord
+                  ?.context_id ??
+                current.context.itemId,
+              payLabel:
+                jobPayLabel,
+              statusLabel:
+                jobStatusLabel,
+            },
+          }),
+        );
+
+        setContextReady(
+          true,
+        );
+
         const role =
           await getCurrentUserConversationRole(
             conversationId,
@@ -1000,7 +1185,12 @@ useFocusEffect(
 
         if (
           active &&
-          role
+          (
+            role ===
+              'buyer' ||
+            role ===
+              'seller'
+          )
         ) {
           setCurrentRole(
             role,
@@ -1901,16 +2091,67 @@ useFocusEffect(
   }
 
   function handleBackPress() {
-    navigation?.goBack();
+    navigation.goBack();
   }
 
   function handleProfilePress() {
-    Alert.alert(
-      conversation
-        .participant
-        .name,
+    void openPartnerProfile();
+  }
 
-      'The participant profile will be connected later.',
+  async function openPartnerProfile() {
+    const partnerId = (
+      otherParticipantUserId ??
+      conversation.participant.id
+    ).trim().toLowerCase();
+
+    if (
+      !isUuid(partnerId)
+    ) {
+      return;
+    }
+
+    const userId =
+      currentSupabaseUserId ??
+      (await getAuthenticatedUserId());
+
+    if (
+      userId &&
+      userId === partnerId
+    ) {
+      navigateToOwnMyGain(
+        navigation,
+      );
+      return;
+    }
+
+    navigation.navigate(
+      'PublicProfile',
+      {
+        profileId:
+          partnerId,
+      },
+    );
+  }
+
+  function handleViewJob() {
+    const jobId =
+      conversation
+        .context
+        .itemId
+        ?.trim();
+
+    if (
+      !jobId ||
+      !isUuid(jobId)
+    ) {
+      return;
+    }
+
+    navigation.navigate(
+      'JobDetail',
+      {
+        jobId,
+      },
     );
   }
 
@@ -4483,6 +4724,38 @@ useFocusEffect(
             handleMorePress
           }
         />
+
+        {isJobConversation ? (
+          <JobConversationBanner
+            title={
+              conversation
+                .context
+                .title
+            }
+            payLabel={
+              conversation
+                .context
+                .payLabel
+            }
+            statusLabel={
+              conversation
+                .context
+                .statusLabel
+            }
+            onViewJob={
+              conversation
+                .context
+                .itemId &&
+              isUuid(
+                conversation
+                  .context
+                  .itemId,
+              )
+                ? handleViewJob
+                : undefined
+            }
+          />
+        ) : null}
 
         {isMarketConversation ? (
           <View

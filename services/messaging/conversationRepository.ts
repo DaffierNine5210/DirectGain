@@ -3,11 +3,19 @@ import { getCurrentMessagingUser } from './currentMessagingUser';
 
 export type ConversationParticipantRole =
   | 'buyer'
-  | 'seller';
+  | 'seller'
+  | 'worker'
+  | 'employer'
+  | 'bidder'
+  | 'auctioneer'
+  | 'member'
+  | 'support';
 
 export type ConversationRecord = {
   id: string;
-  listing_id: string | null;
+  context_type: string;
+  context_id: string | null;
+  title: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -68,7 +76,9 @@ export async function getConversationById(
     error,
   } = await supabase
     .from('conversations')
-    .select('*')
+    .select(
+      'id, context_type, context_id, title, created_at, updated_at',
+    )
     .eq(
       'id',
       conversationId,

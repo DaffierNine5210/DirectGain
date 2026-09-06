@@ -24,14 +24,12 @@ import DiscoverStack, {
   type DiscoverStackParamList,
 } from './DiscoverStack';
 import MarketStack from './MarketStack';
-import MessagesStack from './MessagesStack';
 import MyGainStack, {
   type MyGainStackParamList,
 } from './MyGainStack';
 import LiveBidScreen from '../screens/LiveBidScreen';
 
 import useTabBarVisibility from '../hooks/useTabBarVisibility';
-import TabBarVisibilityProvider from '../providers/TabBarVisibilityProvider';
 
 import { colors } from '../theme/colors';
 
@@ -47,7 +45,6 @@ export type BottomTabParamList = {
   'My Gain':
     | NavigatorScreenParams<MyGainStackParamList>
     | undefined;
-  Messages: undefined;
 };
 
 const Tab =
@@ -164,12 +161,6 @@ function BottomTabsNavigator() {
             color,
             focused,
           }) => {
-            if (
-              route.name === 'Messages'
-            ) {
-              return null;
-            }
-
             const visibleRoute =
               route.name as VisibleTabName;
 
@@ -259,27 +250,13 @@ function BottomTabsNavigator() {
           tabBarLabel: 'My Gain',
         }}
       />
-
-      <Tab.Screen
-        name="Messages"
-        component={MessagesStack}
-        options={{
-          tabBarButton: () => null,
-
-          tabBarItemStyle: {
-            display: 'none',
-          },
-        }}
-      />
     </Tab.Navigator>
   );
 }
 
 export default function BottomTabs() {
   return (
-    <TabBarVisibilityProvider>
-      <BottomTabsNavigator />
-    </TabBarVisibilityProvider>
+    <BottomTabsNavigator />
   );
 }
 

@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
-  Image,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+
+import ResolvedProfileAvatar from '../profile/ResolvedProfileAvatar';
 
 import { colors } from '../../theme/colors';
 import type {
@@ -21,15 +22,6 @@ type Props = {
   onCallPress?: () => void;
   onMorePress?: () => void;
 };
-
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .map(part => part.charAt(0))
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
-}
 
 function getContextIcon(
   type: ConversationContext['type'],
@@ -79,8 +71,6 @@ export default function ConversationHeader({
   onCallPress,
   onMorePress,
 }: Props) {
-  const initials = getInitials(participant.name);
-
   return (
     <View style={styles.container}>
       <View style={styles.mainRow}>
@@ -110,24 +100,11 @@ export default function ConversationHeader({
           ]}
         >
           <View style={styles.avatarArea}>
-            <View style={styles.avatar}>
-              {participant.profileImage ? (
-                <Image
-                  source={participant.profileImage}
-                  style={styles.avatarImage}
-                />
-              ) : (
-                <Text style={styles.avatarInitials}>
-                  {initials}
-                </Text>
-              )}
-            </View>
-
-            {participant.isOnline && (
-              <View style={styles.onlineRing}>
-                <View style={styles.onlineDot} />
-              </View>
-            )}
+            <ResolvedProfileAvatar
+              displayName={participant.name}
+              avatarPath={participant.avatarPath}
+              size="sm"
+            />
           </View>
 
           <View style={styles.profileContent}>
@@ -151,17 +128,10 @@ export default function ConversationHeader({
             </View>
 
             <Text
-              style={[
-                styles.statusText,
-                participant.isOnline &&
-                  styles.onlineText,
-              ]}
+              style={styles.statusText}
               numberOfLines={1}
             >
-              {participant.isOnline
-                ? 'Online now'
-                : participant.responseTime ??
-                  'Direct Gain member'}
+              {context.title}
             </Text>
           </View>
         </Pressable>
@@ -236,56 +206,6 @@ export default function ConversationHeader({
           </View>
         )}
       </View>
-
-      <View style={styles.detailsRow}>
-        {participant.rating !== undefined && (
-          <View style={styles.detailBadge}>
-            <Ionicons
-              name="star"
-              size={12}
-              color={colors.primary}
-            />
-
-            <Text style={styles.detailText}>
-              {participant.rating.toFixed(1)}
-              {participant.reviewCount !== undefined
-                ? ` (${participant.reviewCount})`
-                : ''}
-            </Text>
-          </View>
-        )}
-
-        {participant.isVerified && (
-          <View style={styles.detailBadge}>
-            <Ionicons
-              name="shield-checkmark-outline"
-              size={12}
-              color={colors.primary}
-            />
-
-            <Text style={styles.detailText}>
-              Verified
-            </Text>
-          </View>
-        )}
-
-        {participant.responseTime && (
-          <View style={styles.detailBadge}>
-            <Ionicons
-              name="flash-outline"
-              size={12}
-              color={colors.primary}
-            />
-
-            <Text
-              style={styles.detailText}
-              numberOfLines={1}
-            >
-              {participant.responseTime}
-            </Text>
-          </View>
-        )}
-      </View>
     </View>
   );
 }
@@ -332,50 +252,7 @@ const styles = StyleSheet.create({
   },
 
   avatarArea: {
-    position: 'relative',
     marginRight: 10,
-  },
-
-  avatar: {
-    width: 46,
-    height: 46,
-    overflow: 'hidden',
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor:
-      'rgba(158, 246, 90, 0.18)',
-    backgroundColor:
-      'rgba(158, 246, 90, 0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-
-  avatarInitials: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: '900',
-  },
-
-  onlineRing: {
-    position: 'absolute',
-    right: -2,
-    bottom: -2,
-    width: 16,
-    height: 16,
-    padding: 3,
-    borderRadius: 8,
-    backgroundColor: '#080B09',
-  },
-
-  onlineDot: {
-    flex: 1,
-    borderRadius: 5,
-    backgroundColor: colors.primary,
   },
 
   profileContent: {
@@ -410,10 +287,6 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 9,
     fontWeight: '700',
-  },
-
-  onlineText: {
-    color: colors.primary,
   },
 
   actions: {
@@ -472,33 +345,6 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 9,
     fontWeight: '900',
-  },
-
-  detailsRow: {
-    marginTop: 9,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-
-  detailBadge: {
-    maxWidth: '100%',
-    marginRight: 7,
-    marginBottom: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 9,
-    backgroundColor:
-      'rgba(255, 255, 255, 0.035)',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  detailText: {
-    flexShrink: 1,
-    marginLeft: 5,
-    color: colors.textMuted,
-    fontSize: 8,
-    fontWeight: '700',
   },
 
   pressed: {
