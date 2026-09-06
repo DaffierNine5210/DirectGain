@@ -12,8 +12,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import DGHeader from '../../components/DGHeader';
 import DGSkeleton from '../../components/DGSkeleton';
+import ProfileContentArea from '../../components/profile/ProfileContentArea';
+import {
+  DEFAULT_PROFILE_CONTENT_TAB,
+  type ProfileContentTabKey,
+} from '../../components/profile/ProfileContentTabs';
 import ProfileHero from '../../components/profile/ProfileHero';
-import { presentProfileHeroIdentity } from '../../components/profile/profilePresentation';
+import {
+  presentProfileAbout,
+  presentProfileHeroIdentity,
+} from '../../components/profile/profilePresentation';
 
 import useTabBarVisibility from '../../hooks/useTabBarVisibility';
 
@@ -73,6 +81,10 @@ export default function PublicProfileScreen({
   );
   const [avatarUnavailable, setAvatarUnavailable] =
     useState(false);
+  const [selectedTab, setSelectedTab] =
+    useState<ProfileContentTabKey>(
+      DEFAULT_PROFILE_CONTENT_TAB,
+    );
 
   const loadProfile = useCallback(async (id: string) => {
     const requestId = ++requestIdRef.current;
@@ -146,6 +158,7 @@ export default function PublicProfileScreen({
 
   useEffect(() => {
     mountedRef.current = true;
+    setSelectedTab(DEFAULT_PROFILE_CONTENT_TAB);
     void loadRef.current(profileId);
 
     return () => {
@@ -248,6 +261,13 @@ export default function PublicProfileScreen({
             mode="public"
             avatarUrl={avatarUrl}
             avatarUnavailable={avatarUnavailable}
+          />
+
+          <ProfileContentArea
+            mode="public"
+            selectedTab={selectedTab}
+            onSelectTab={setSelectedTab}
+            about={presentProfileAbout(profile)}
           />
         </ScrollView>
       )}

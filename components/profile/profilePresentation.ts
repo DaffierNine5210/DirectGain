@@ -16,6 +16,12 @@ export type ProfileHeroIdentity = {
   hasStoredPhoto: boolean;
 };
 
+export type ProfileAboutContent = {
+  bio: string | null;
+  accountTypeLabel: string;
+  location: string | null;
+};
+
 export function presentProfileHeroIdentity(
   profile: DirectGainProfile,
 ): ProfileHeroIdentity {
@@ -30,5 +36,20 @@ export function presentProfileHeroIdentity(
     ),
     bio: optionalProfileText(profile.bio),
     hasStoredPhoto: Boolean(profile.avatarPath),
+  };
+}
+
+export function presentProfileAbout(
+  profile: DirectGainProfile,
+): ProfileAboutContent {
+  return {
+    bio: optionalProfileText(profile.bio),
+    accountTypeLabel: formatAccountTypeLabel(
+      profile.accountType,
+    ),
+    location: formatProfileLocation(
+      profile.suburb,
+      profile.state,
+    ),
   };
 }

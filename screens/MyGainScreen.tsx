@@ -20,8 +20,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import DGHeader from '../components/DGHeader';
 import DGSkeleton from '../components/DGSkeleton';
+import ProfileContentArea from '../components/profile/ProfileContentArea';
+import {
+  DEFAULT_PROFILE_CONTENT_TAB,
+  type ProfileContentTabKey,
+} from '../components/profile/ProfileContentTabs';
 import ProfileHero from '../components/profile/ProfileHero';
-import { presentProfileHeroIdentity } from '../components/profile/profilePresentation';
+import {
+  presentProfileAbout,
+  presentProfileHeroIdentity,
+} from '../components/profile/profilePresentation';
 
 import useTabBarVisibility from '../hooks/useTabBarVisibility';
 
@@ -88,6 +96,10 @@ export default function MyGainScreen({
   const [avatarError, setAvatarError] = useState<
     string | null
   >(null);
+  const [selectedTab, setSelectedTab] =
+    useState<ProfileContentTabKey>(
+      DEFAULT_PROFILE_CONTENT_TAB,
+    );
 
   const loadProfile = useCallback(
     async (showSpinner: boolean) => {
@@ -410,40 +422,54 @@ export default function MyGainScreen({
               }}
             />
 
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Work. Manage jobs, applications and assigned work."
-              disabled={mutating}
-              onPress={() => {
-                navigation.navigate('Work', {
-                  screen: 'WorkHome',
-                });
+            <ProfileContentArea
+              mode="owner"
+              selectedTab={selectedTab}
+              onSelectTab={setSelectedTab}
+              about={presentProfileAbout(profile)}
+              editProfileDisabled={mutating}
+              onEditProfilePress={() => {
+                navigation.navigate('EditProfile');
               }}
-              style={({ pressed }) => [
-                styles.workCard,
-                pressed && styles.pressed,
-                mutating && styles.disabled,
-              ]}
-            >
-              <View style={styles.iconWrap}>
-                <Ionicons
-                  name="briefcase-outline"
-                  size={iconSize.md}
-                  color={textColor.primary}
-                />
-              </View>
-              <View style={styles.copy}>
-                <Text style={styles.workTitle}>Work</Text>
-                <Text style={styles.workBody}>
-                  Jobs, applications and assigned work
-                </Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={iconSize.sm}
-                color={textColor.muted}
-              />
-            </Pressable>
+              ownerWorkManagement={
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Manage work. Jobs, applications and assigned work."
+                  disabled={mutating}
+                  onPress={() => {
+                    navigation.navigate('Work', {
+                      screen: 'WorkHome',
+                    });
+                  }}
+                  style={({ pressed }) => [
+                    styles.workCard,
+                    pressed && styles.pressed,
+                    mutating && styles.disabled,
+                  ]}
+                >
+                  <View style={styles.iconWrap}>
+                    <Ionicons
+                      name="briefcase-outline"
+                      size={iconSize.md}
+                      color={textColor.primary}
+                    />
+                  </View>
+                  <View style={styles.copy}>
+                    <Text style={styles.workTitle}>
+                      Manage work
+                    </Text>
+                    <Text style={styles.workBody}>
+                      Jobs, applications and assigned work
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={iconSize.sm}
+                    color={textColor.muted}
+                  />
+                </Pressable>
+              }
+            />
           </>
         )}
       </ScrollView>
@@ -473,7 +499,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    marginHorizontal: spacing.lg,
     padding: spacing.md,
     borderRadius: radius.lg,
     borderWidth: 1,
