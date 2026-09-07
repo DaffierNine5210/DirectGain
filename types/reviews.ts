@@ -1,3 +1,6 @@
+export const REVIEW_BODY_MIN = 10;
+export const REVIEW_BODY_MAX = 500;
+
 export type ReviewSubjectType =
   | 'job'
   | 'market'

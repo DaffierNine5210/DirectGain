@@ -1,12 +1,58 @@
-import type {
-  PublishedReview,
-  PublishedReviewRow,
-  ProfileReviewStats,
-  ReviewEligibility,
-  ReviewEligibilityRow,
-  ReviewStatsRow,
-  ReviewSubjectType,
+import {
+  REVIEW_BODY_MAX,
+  REVIEW_BODY_MIN,
+  type PublishedReview,
+  type PublishedReviewRow,
+  type ProfileReviewStats,
+  type ReviewEligibility,
+  type ReviewEligibilityRow,
+  type ReviewStatsRow,
+  type ReviewSubjectType,
 } from '../../types/reviews';
+
+export type SanitisedReviewBody =
+  | {
+      ok: true;
+      body: string | null;
+    }
+  | {
+      ok: false;
+      error: string;
+    };
+
+export function sanitiseReviewBody(
+  body: string,
+): SanitisedReviewBody {
+  const trimmed = body.trim();
+
+  if (!trimmed) {
+    return {
+      ok: true,
+      body: null,
+    };
+  }
+
+  if (trimmed.length < REVIEW_BODY_MIN) {
+    return {
+      ok: false,
+      error:
+        'Written feedback needs at least 10 characters, or leave it blank.',
+    };
+  }
+
+  if (trimmed.length > REVIEW_BODY_MAX) {
+    return {
+      ok: false,
+      error:
+        'Written feedback must be 500 characters or fewer.',
+    };
+  }
+
+  return {
+    ok: true,
+    body: trimmed,
+  };
+}
 
 export function isReviewSubjectType(
   value: string,

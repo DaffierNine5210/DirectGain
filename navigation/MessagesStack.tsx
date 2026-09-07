@@ -7,6 +7,7 @@ import ConversationScreen from '../screens/ConversationScreen';
 import JobApplicantDetailScreen from '../screens/jobs/JobApplicantDetailScreen';
 import JobApplicantsScreen from '../screens/jobs/JobApplicantsScreen';
 import JobDetailScreen from '../screens/jobs/JobDetailScreen';
+import LeaveReviewScreen from '../screens/jobs/LeaveReviewScreen';
 import MessagesInboxScreen from '../screens/MessagesInboxScreen';
 import PublicProfileScreen from '../screens/profile/PublicProfileScreen';
 
@@ -69,6 +70,11 @@ export default function MessagesStack() {
       <Stack.Screen
         name="JobDetail"
         component={JobDetailScreen}
+      />
+
+      <Stack.Screen
+        name="LeaveReview"
+        component={LeaveReviewScreen}
       />
 
       <Stack.Screen

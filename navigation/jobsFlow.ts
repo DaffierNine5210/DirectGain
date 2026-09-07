@@ -4,6 +4,9 @@ export type JobsFlowParamList = {
   JobDetail: {
     jobId: string;
   };
+  LeaveReview: {
+    jobId: string;
+  };
   ApplyToJob: {
     jobId: string;
     jobTitle: string;

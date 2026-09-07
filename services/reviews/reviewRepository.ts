@@ -47,6 +47,53 @@ function formatReviewError(
   return fallback;
 }
 
+function formatSubmitReviewError(
+  error: {
+    message?: string;
+  } | null,
+): string {
+  if (!error?.message) {
+    return 'Your review could not be saved. Try again.';
+  }
+
+  const message = error.message.toLowerCase();
+
+  if (message.includes('signed in')) {
+    return 'Sign in to leave a review.';
+  }
+
+  if (
+    message.includes('eligibility') ||
+    message.includes('belongs to you')
+  ) {
+    return 'This review is no longer available.';
+  }
+
+  if (
+    message.includes('rating') ||
+    message.includes('1 to 5')
+  ) {
+    return 'Choose a rating from 1 to 5.';
+  }
+
+  if (
+    message.includes('10 and 500') ||
+    message.includes('10 to 500') ||
+    message.includes('characters')
+  ) {
+    return 'Keep written feedback between 10 and 500 characters, or leave it empty.';
+  }
+
+  if (
+    message.includes('row-level security') ||
+    message.includes('permission')
+  ) {
+    return 'You do not have permission to leave this review.';
+  }
+
+  return 'Your review could not be saved. Try again.';
+}
+
 export async function listMyOpenReviewEligibilities(): Promise<{
   eligibilities: ReviewEligibility[];
   error: string | null;
@@ -265,10 +312,7 @@ export async function submitReview(input: {
   if (result.error || typeof result.data !== 'string') {
     return {
       reviewId: null,
-      error: formatReviewError(
-        result.error,
-        'Your review could not be saved. Try again.',
-      ),
+      error: formatSubmitReviewError(result.error),
     };
   }
 

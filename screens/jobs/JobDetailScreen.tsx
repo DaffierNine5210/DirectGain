@@ -15,6 +15,7 @@ import DGHeader from '../../components/DGHeader';
 import DGSkeleton from '../../components/DGSkeleton';
 import JobApplicationActions from '../../components/jobs/JobApplicationActions';
 import JobCompletionActions from '../../components/jobs/JobCompletionActions';
+import JobReviewAction from '../../components/jobs/JobReviewAction';
 import JobMediaGallery from '../../components/jobs/JobMediaGallery';
 import ResolvedProfileAvatar from '../../components/profile/ResolvedProfileAvatar';
 
@@ -37,6 +38,7 @@ import {
   withdrawJobApplication,
 } from '../../services/jobs/jobApplicationRepository';
 import { listResolvedJobPhotos } from '../../services/jobs/jobMediaRepository';
+import { getOpenJobReviewEligibility } from '../../services/reviews/reviewRepository';
 
 import {
   alpha,
@@ -55,7 +57,10 @@ import type {
   JobPayType,
   ResolvedJobPhoto,
 } from '../../types/jobs';
-import type { JobCompletionView } from '../../types/reviews';
+import type {
+  JobCompletionView,
+  ReviewEligibility,
+} from '../../types/reviews';
 
 type Props = NativeStackScreenProps<
   JobsFlowParamList,
@@ -172,6 +177,25 @@ export default function JobDetailScreen({
     useState(false);
 
   const confirmingRef = useRef(false);
+  const reviewRequestIdRef = useRef(0);
+
+  const [
+    reviewEligibility,
+    setReviewEligibility,
+  ] =
+    useState<ReviewEligibility | null>(null);
+
+  const [
+    reviewLoading,
+    setReviewLoading,
+  ] =
+    useState(false);
+
+  const [
+    reviewError,
+    setReviewError,
+  ] =
+    useState<string | null>(null);
 
   const refreshJobQuietly = useCallback(
     async () => {
@@ -411,13 +435,68 @@ export default function JobDetailScreen({
     [],
   );
 
+  const loadReviewOpportunity = useCallback(
+    async (
+      jobRecord: Job,
+      userId: string | null,
+    ) => {
+      const isParty = Boolean(
+        userId &&
+        (
+          jobRecord.posterId.toLowerCase() ===
+            userId ||
+          (
+            jobRecord.assignedUserId &&
+            jobRecord.assignedUserId.toLowerCase() ===
+              userId
+          )
+        ),
+      );
+
+      if (!isParty || jobRecord.status !== 'completed') {
+        reviewRequestIdRef.current += 1;
+        setReviewEligibility(null);
+        setReviewError(null);
+        setReviewLoading(false);
+        return;
+      }
+
+      const requestId = ++reviewRequestIdRef.current;
+      setReviewLoading(true);
+
+      const result = await getOpenJobReviewEligibility(
+        jobRecord.id,
+      );
+
+      if (
+        !mountedRef.current ||
+        requestId !== reviewRequestIdRef.current
+      ) {
+        return;
+      }
+
+      setReviewLoading(false);
+
+      if (result.error) {
+        setReviewEligibility(null);
+        setReviewError(result.error);
+        return;
+      }
+
+      setReviewError(null);
+      setReviewEligibility(result.eligibility);
+    },
+    [],
+  );
+
   useEffect(() => {
     if (!job) {
       return;
     }
 
     void loadCompletion(job, viewerId);
-  }, [job, viewerId, loadCompletion]);
+    void loadReviewOpportunity(job, viewerId);
+  }, [job, viewerId, loadCompletion, loadReviewOpportunity]);
 
   async function openPosterProfile() {
     if (!job?.poster?.id) {
@@ -855,6 +934,23 @@ export default function JobDetailScreen({
                   if (job) {
                     void loadCompletion(job, viewerId);
                   }
+                }}
+              />
+            ) : null}
+
+            {job.status === 'completed' &&
+            (isOwner || isAssignedWorker) ? (
+              <JobReviewAction
+                loading={reviewLoading}
+                error={reviewError}
+                canLeaveReview={Boolean(reviewEligibility)}
+                onLeaveReview={() => {
+                  navigation.navigate('LeaveReview', {
+                    jobId: job.id,
+                  });
+                }}
+                onRetry={() => {
+                  void loadReviewOpportunity(job, viewerId);
                 }}
               />
             ) : null}

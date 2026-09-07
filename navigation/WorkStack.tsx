@@ -5,6 +5,7 @@ import AssignedWorkScreen from '../screens/jobs/AssignedWorkScreen';
 import JobApplicantDetailScreen from '../screens/jobs/JobApplicantDetailScreen';
 import JobApplicantsScreen from '../screens/jobs/JobApplicantsScreen';
 import JobDetailScreen from '../screens/jobs/JobDetailScreen';
+import LeaveReviewScreen from '../screens/jobs/LeaveReviewScreen';
 import MyApplicationsScreen from '../screens/jobs/MyApplicationsScreen';
 import MyJobsScreen from '../screens/jobs/MyJobsScreen';
 import WorkHomeScreen from '../screens/jobs/WorkHomeScreen';
@@ -61,6 +62,11 @@ export default function WorkStack() {
       <Stack.Screen
         name="JobDetail"
         component={JobDetailScreen}
+      />
+
+      <Stack.Screen
+        name="LeaveReview"
+        component={LeaveReviewScreen}
       />
 
       <Stack.Screen
