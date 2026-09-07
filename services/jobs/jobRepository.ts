@@ -19,7 +19,7 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 const JOB_SELECT_COLUMNS =
-  'id, title, description, category, job_type, status, pay_type, pay_amount, pay_min, pay_max, suburb, state, work_site, starts_on, published_at, created_at, poster_id';
+  'id, title, description, category, job_type, status, pay_type, pay_amount, pay_min, pay_max, suburb, state, work_site, starts_on, published_at, created_at, poster_id, assigned_user_id';
 
 const JOB_SELECT_WITH_POSTER = `${JOB_SELECT_COLUMNS}, poster:profiles!jobs_poster_id_fkey ( id, display_name, avatar_path, account_type )`;
 

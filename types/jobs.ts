@@ -114,6 +114,7 @@ export type JobRow = {
   published_at: string;
   created_at: string;
   poster_id: string;
+  assigned_user_id: string | null;
   poster?: JobPosterRow | JobPosterRow[] | null;
 };
 
@@ -145,6 +146,7 @@ export type Job = {
   publishedAt: string;
   postedLabel: string;
   posterId: string;
+  assignedUserId: string | null;
   poster: JobPosterPreview | null;
 };
 

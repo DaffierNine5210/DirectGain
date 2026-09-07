@@ -466,6 +466,11 @@ export function adaptJobRow(
       publishedAt,
     ),
     posterId: row.poster_id,
+    assignedUserId:
+      typeof row.assigned_user_id === 'string' &&
+      row.assigned_user_id.trim()
+        ? row.assigned_user_id.trim().toLowerCase()
+        : null,
     poster,
   };
 }

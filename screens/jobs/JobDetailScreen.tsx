@@ -14,6 +14,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import DGHeader from '../../components/DGHeader';
 import DGSkeleton from '../../components/DGSkeleton';
 import JobApplicationActions from '../../components/jobs/JobApplicationActions';
+import JobCompletionActions from '../../components/jobs/JobCompletionActions';
 import JobMediaGallery from '../../components/jobs/JobMediaGallery';
 import ResolvedProfileAvatar from '../../components/profile/ResolvedProfileAvatar';
 
@@ -23,6 +24,11 @@ import type { JobsFlowParamList } from '../../navigation/jobsFlow';
 import { navigateToOwnMyGain } from '../../navigation/publicProfile';
 
 import { formatStartsOn } from '../../services/jobs/jobAdapter';
+import {
+  confirmJobCompletion,
+  getJobCompletionConfirmers,
+  presentJobCompletionView,
+} from '../../services/jobs/jobCompletionRepository';
 import { getJobById } from '../../services/jobs/jobRepository';
 import {
   getAuthenticatedUserId,
@@ -49,6 +55,7 @@ import type {
   JobPayType,
   ResolvedJobPhoto,
 } from '../../types/jobs';
+import type { JobCompletionView } from '../../types/reviews';
 
 type Props = NativeStackScreenProps<
   JobsFlowParamList,
@@ -139,6 +146,32 @@ export default function JobDetailScreen({
     setSubmittedApplicantCount,
   ] =
     useState<number | null>(null);
+
+  const [
+    completionView,
+    setCompletionView,
+  ] =
+    useState<JobCompletionView | null>(null);
+
+  const [
+    completionLoading,
+    setCompletionLoading,
+  ] =
+    useState(false);
+
+  const [
+    completionError,
+    setCompletionError,
+  ] =
+    useState<string | null>(null);
+
+  const [
+    confirming,
+    setConfirming,
+  ] =
+    useState(false);
+
+  const confirmingRef = useRef(false);
 
   const refreshJobQuietly = useCallback(
     async () => {
@@ -307,7 +340,84 @@ export default function JobDetailScreen({
     job.posterId.toLowerCase() === viewerId,
   );
 
+  const isAssignedWorker = Boolean(
+    job &&
+    viewerId &&
+    job.assignedUserId &&
+    job.assignedUserId.toLowerCase() === viewerId,
+  );
+
   isOwnerRef.current = isOwner;
+
+  const loadCompletion = useCallback(
+    async (
+      jobRecord: Job,
+      userId: string | null,
+    ) => {
+      const isParty = Boolean(
+        userId &&
+        (
+          jobRecord.posterId.toLowerCase() ===
+            userId ||
+          (
+            jobRecord.assignedUserId &&
+            jobRecord.assignedUserId.toLowerCase() ===
+              userId
+          )
+        ),
+      );
+
+      if (
+        !isParty ||
+        (
+          jobRecord.status !== 'assigned' &&
+          jobRecord.status !== 'completed'
+        )
+      ) {
+        setCompletionView(null);
+        setCompletionError(null);
+        setCompletionLoading(false);
+        return;
+      }
+
+      setCompletionLoading(true);
+
+      const result =
+        await getJobCompletionConfirmers(jobRecord.id);
+
+      if (!mountedRef.current) {
+        return;
+      }
+
+      setCompletionLoading(false);
+
+      if (result.error) {
+        setCompletionView(null);
+        setCompletionError(result.error);
+        return;
+      }
+
+      setCompletionError(null);
+      setCompletionView(
+        presentJobCompletionView({
+          jobStatus: jobRecord.status,
+          viewerId: userId,
+          posterId: jobRecord.posterId,
+          assignedUserId: jobRecord.assignedUserId,
+          confirmerIds: result.confirmerIds,
+        }),
+      );
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!job) {
+      return;
+    }
+
+    void loadCompletion(job, viewerId);
+  }, [job, viewerId, loadCompletion]);
 
   async function openPosterProfile() {
     if (!job?.poster?.id) {
@@ -360,6 +470,52 @@ export default function JobDetailScreen({
       cancelled = true;
     };
   }, [isOwner, job?.id]);
+
+  async function handleConfirmCompletion() {
+    if (
+      confirmingRef.current ||
+      !job ||
+      (!isOwner && !isAssignedWorker)
+    ) {
+      return;
+    }
+
+    confirmingRef.current = true;
+    setConfirming(true);
+    setCompletionError(null);
+
+    const result = await confirmJobCompletion(job.id);
+
+    if (!mountedRef.current) {
+      return;
+    }
+
+    if (result.error) {
+      confirmingRef.current = false;
+      setConfirming(false);
+      setCompletionError(result.error);
+      return;
+    }
+
+    const refreshed = await getJobById(job.id);
+
+    if (!mountedRef.current) {
+      return;
+    }
+
+    confirmingRef.current = false;
+    setConfirming(false);
+
+    if (refreshed.error || !refreshed.job) {
+      setCompletionError(
+        refreshed.error ??
+          'Completion was saved, but this job could not be refreshed. Pull back into the job to update.',
+      );
+      return;
+    }
+
+    setJob(refreshed.job);
+  }
 
   async function handleWithdraw() {
     if (
@@ -675,6 +831,33 @@ export default function JobDetailScreen({
                 });
               }}
             />
+
+            {isOwner || isAssignedWorker ? (
+              <JobCompletionActions
+                view={completionView}
+                loading={
+                  completionLoading ||
+                  (
+                    !completionView &&
+                    !completionError &&
+                    (
+                      job.status === 'assigned' ||
+                      job.status === 'completed'
+                    )
+                  )
+                }
+                confirming={confirming}
+                error={completionError}
+                onConfirm={() => {
+                  void handleConfirmCompletion();
+                }}
+                onRetry={() => {
+                  if (job) {
+                    void loadCompletion(job, viewerId);
+                  }
+                }}
+              />
+            ) : null}
           </ScrollView>
         </View>
       )}
