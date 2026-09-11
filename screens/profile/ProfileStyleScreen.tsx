@@ -68,10 +68,13 @@ export default function ProfileStyleScreen({
   );
 
   function handleSelect(template: ProfileTemplate) {
-    if (template === 'personal') {
+    if (
+      template === 'personal' ||
+      template === 'professional'
+    ) {
       setFocusedTemplate(null);
       navigation.navigate('ProfileStylePreview', {
-        template: 'personal',
+        template,
       });
       return;
     }
@@ -123,8 +126,6 @@ export default function ProfileStyleScreen({
           <ProfileStyleOptionCard
             template="professional"
             current={activeTemplate === 'professional'}
-            comingSoon
-            focused={focusedTemplate === 'professional'}
             onPress={() => {
               handleSelect('professional');
             }}

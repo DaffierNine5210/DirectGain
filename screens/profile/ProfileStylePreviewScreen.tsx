@@ -19,6 +19,7 @@ import {
   type ProfileContentTabKey,
 } from '../../components/profile/ProfileContentTabs';
 import PersonalProfileHero from '../../components/profile/PersonalProfileHero';
+import ProfessionalProfileView from '../../components/profile/professional/ProfessionalProfileView';
 import {
   presentProfileAbout,
   presentProfileHeroIdentity,
@@ -187,7 +188,10 @@ export default function ProfileStylePreviewScreen({
   useEffect(() => {
     mountedRef.current = true;
 
-    if (template === 'personal') {
+    if (
+      template === 'personal' ||
+      template === 'professional'
+    ) {
       void loadRef.current(false);
     } else {
       setLoading(false);
@@ -238,14 +242,18 @@ export default function ProfileStylePreviewScreen({
     });
   }
 
-  const unavailable =
-    template !== 'personal';
+  const unavailable = template === 'business';
+  const previewTitle =
+    template === 'professional'
+      ? 'Professional preview'
+      : 'Personal preview';
+  const isProfessional = template === 'professional';
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <DGHeader
         showBackButton
-        title="Personal preview"
+        title={previewTitle}
         onBackPress={() => {
           navigation.goBack();
         }}
@@ -308,63 +316,112 @@ export default function ProfileStylePreviewScreen({
             />
           }
         >
-          <View
-            style={styles.banner}
-            accessibilityRole="text"
-            accessibilityLabel="Preview. Personal style. This is what other people would see. Your saved style is not changed."
-          >
-            <Text style={styles.bannerKicker}>PREVIEW</Text>
-            <Text style={styles.bannerTitle}>
-              Personal style
-            </Text>
-            <Text style={styles.bannerBody}>
-              This is what other people would see. Your
-              saved style is not changed.
-            </Text>
-          </View>
+          {isProfessional ? (
+            <>
+              <View
+                style={styles.professionalNotice}
+                accessibilityRole="text"
+                accessibilityLabel="Professional preview. Personal remains your live profile. Nothing was saved."
+              >
+                <Text style={styles.professionalNoticeText}>
+                  Professional preview · Personal stays live ·
+                  Nothing saved
+                </Text>
+              </View>
 
-          <PersonalProfileHero
-            identity={presentProfileHeroIdentity(profile)}
-            mode="public"
-            avatarUrl={avatarUrl}
-            avatarUnavailable={avatarUnavailable}
-          />
-
-          <ProfileContentArea
-            mode="public"
-            selectedTab={selectedTab}
-            onSelectTab={setSelectedTab}
-            about={presentProfileAbout(profile)}
-            reviewsContent={
-              <ProfileReviewsSection
-                mode="public"
-                loading={reviewsLoading}
-                error={reviewsError}
+              <ProfessionalProfileView
+                profile={profile}
+                avatarUrl={avatarUrl}
+                avatarUnavailable={avatarUnavailable}
                 reviews={presentedReviews}
                 stats={reviewStats}
                 statsError={reviewStatsError}
                 statsLoading={reviewStatsLoading}
-                onRetry={() => {
+                reviewsLoading={reviewsLoading}
+                reviewsError={reviewsError}
+                onRetryReviews={() => {
                   void loadReputation(profile.id, true);
                 }}
                 onPressReviewer={(reviewerId) => {
                   void openReviewerProfile(reviewerId);
                 }}
               />
-            }
-          />
 
-          <View style={styles.currentWrap}>
-            <View
-              style={styles.currentButton}
-              accessibilityRole="text"
-              accessibilityLabel="Current style. Personal is already your saved profile style."
-            >
-              <Text style={styles.currentButtonText}>
-                Current style
-              </Text>
-            </View>
-          </View>
+              <View style={styles.currentWrap}>
+                <View
+                  style={styles.currentButton}
+                  accessibilityRole="text"
+                  accessibilityLabel="Preview only. Professional is not your saved profile style."
+                >
+                  <Text style={styles.currentButtonText}>
+                    Preview only
+                  </Text>
+                </View>
+              </View>
+            </>
+          ) : (
+            <>
+              <View
+                style={styles.banner}
+                accessibilityRole="text"
+                accessibilityLabel="Preview. Personal style. This is what other people would see. Your saved style is not changed."
+              >
+                <Text style={styles.bannerKicker}>
+                  PREVIEW
+                </Text>
+                <Text style={styles.bannerTitle}>
+                  Personal style
+                </Text>
+                <Text style={styles.bannerBody}>
+                  This is what other people would see. Your
+                  saved style is not changed.
+                </Text>
+              </View>
+
+              <PersonalProfileHero
+                identity={presentProfileHeroIdentity(profile)}
+                mode="public"
+                avatarUrl={avatarUrl}
+                avatarUnavailable={avatarUnavailable}
+              />
+
+              <ProfileContentArea
+                mode="public"
+                selectedTab={selectedTab}
+                onSelectTab={setSelectedTab}
+                about={presentProfileAbout(profile)}
+                reviewsContent={
+                  <ProfileReviewsSection
+                    mode="public"
+                    loading={reviewsLoading}
+                    error={reviewsError}
+                    reviews={presentedReviews}
+                    stats={reviewStats}
+                    statsError={reviewStatsError}
+                    statsLoading={reviewStatsLoading}
+                    onRetry={() => {
+                      void loadReputation(profile.id, true);
+                    }}
+                    onPressReviewer={(reviewerId) => {
+                      void openReviewerProfile(reviewerId);
+                    }}
+                  />
+                }
+              />
+
+              <View style={styles.currentWrap}>
+                <View
+                  style={styles.currentButton}
+                  accessibilityRole="text"
+                  accessibilityLabel="Current style. Personal is already your saved profile style."
+                >
+                  <Text style={styles.currentButtonText}>
+                    Current style
+                  </Text>
+                </View>
+              </View>
+            </>
+          )}
         </ScrollView>
       )}
     </SafeAreaView>
@@ -413,6 +470,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '500',
+  },
+
+  professionalNotice: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: alpha.green12,
+    backgroundColor: alpha.green04,
+  },
+
+  professionalNoticeText: {
+    color: textColor.secondary,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600',
   },
 
   identitySkeleton: {
