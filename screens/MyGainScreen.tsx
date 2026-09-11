@@ -25,15 +25,19 @@ import {
   DEFAULT_PROFILE_CONTENT_TAB,
   type ProfileContentTabKey,
 } from '../components/profile/ProfileContentTabs';
-import ProfileHero from '../components/profile/ProfileHero';
+import PersonalProfileHero from '../components/profile/PersonalProfileHero';
 import {
   presentProfileAbout,
   presentProfileHeroIdentity,
+  presentProfileReviewCards,
+  type PresentedProfileReview,
 } from '../components/profile/profilePresentation';
+import ProfileReviewsSection from '../components/profile/ProfileReviewsSection';
 
 import useTabBarVisibility from '../hooks/useTabBarVisibility';
 
 import type { MyGainStackParamList } from '../navigation/MyGainStack';
+import { navigateToOwnMyGain } from '../navigation/publicProfile';
 
 import {
   captureProfileAvatar,
@@ -44,7 +48,11 @@ import {
   resolveProfileAvatarUrl,
   uploadOwnProfileAvatar,
 } from '../services/profile/profileAvatarRepository';
-import { getOwnProfile } from '../services/profile/profileRepository';
+import {
+  getAuthenticatedUserId,
+  getOwnProfile,
+} from '../services/profile/profileRepository';
+import { loadProfileReputation } from '../services/reviews/reviewRepository';
 
 import {
   alpha,
@@ -59,6 +67,7 @@ import {
 } from '../theme/designSystem';
 
 import type { DirectGainProfile } from '../types/profile';
+import type { ProfileReviewStats } from '../types/reviews';
 
 type Props = NativeStackScreenProps<
   MyGainStackParamList,
@@ -71,6 +80,7 @@ export default function MyGainScreen({
   const { showTabBar } = useTabBarVisibility();
   const mountedRef = useRef(true);
   const requestIdRef = useRef(0);
+  const reputationRequestIdRef = useRef(0);
   const hasLoadedRef = useRef(false);
   const mutatingRef = useRef(false);
   const loadRef = useRef<
@@ -100,6 +110,58 @@ export default function MyGainScreen({
     useState<ProfileContentTabKey>(
       DEFAULT_PROFILE_CONTENT_TAB,
     );
+  const [reviewStats, setReviewStats] =
+    useState<ProfileReviewStats | null>(null);
+  const [reviewStatsError, setReviewStatsError] =
+    useState<string | null>(null);
+  const [reviewStatsLoading, setReviewStatsLoading] =
+    useState(false);
+  const [presentedReviews, setPresentedReviews] =
+    useState<PresentedProfileReview[]>([]);
+  const [reviewsError, setReviewsError] =
+    useState<string | null>(null);
+  const [reviewsLoading, setReviewsLoading] =
+    useState(false);
+
+  const loadReputation = useCallback(
+    async (
+      profileId: string,
+      showPlaceholder: boolean,
+    ) => {
+      const requestId = ++reputationRequestIdRef.current;
+
+      if (showPlaceholder) {
+        setReviewStatsLoading(true);
+        setReviewsLoading(true);
+      }
+
+      const result = await loadProfileReputation(profileId);
+
+      if (
+        requestId !== reputationRequestIdRef.current ||
+        !mountedRef.current
+      ) {
+        return;
+      }
+
+      setReviewStatsLoading(false);
+      setReviewsLoading(false);
+      setReviewStatsError(result.statsError);
+      setReviewStats(
+        result.statsError ? null : result.stats,
+      );
+      setReviewsError(result.reviewsError);
+      setPresentedReviews(
+        result.reviewsError
+          ? []
+          : presentProfileReviewCards(
+              result.reviews,
+              result.reviewersById,
+            ),
+      );
+    },
+    [],
+  );
 
   const loadProfile = useCallback(
     async (showSpinner: boolean) => {
@@ -133,8 +195,12 @@ export default function MyGainScreen({
 
       setError(null);
       setProfile(result.profile);
+      void loadReputation(
+        result.profile.id,
+        showSpinner,
+      );
     },
-    [],
+    [loadReputation],
   );
 
   loadRef.current = loadProfile;
@@ -347,6 +413,19 @@ export default function MyGainScreen({
 
   const mutating = avatarBusy;
 
+  async function openReviewerProfile(profileId: string) {
+    const userId = await getAuthenticatedUserId();
+
+    if (userId && userId === profileId) {
+      navigateToOwnMyGain(navigation);
+      return;
+    }
+
+    navigation.navigate('PublicProfile', {
+      profileId,
+    });
+  }
+
   return (
     <SafeAreaView
       style={styles.safe}
@@ -375,16 +454,15 @@ export default function MyGainScreen({
         {loading ? (
           <View style={styles.identitySkeleton}>
             <DGSkeleton
-              width={104}
-              height={104}
-              borderRadius={52}
+              width={72}
+              height={72}
+              borderRadius={36}
             />
-            <DGSkeleton
-              width="48%"
-              height={22}
-              style={styles.skeleton}
-            />
-            <DGSkeleton width="32%" height={12} />
+            <View style={styles.identitySkeletonCopy}>
+              <DGSkeleton width="72%" height={20} />
+              <DGSkeleton width="48%" height={12} />
+              <DGSkeleton width="88%" height={12} />
+            </View>
           </View>
         ) : error || !profile ? (
           <View style={styles.messageCard}>
@@ -407,7 +485,7 @@ export default function MyGainScreen({
           </View>
         ) : (
           <>
-            <ProfileHero
+            <PersonalProfileHero
               identity={presentProfileHeroIdentity(profile)}
               mode="owner"
               avatarUrl={avatarUrl}
@@ -431,6 +509,23 @@ export default function MyGainScreen({
               onEditProfilePress={() => {
                 navigation.navigate('EditProfile');
               }}
+              reviewsContent={
+                <ProfileReviewsSection
+                  mode="owner"
+                  loading={reviewsLoading}
+                  error={reviewsError}
+                  reviews={presentedReviews}
+                  stats={reviewStats}
+                  statsError={reviewStatsError}
+                  statsLoading={reviewStatsLoading}
+                  onRetry={() => {
+                    void loadReputation(profile.id, true);
+                  }}
+                  onPressReviewer={(reviewerId) => {
+                    void openReviewerProfile(reviewerId);
+                  }}
+                />
+              }
               ownerWorkManagement={
                 <Pressable
                   accessibilityRole="button"
@@ -485,14 +580,21 @@ const styles = StyleSheet.create({
 
   scroll: {
     paddingBottom: layout.bottomNavigationClearance,
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
 
   identitySkeleton: {
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingTop: spacing.xxl,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+    paddingTop: spacing.md,
     paddingHorizontal: spacing.lg,
+  },
+
+  identitySkeletonCopy: {
+    flex: 1,
+    gap: spacing.xs,
+    paddingTop: 4,
   },
 
   workCard: {
@@ -541,10 +643,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '600',
-  },
-
-  skeleton: {
-    marginTop: spacing.sm,
   },
 
   messageCard: {

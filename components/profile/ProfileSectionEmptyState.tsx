@@ -18,6 +18,7 @@ type ProfileSectionEmptyStateProps = {
   icon: ComponentProps<typeof Ionicons>['name'];
   title: string;
   body?: string;
+  compact?: boolean;
   actionTitle?: string;
   actionAccessibilityLabel?: string;
   actionDisabled?: boolean;
@@ -28,22 +29,25 @@ export default function ProfileSectionEmptyState({
   icon,
   title,
   body,
+  compact = false,
   actionTitle,
   actionAccessibilityLabel,
   actionDisabled = false,
   onActionPress,
 }: ProfileSectionEmptyStateProps) {
   return (
-    <View style={styles.card}>
-      <View style={styles.iconWrap}>
+    <View style={[styles.card, compact && styles.cardCompact]}>
+      <View style={[styles.iconWrap, compact && styles.iconWrapCompact]}>
         <Ionicons
           name={icon}
-          size={iconSize.lg}
+          size={compact ? iconSize.md : iconSize.lg}
           color={textColor.muted}
         />
       </View>
 
-      <Text style={styles.title}>{title}</Text>
+      <Text style={[styles.title, compact && styles.titleCompact]}>
+        {title}
+      </Text>
 
       {body ? (
         <Text style={styles.body}>{body}</Text>
@@ -79,6 +83,11 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
 
+  cardCompact: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+  },
+
   iconWrap: {
     width: 44,
     height: 44,
@@ -91,10 +100,21 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xxs,
   },
 
+  iconWrapCompact: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+  },
+
   title: {
     color: textColor.primary,
     ...typography.headingSmall,
     textAlign: 'center',
+  },
+
+  titleCompact: {
+    fontSize: 16,
+    lineHeight: 22,
   },
 
   body: {

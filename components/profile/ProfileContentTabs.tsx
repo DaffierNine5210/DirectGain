@@ -19,7 +19,7 @@ export type ProfileContentTabKey =
   | 'about';
 
 export const DEFAULT_PROFILE_CONTENT_TAB: ProfileContentTabKey =
-  'about';
+  'posts';
 
 type ProfileContentTab = {
   key: ProfileContentTabKey;

@@ -20,6 +20,7 @@ type ProfileContentAreaProps = {
   editProfileDisabled?: boolean;
   onEditProfilePress?: () => void;
   ownerWorkManagement?: ReactNode;
+  reviewsContent: ReactNode;
 };
 
 export default function ProfileContentArea({
@@ -30,6 +31,7 @@ export default function ProfileContentArea({
   editProfileDisabled = false,
   onEditProfilePress,
   ownerWorkManagement = null,
+  reviewsContent,
 }: ProfileContentAreaProps) {
   return (
     <View style={styles.root}>
@@ -40,20 +42,24 @@ export default function ProfileContentArea({
 
       <View style={styles.panel}>
         {selectedTab === 'posts' ? (
-          <ProfileSectionEmptyState
-            icon="images-outline"
-            title="No posts yet"
-            body={
-              mode === 'owner'
-                ? "Share something when you're ready."
-                : undefined
-            }
-          />
+          <View style={styles.postsStage}>
+            <ProfileSectionEmptyState
+              compact
+              icon="images-outline"
+              title="No posts yet"
+              body={
+                mode === 'owner'
+                  ? "Share something when you're ready."
+                  : undefined
+              }
+            />
+          </View>
         ) : null}
 
         {selectedTab === 'work' ? (
           <View style={styles.workPanel}>
             <ProfileSectionEmptyState
+              compact
               icon="briefcase-outline"
               title="No public work to show yet."
               body={
@@ -68,17 +74,7 @@ export default function ProfileContentArea({
           </View>
         ) : null}
 
-        {selectedTab === 'reviews' ? (
-          <ProfileSectionEmptyState
-            icon="star-outline"
-            title="No reviews yet"
-            body={
-              mode === 'owner'
-                ? 'Reviews from Direct Gain activity will appear here.'
-                : undefined
-            }
-          />
-        ) : null}
+        {selectedTab === 'reviews' ? reviewsContent : null}
 
         {selectedTab === 'about' ? (
           <ProfileAboutSection
@@ -98,12 +94,16 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: layout.maximumContentWidth,
     alignSelf: 'center',
-    paddingTop: spacing.sm,
+    paddingTop: spacing.xs,
   },
 
   panel: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
+    paddingTop: spacing.sm,
+  },
+
+  postsStage: {
+    minHeight: 168,
   },
 
   workPanel: {

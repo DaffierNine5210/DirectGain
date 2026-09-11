@@ -3,6 +3,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,11 +18,14 @@ import {
   DEFAULT_PROFILE_CONTENT_TAB,
   type ProfileContentTabKey,
 } from '../../components/profile/ProfileContentTabs';
-import ProfileHero from '../../components/profile/ProfileHero';
+import PersonalProfileHero from '../../components/profile/PersonalProfileHero';
 import {
   presentProfileAbout,
   presentProfileHeroIdentity,
+  presentProfileReviewCards,
+  type PresentedProfileReview,
 } from '../../components/profile/profilePresentation';
+import ProfileReviewsSection from '../../components/profile/ProfileReviewsSection';
 
 import useTabBarVisibility from '../../hooks/useTabBarVisibility';
 
@@ -35,6 +39,7 @@ import {
   getAuthenticatedUserId,
   getProfileById,
 } from '../../services/profile/profileRepository';
+import { loadProfileReputation } from '../../services/reviews/reviewRepository';
 
 import {
   alpha,
@@ -47,6 +52,7 @@ import {
 } from '../../theme/designSystem';
 
 import type { DirectGainProfile } from '../../types/profile';
+import type { ProfileReviewStats } from '../../types/reviews';
 
 type Props = NativeStackScreenProps<
   PublicProfileParamList,
@@ -66,9 +72,11 @@ export default function PublicProfileScreen({
 
   const mountedRef = useRef(true);
   const requestIdRef = useRef(0);
-  const loadRef = useRef<(id: string) => Promise<void>>(
-    async () => {},
-  );
+  const reputationRequestIdRef = useRef(0);
+  const hasLoadedRef = useRef(false);
+  const loadRef = useRef<
+    (id: string, quiet: boolean) => Promise<void>
+  >(async () => {});
 
   const [
     profile,
@@ -85,15 +93,77 @@ export default function PublicProfileScreen({
     useState<ProfileContentTabKey>(
       DEFAULT_PROFILE_CONTENT_TAB,
     );
+  const [refreshing, setRefreshing] = useState(false);
+  const [reviewStats, setReviewStats] =
+    useState<ProfileReviewStats | null>(null);
+  const [reviewStatsError, setReviewStatsError] =
+    useState<string | null>(null);
+  const [reviewStatsLoading, setReviewStatsLoading] =
+    useState(false);
+  const [presentedReviews, setPresentedReviews] =
+    useState<PresentedProfileReview[]>([]);
+  const [reviewsError, setReviewsError] =
+    useState<string | null>(null);
+  const [reviewsLoading, setReviewsLoading] =
+    useState(false);
 
-  const loadProfile = useCallback(async (id: string) => {
+  const loadReputation = useCallback(
+    async (
+      id: string,
+      showPlaceholder: boolean,
+    ) => {
+      const requestId = ++reputationRequestIdRef.current;
+
+      if (showPlaceholder) {
+        setReviewStatsLoading(true);
+        setReviewsLoading(true);
+      }
+
+      const result = await loadProfileReputation(id);
+
+      if (
+        requestId !== reputationRequestIdRef.current ||
+        !mountedRef.current
+      ) {
+        return;
+      }
+
+      setReviewStatsLoading(false);
+      setReviewsLoading(false);
+      setReviewStatsError(result.statsError);
+      setReviewStats(
+        result.statsError ? null : result.stats,
+      );
+      setReviewsError(result.reviewsError);
+      setPresentedReviews(
+        result.reviewsError
+          ? []
+          : presentProfileReviewCards(
+              result.reviews,
+              result.reviewersById,
+            ),
+      );
+    },
+    [],
+  );
+
+  const loadProfile = useCallback(async (
+    id: string,
+    quiet: boolean,
+  ) => {
     const requestId = ++requestIdRef.current;
 
-    setLoading(true);
-    setError(null);
-    setProfile(null);
-    setAvatarUrl(null);
-    setAvatarUnavailable(false);
+    if (!quiet) {
+      setLoading(true);
+      setError(null);
+      setProfile(null);
+      setAvatarUrl(null);
+      setAvatarUnavailable(false);
+      setReviewStats(null);
+      setReviewStatsError(null);
+      setPresentedReviews([]);
+      setReviewsError(null);
+    }
 
     const userId = await getAuthenticatedUserId();
 
@@ -107,6 +177,7 @@ export default function PublicProfileScreen({
     if (userId && userId === id) {
       if (!navigateToOwnMyGain(navigation)) {
         setLoading(false);
+        setRefreshing(false);
         setError('Your profile is in My Gain.');
       }
       return;
@@ -122,19 +193,21 @@ export default function PublicProfileScreen({
     }
 
     setLoading(false);
+    setRefreshing(false);
 
     if (result.error || !result.profile) {
-      setProfile(null);
-      setError(
-        result.error ??
-          'This profile could not be found.',
-      );
+      if (!quiet) {
+        setProfile(null);
+        setError(
+          result.error ??
+            'This profile could not be found.',
+        );
+      }
       return;
     }
 
     if (userId && result.profile.id === userId) {
       if (!navigateToOwnMyGain(navigation)) {
-        setLoading(false);
         setError('Your profile is in My Gain.');
       }
       return;
@@ -142,7 +215,9 @@ export default function PublicProfileScreen({
 
     setError(null);
     setProfile(result.profile);
-  }, [navigation]);
+    hasLoadedRef.current = true;
+    void loadReputation(result.profile.id, !quiet);
+  }, [loadReputation, navigation]);
 
   loadRef.current = loadProfile;
 
@@ -150,16 +225,21 @@ export default function PublicProfileScreen({
     useCallback(() => {
       hideTabBar();
 
+      if (hasLoadedRef.current) {
+        void loadRef.current(profileId, true);
+      }
+
       return () => {
         showTabBar();
       };
-    }, [hideTabBar, showTabBar]),
+    }, [hideTabBar, profileId, showTabBar]),
   );
 
   useEffect(() => {
     mountedRef.current = true;
+    hasLoadedRef.current = false;
     setSelectedTab(DEFAULT_PROFILE_CONTENT_TAB);
-    void loadRef.current(profileId);
+    void loadRef.current(profileId, false);
 
     return () => {
       mountedRef.current = false;
@@ -195,6 +275,23 @@ export default function PublicProfileScreen({
 
   const title = profile?.displayName ?? 'Profile';
 
+  async function openReviewerProfile(reviewerId: string) {
+    const userId = await getAuthenticatedUserId();
+
+    if (userId && userId === reviewerId) {
+      navigateToOwnMyGain(navigation);
+      return;
+    }
+
+    if (reviewerId === profileId) {
+      return;
+    }
+
+    navigation.push('PublicProfile', {
+      profileId: reviewerId,
+    });
+  }
+
   return (
     <SafeAreaView
       style={styles.safe}
@@ -211,16 +308,15 @@ export default function PublicProfileScreen({
       {loading ? (
         <View style={styles.identitySkeleton}>
           <DGSkeleton
-            width={104}
-            height={104}
-            borderRadius={52}
+            width={72}
+            height={72}
+            borderRadius={36}
           />
-          <DGSkeleton
-            width="48%"
-            height={22}
-            style={styles.skeleton}
-          />
-          <DGSkeleton width="32%" height={12} />
+          <View style={styles.identitySkeletonCopy}>
+            <DGSkeleton width="72%" height={20} />
+            <DGSkeleton width="48%" height={12} />
+            <DGSkeleton width="88%" height={12} />
+          </View>
         </View>
       ) : error || !profile ? (
         <View style={styles.messageCard}>
@@ -232,7 +328,7 @@ export default function PublicProfileScreen({
           </Text>
           <Pressable
             onPress={() => {
-              void loadProfile(profileId);
+              void loadProfile(profileId, false);
             }}
             style={styles.retry}
             accessibilityRole="button"
@@ -255,8 +351,18 @@ export default function PublicProfileScreen({
         <ScrollView
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true);
+                void loadProfile(profileId, true);
+              }}
+              tintColor={palette.opportunityGreen}
+            />
+          }
         >
-          <ProfileHero
+          <PersonalProfileHero
             identity={presentProfileHeroIdentity(profile)}
             mode="public"
             avatarUrl={avatarUrl}
@@ -268,6 +374,23 @@ export default function PublicProfileScreen({
             selectedTab={selectedTab}
             onSelectTab={setSelectedTab}
             about={presentProfileAbout(profile)}
+            reviewsContent={
+              <ProfileReviewsSection
+                mode="public"
+                loading={reviewsLoading}
+                error={reviewsError}
+                reviews={presentedReviews}
+                stats={reviewStats}
+                statsError={reviewStatsError}
+                statsLoading={reviewStatsLoading}
+                onRetry={() => {
+                  void loadReputation(profile.id, true);
+                }}
+                onPressReviewer={(reviewerId) => {
+                  void openReviewerProfile(reviewerId);
+                }}
+              />
+            }
           />
         </ScrollView>
       )}
@@ -283,17 +406,21 @@ const styles = StyleSheet.create({
 
   scroll: {
     paddingBottom: spacing.massive,
+    gap: spacing.xs,
   },
 
   identitySkeleton: {
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingTop: spacing.xxl,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+    paddingTop: spacing.md,
     paddingHorizontal: spacing.lg,
   },
 
-  skeleton: {
-    marginTop: spacing.sm,
+  identitySkeletonCopy: {
+    flex: 1,
+    gap: spacing.xs,
+    paddingTop: 4,
   },
 
   messageCard: {

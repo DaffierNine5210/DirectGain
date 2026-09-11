@@ -12,7 +12,6 @@ import {
   spacing,
   surface,
   textColor,
-  typography,
 } from '../../theme/designSystem';
 
 type ProfileAboutSectionProps = {
@@ -127,9 +126,9 @@ const styles = StyleSheet.create({
   },
 
   row: {
-    gap: spacing.xxs,
+    gap: 2,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
   },
 
   rowDivider: {
@@ -148,7 +147,8 @@ const styles = StyleSheet.create({
 
   value: {
     color: textColor.primary,
-    ...typography.bodyMedium,
+    fontSize: 14,
+    lineHeight: 20,
     fontWeight: '600',
   },
 

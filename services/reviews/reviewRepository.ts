@@ -8,6 +8,9 @@ import {
   isReviewEligibilityRow,
 } from './reviewAdapter';
 
+import { getProfilesByIds } from '../profile/profileRepository';
+
+import type { DirectGainProfile } from '../../types/profile';
 import type {
   ProfileReviewStats,
   PublishedReview,
@@ -361,5 +364,61 @@ export async function editReview(input: {
   return {
     reviewId: result.data,
     error: null,
+  };
+}
+
+export async function loadProfileReputation(
+  profileId: string,
+): Promise<{
+  stats: ProfileReviewStats;
+  statsError: string | null;
+  reviews: PublishedReview[];
+  reviewsError: string | null;
+  reviewersById: Map<string, DirectGainProfile>;
+}> {
+  const emptyStats: ProfileReviewStats = {
+    reviewCount: 0,
+    averageRating: null,
+  };
+
+  const [
+    statsResult,
+    reviewsResult,
+  ] = await Promise.all([
+    getProfileReviewStats(profileId),
+    getPublishedReviewsForProfile(profileId),
+  ]);
+
+  const reviewersById =
+    new Map<string, DirectGainProfile>();
+
+  if (
+    !reviewsResult.error &&
+    reviewsResult.reviews.length > 0
+  ) {
+    const reviewerIds = reviewsResult.reviews.map(
+      review => review.reviewerId,
+    );
+    const profilesResult =
+      await getProfilesByIds(reviewerIds);
+
+    for (const profile of profilesResult.profiles) {
+      reviewersById.set(
+        profile.id.toLowerCase(),
+        profile,
+      );
+    }
+  }
+
+  return {
+    stats: statsResult.error
+      ? emptyStats
+      : statsResult.stats,
+    statsError: statsResult.error,
+    reviews: reviewsResult.error
+      ? []
+      : reviewsResult.reviews,
+    reviewsError: reviewsResult.error,
+    reviewersById,
   };
 }
