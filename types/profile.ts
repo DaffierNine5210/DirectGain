@@ -2,6 +2,19 @@ export type ProfileAccountType =
   | 'personal'
   | 'business';
 
+export type ProfileTemplate =
+  | 'personal'
+  | 'professional'
+  | 'business';
+
+export const DEFAULT_PROFILE_TEMPLATE: ProfileTemplate =
+  'personal';
+
+export type ProfilePresentation = {
+  profileId: string;
+  activeTemplate: ProfileTemplate;
+};
+
 export const PROFILE_DISPLAY_NAME_MIN = 1;
 export const PROFILE_DISPLAY_NAME_MAX = 80;
 export const PROFILE_BIO_MAX = 160;
