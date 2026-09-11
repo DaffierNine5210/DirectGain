@@ -118,3 +118,33 @@ export async function getProfilePresentation(
     error: null,
   };
 }
+
+export async function getOwnProfilePresentation(): Promise<{
+  presentation: ProfilePresentation;
+  error: string | null;
+}> {
+  const userId = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return {
+      presentation: personalPresentation(''),
+      error: 'Sign in to view your profile style.',
+    };
+  }
+
+  return getProfilePresentation(userId);
+}
+
+export function formatProfileTemplateLabel(
+  template: ProfileTemplate,
+): string {
+  if (template === 'professional') {
+    return 'Professional';
+  }
+
+  if (template === 'business') {
+    return 'Business';
+  }
+
+  return 'Personal';
+}

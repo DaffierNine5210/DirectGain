@@ -10,12 +10,14 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
 import DGButton from '../../components/DGButton';
 import DGHeader from '../../components/DGHeader';
@@ -31,9 +33,16 @@ import {
   getOwnProfile,
   updateOwnProfile,
 } from '../../services/profile/profileRepository';
+import {
+  formatProfileTemplateLabel,
+  getOwnProfilePresentation,
+} from '../../services/profile/profilePresentationRepository';
 
 import {
+  alpha,
+  iconSize,
   palette,
+  radius,
   spacing,
   surface,
   textColor,
@@ -41,10 +50,12 @@ import {
 } from '../../theme/designSystem';
 
 import {
+  DEFAULT_PROFILE_TEMPLATE,
   PROFILE_BIO_MAX,
   PROFILE_DISPLAY_NAME_MAX,
   PROFILE_STATE_MAX,
   PROFILE_SUBURB_MAX,
+  type ProfileTemplate,
 } from '../../types/profile';
 
 type Props = NativeStackScreenProps<
@@ -61,10 +72,7 @@ type FieldKey =
 export default function EditOwnProfileScreen({
   navigation,
 }: Props) {
-  const {
-    hideTabBar,
-    showTabBar,
-  } = useTabBarVisibility();
+  const { hideTabBar } = useTabBarVisibility();
 
   const mountedRef = useRef(true);
   const savingRef = useRef(false);
@@ -85,40 +93,56 @@ export default function EditOwnProfileScreen({
     field: FieldKey;
     message: string;
   } | null>(null);
+  const [activeTemplate, setActiveTemplate] =
+    useState<ProfileTemplate>(DEFAULT_PROFILE_TEMPLATE);
 
   useFocusEffect(
     useCallback(() => {
       hideTabBar();
 
-      return () => {
-        showTabBar();
-      };
-    }, [hideTabBar, showTabBar]),
+      void (async () => {
+        const result = await getOwnProfilePresentation();
+
+        if (mountedRef.current) {
+          setActiveTemplate(
+            result.presentation.activeTemplate,
+          );
+        }
+      })();
+    }, [hideTabBar]),
   );
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
 
-    const result = await getOwnProfile();
+    const [profileResult, presentationResult] =
+      await Promise.all([
+        getOwnProfile(),
+        getOwnProfilePresentation(),
+      ]);
 
     if (!mountedRef.current) {
       return;
     }
 
     setLoading(false);
+    setActiveTemplate(
+      presentationResult.presentation.activeTemplate,
+    );
 
-    if (result.error || !result.profile) {
+    if (profileResult.error || !profileResult.profile) {
       setLoadError(
-        result.error ?? 'Your profile could not be loaded.',
+        profileResult.error ??
+          'Your profile could not be loaded.',
       );
       return;
     }
 
-    setDisplayName(result.profile.displayName);
-    setBio(result.profile.bio ?? '');
-    setSuburb(result.profile.suburb ?? '');
-    setState(result.profile.state ?? '');
+    setDisplayName(profileResult.profile.displayName);
+    setBio(profileResult.profile.bio ?? '');
+    setSuburb(profileResult.profile.suburb ?? '');
+    setState(profileResult.profile.state ?? '');
   }, []);
 
   useEffect(() => {
@@ -240,6 +264,45 @@ export default function EditOwnProfileScreen({
             contentContainerStyle={styles.scroll}
             keyboardShouldPersistTaps="handled"
           >
+            <Text style={styles.sectionLabel}>PROFILE</Text>
+
+            <Pressable
+              onPress={() => {
+                if (savingRef.current) {
+                  return;
+                }
+
+                navigation.navigate('ProfileStyle');
+              }}
+              disabled={saving}
+              accessibilityRole="button"
+              accessibilityLabel={`Profile style, ${formatProfileTemplateLabel(
+                activeTemplate,
+              )}`}
+              accessibilityHint="Opens profile style options"
+              style={({ pressed }) => [
+                styles.styleRow,
+                pressed && styles.styleRowPressed,
+                saving && styles.styleRowDisabled,
+              ]}
+            >
+              <View style={styles.styleCopy}>
+                <Text style={styles.styleLabel}>
+                  Profile style
+                </Text>
+                <Text style={styles.styleValue}>
+                  {formatProfileTemplateLabel(
+                    activeTemplate,
+                  )}
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={iconSize.md}
+                color={textColor.muted}
+              />
+            </Pressable>
+
             <DGInput
               label="Display name"
               value={displayName}
@@ -356,6 +419,54 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     paddingBottom: spacing.massive,
     gap: spacing.md,
+  },
+
+  sectionLabel: {
+    color: textColor.muted,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+
+  styleRow: {
+    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: alpha.white08,
+    backgroundColor: surface.cardRaised,
+    gap: spacing.sm,
+  },
+
+  styleRowPressed: {
+    opacity: 0.88,
+  },
+
+  styleRowDisabled: {
+    opacity: 0.5,
+  },
+
+  styleCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+
+  styleLabel: {
+    color: textColor.muted,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+
+  styleValue: {
+    color: textColor.primary,
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '700',
   },
 
   skeleton: {
