@@ -38,7 +38,10 @@ import {
   getAuthenticatedUserId,
   getOwnProfile,
 } from '../../services/profile/profileRepository';
+import { getOwnProfessionalProfile } from '../../services/profile/professionalProfileRepository';
 import { loadProfileReputation } from '../../services/reviews/reviewRepository';
+
+import type { ProfessionalProfileCore } from '../../types/professionalProfile';
 
 import {
   alpha,
@@ -68,7 +71,12 @@ export default function ProfileStylePreviewScreen({
   const mountedRef = useRef(true);
   const requestIdRef = useRef(0);
   const reputationRequestIdRef = useRef(0);
+  const professionalRequestIdRef = useRef(0);
+  const professionalLoadedRef = useRef(false);
   const loadRef = useRef<
+    (quiet: boolean) => Promise<void>
+  >(async () => {});
+  const loadProfessionalRef = useRef<
     (quiet: boolean) => Promise<void>
   >(async () => {});
 
@@ -100,6 +108,10 @@ export default function ProfileStylePreviewScreen({
     useState<string | null>(null);
   const [reviewsLoading, setReviewsLoading] =
     useState(false);
+  const [professional, setProfessional] =
+    useState<ProfessionalProfileCore | null>(null);
+  const [professionalError, setProfessionalError] =
+    useState<string | null>(null);
 
   const loadReputation = useCallback(
     async (
@@ -141,6 +153,48 @@ export default function ProfileStylePreviewScreen({
     [],
   );
 
+  const applyProfessionalResult = useCallback(
+    (
+      result: {
+        profile: ProfessionalProfileCore | null;
+        error: string | null;
+      },
+      quiet: boolean,
+    ) => {
+      if (result.error) {
+        setProfessionalError(result.error);
+
+        if (!quiet) {
+          setProfessional(null);
+        }
+
+        return;
+      }
+
+      setProfessionalError(null);
+      setProfessional(result.profile);
+    },
+    [],
+  );
+
+  const loadProfessional = useCallback(
+    async (quiet: boolean) => {
+      const requestId = ++professionalRequestIdRef.current;
+      const result = await getOwnProfessionalProfile();
+
+      if (
+        requestId !== professionalRequestIdRef.current ||
+        !mountedRef.current
+      ) {
+        return;
+      }
+
+      applyProfessionalResult(result, quiet);
+      professionalLoadedRef.current = true;
+    },
+    [applyProfessionalResult],
+  );
+
   const loadProfile = useCallback(async (quiet: boolean) => {
     const requestId = ++requestIdRef.current;
 
@@ -149,7 +203,18 @@ export default function ProfileStylePreviewScreen({
       setError(null);
     }
 
-    const result = await getOwnProfile();
+    const professionalRequestId =
+      template === 'professional'
+        ? ++professionalRequestIdRef.current
+        : null;
+
+    const [identityResult, professionalResult] =
+      await Promise.all([
+        getOwnProfile(),
+        template === 'professional'
+          ? getOwnProfessionalProfile()
+          : Promise.resolve(null),
+      ]);
 
     if (
       requestId !== requestIdRef.current ||
@@ -161,11 +226,11 @@ export default function ProfileStylePreviewScreen({
     setLoading(false);
     setRefreshing(false);
 
-    if (result.error || !result.profile) {
+    if (identityResult.error || !identityResult.profile) {
       if (!quiet) {
         setProfile(null);
         setError(
-          result.error ??
+          identityResult.error ??
             'Your profile could not be loaded.',
         );
       }
@@ -173,16 +238,33 @@ export default function ProfileStylePreviewScreen({
     }
 
     setError(null);
-    setProfile(result.profile);
-    void loadReputation(result.profile.id, !quiet);
-  }, [loadReputation]);
+    setProfile(identityResult.profile);
+    void loadReputation(identityResult.profile.id, !quiet);
+
+    if (
+      professionalResult &&
+      professionalRequestId ===
+        professionalRequestIdRef.current
+    ) {
+      applyProfessionalResult(professionalResult, quiet);
+      professionalLoadedRef.current = true;
+    }
+  }, [applyProfessionalResult, loadReputation, template]);
 
   loadRef.current = loadProfile;
+  loadProfessionalRef.current = loadProfessional;
 
   useFocusEffect(
     useCallback(() => {
       hideTabBar();
-    }, [hideTabBar]),
+
+      if (
+        template === 'professional' &&
+        professionalLoadedRef.current
+      ) {
+        void loadProfessionalRef.current(true);
+      }
+    }, [hideTabBar, template]),
   );
 
   useEffect(() => {
@@ -321,16 +403,25 @@ export default function ProfileStylePreviewScreen({
               <View
                 style={styles.professionalNotice}
                 accessibilityRole="text"
-                accessibilityLabel="Professional preview. Personal remains your live profile. Nothing was saved."
+                accessibilityLabel="Professional preview. Personal remains your live profile."
               >
                 <Text style={styles.professionalNoticeText}>
-                  Professional preview · Personal stays live ·
-                  Nothing saved
+                  Professional preview · Personal stays live
                 </Text>
               </View>
 
               <ProfessionalProfileView
                 profile={profile}
+                professional={professional}
+                professionalError={professionalError}
+                onRetryProfessional={() => {
+                  void loadProfessional(false);
+                }}
+                onEditProfessional={() => {
+                  navigation.navigate(
+                    'EditProfessionalProfile',
+                  );
+                }}
                 avatarUrl={avatarUrl}
                 avatarUnavailable={avatarUnavailable}
                 reviews={presentedReviews}

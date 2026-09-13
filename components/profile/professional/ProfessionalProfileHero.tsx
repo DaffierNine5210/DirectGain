@@ -23,7 +23,8 @@ import {
 
 type ProfessionalProfileHeroProps = {
   displayName: string;
-  location: string | null;
+  headline: string | null;
+  serviceArea: string | null;
   hasStoredPhoto: boolean;
   avatarUrl?: string | null;
   avatarUnavailable?: boolean;
@@ -32,7 +33,8 @@ type ProfessionalProfileHeroProps = {
 
 export default function ProfessionalProfileHero({
   displayName,
-  location,
+  headline,
+  serviceArea,
   hasStoredPhoto,
   avatarUrl = null,
   avatarUnavailable = false,
@@ -77,15 +79,21 @@ export default function ProfessionalProfileHero({
             {displayName}
           </Text>
 
-          {location ? (
+          {headline ? (
+            <Text style={styles.headline} numberOfLines={2}>
+              {headline}
+            </Text>
+          ) : null}
+
+          {serviceArea ? (
             <View style={styles.locationRow}>
               <Ionicons
                 name="location-outline"
                 size={iconSize.xs}
                 color={textColor.muted}
               />
-              <Text style={styles.location} numberOfLines={1}>
-                {location}
+              <Text style={styles.location} numberOfLines={2}>
+                {serviceArea}
               </Text>
             </View>
           ) : null}
@@ -148,6 +156,14 @@ const styles = StyleSheet.create({
     color: textColor.primary,
     ...typography.headingSmall,
     textAlign: 'left',
+    width: '100%',
+  },
+
+  headline: {
+    color: textColor.secondary,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
     width: '100%',
   },
 

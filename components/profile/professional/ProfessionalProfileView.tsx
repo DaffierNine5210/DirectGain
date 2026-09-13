@@ -14,14 +14,17 @@ import ProfessionalReviews from './ProfessionalReviews';
 import type { PresentedProfileReview } from '../profilePresentation';
 
 import type { DirectGainProfile } from '../../../types/profile';
+import type { ProfessionalProfileCore } from '../../../types/professionalProfile';
 import type { ProfileReviewStats } from '../../../types/reviews';
-
-import { formatProfileLocation } from '../../../services/profile/profileAdapter';
 
 import { layout, spacing } from '../../../theme/designSystem';
 
 type ProfessionalProfileViewProps = {
   profile: DirectGainProfile;
+  professional: ProfessionalProfileCore | null;
+  professionalError: string | null;
+  onRetryProfessional: () => void;
+  onEditProfessional: () => void;
   avatarUrl?: string | null;
   avatarUnavailable?: boolean;
   reviews: PresentedProfileReview[];
@@ -36,6 +39,10 @@ type ProfessionalProfileViewProps = {
 
 export default function ProfessionalProfileView({
   profile,
+  professional,
+  professionalError,
+  onRetryProfessional,
+  onEditProfessional,
   avatarUrl = null,
   avatarUnavailable = false,
   reviews,
@@ -52,16 +59,19 @@ export default function ProfessionalProfileView({
       DEFAULT_PROFESSIONAL_TAB,
     );
 
-  const location = formatProfileLocation(
-    profile.suburb,
-    profile.state,
-  );
+  const headline = professionalError
+    ? null
+    : professional?.headline ?? null;
+  const serviceArea = professionalError
+    ? null
+    : professional?.serviceArea ?? null;
 
   return (
     <View style={styles.root}>
       <ProfessionalProfileHero
         displayName={profile.displayName}
-        location={location}
+        headline={headline}
+        serviceArea={serviceArea}
         hasStoredPhoto={Boolean(profile.avatarPath)}
         avatarUrl={avatarUrl}
         avatarUnavailable={avatarUnavailable}
@@ -76,8 +86,10 @@ export default function ProfessionalProfileView({
       <View style={styles.panel}>
         {selectedTab === 'overview' ? (
           <ProfessionalOverview
-            location={location}
-            bio={profile.bio}
+            professional={professional}
+            professionalError={professionalError}
+            onRetryProfessional={onRetryProfessional}
+            onEditProfessional={onEditProfessional}
             reviews={reviews}
             onPressReviewer={onPressReviewer}
           />

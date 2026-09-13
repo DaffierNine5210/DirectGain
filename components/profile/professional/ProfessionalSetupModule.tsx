@@ -1,37 +1,69 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
   alpha,
+  palette,
   radius,
   spacing,
   textColor,
 } from '../../../theme/designSystem';
 
-const SETUP_ITEMS = [
-  'Professional headline',
-  'Skills',
+const LATER_ITEMS = [
   'Experience',
-  'Portfolio work',
+  'Portfolio',
   'Qualifications',
 ] as const;
 
-export default function ProfessionalSetupModule() {
+type ProfessionalSetupModuleProps = {
+  missingFields: string[];
+  onEditPress: () => void;
+};
+
+export default function ProfessionalSetupModule({
+  missingFields,
+  onEditPress,
+}: ProfessionalSetupModuleProps) {
+  const hasMissing = missingFields.length > 0;
+  const missingLabel = missingFields.join(', ');
+
   return (
     <View
       style={styles.card}
       accessibilityRole="text"
-      accessibilityLabel={`Owner preview. Complete your Professional profile. ${SETUP_ITEMS.join(', ')}. These details are not public yet.`}
+      accessibilityLabel={
+        hasMissing
+          ? `Owner preview. Complete your Professional profile. Missing: ${missingLabel}. Experience, Portfolio and Qualifications come later. These details are not public yet.`
+          : 'Owner preview. Core Professional details are ready. Experience, Portfolio and Qualifications come later. These details are not public yet.'
+      }
     >
       <Text style={styles.kicker}>OWNER PREVIEW</Text>
       <Text style={styles.title}>
-        Complete your Professional profile
+        {hasMissing
+          ? 'Complete your Professional profile'
+          : 'Core Professional details are ready'}
       </Text>
       <Text style={styles.body}>
-        Add these later. They are not public yet.
+        {hasMissing
+          ? `Still to add: ${missingLabel}.`
+          : 'Headline, About, availability, service area, work preference and skills can be edited any time.'}
       </Text>
       <Text style={styles.items}>
-        {SETUP_ITEMS.join(' · ')}
+        Coming later · {LATER_ITEMS.join(' · ')}
       </Text>
+
+      <Pressable
+        onPress={onEditPress}
+        accessibilityRole="button"
+        accessibilityLabel="Edit Professional Profile"
+        style={({ pressed }) => [
+          styles.editButton,
+          pressed && styles.editButtonPressed,
+        ]}
+      >
+        <Text style={styles.editButtonText}>
+          Edit Professional Profile
+        </Text>
+      </Pressable>
     </View>
   );
 }
@@ -73,5 +105,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '600',
+  },
+
+  editButton: {
+    marginTop: 6,
+    minHeight: 44,
+    borderRadius: radius.pill,
+    backgroundColor: palette.opportunityGreen,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  editButtonPressed: {
+    opacity: 0.88,
+  },
+
+  editButtonText: {
+    color: textColor.inverse,
+    fontSize: 13,
+    fontWeight: '800',
   },
 });

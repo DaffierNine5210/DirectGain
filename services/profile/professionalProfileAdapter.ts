@@ -135,6 +135,68 @@ export function adaptProfessionalProfile(
   };
 }
 
+export function formatProfessionalAvailabilityLabel(
+  value: ProfessionalAvailability,
+): string {
+  switch (value) {
+    case 'available_now':
+      return 'Available now';
+    case 'open_to_opportunities':
+      return 'Open to opportunities';
+    case 'not_available':
+      return 'Not currently available';
+  }
+}
+
+export function formatProfessionalWorkPreferenceLabel(
+  value: ProfessionalWorkPreference,
+): string {
+  switch (value) {
+    case 'one_off':
+      return 'One-off';
+    case 'casual':
+      return 'Casual';
+    case 'part_time':
+      return 'Part-time';
+    case 'full_time':
+      return 'Full-time';
+    case 'contract':
+      return 'Contract';
+  }
+}
+
+export function getMissingProfessionalCoreFieldLabels(
+  profile: ProfessionalProfileCore | null,
+): string[] {
+  const missing: string[] = [];
+
+  if (!profile?.headline) {
+    missing.push('Professional headline');
+  }
+
+  if (!profile?.about) {
+    missing.push('Professional About');
+  }
+
+  if (!profile?.availability) {
+    missing.push('Availability');
+  }
+
+  if (!profile?.serviceArea) {
+    missing.push('Service area');
+  }
+
+  if (!profile?.workPreference) {
+    missing.push('Work preference');
+  }
+
+  if (!profile?.skills.length) {
+    missing.push('Skills');
+  }
+
+  return missing;
+}
+
 export function sanitiseOwnProfessionalProfileInput(
   input: SaveOwnProfessionalProfileInput,
 ):
