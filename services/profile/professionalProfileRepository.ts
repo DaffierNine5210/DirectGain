@@ -3,12 +3,26 @@ import { supabase } from '../../lib/supabase';
 import { getAuthenticatedUserId } from './profileRepository';
 import {
   adaptProfessionalProfile,
+  isProfessionalCredentialRow,
+  isProfessionalCredentialRpcRow,
+  isProfessionalExperienceRow,
+  isProfessionalExperienceRpcRow,
   isProfessionalProfileRow,
   isProfessionalSkillRow,
+  mapProfessionalCredentialRow,
+  mapProfessionalCredentialRpcRow,
+  mapProfessionalExperienceRow,
+  mapProfessionalExperienceRpcRow,
   sanitiseOwnProfessionalProfileInput,
+  toOwnProfessionalCredentialRpcEntry,
+  toOwnProfessionalExperienceRpcEntry,
 } from './professionalProfileAdapter';
 
 import type {
+  ProfessionalCredential,
+  ProfessionalCredentialSaveInput,
+  ProfessionalExperience,
+  ProfessionalExperienceSaveInput,
   ProfessionalProfileCore,
   SaveOwnProfessionalProfileInput,
 } from '../../types/professionalProfile';
@@ -21,6 +35,12 @@ const PROFESSIONAL_PROFILE_SELECT =
 
 const PROFESSIONAL_SKILL_SELECT =
   'id, profile_id, name, position';
+
+const PROFESSIONAL_EXPERIENCE_SELECT =
+  'id, profile_id, title, organisation, start_year, start_month, end_year, end_month, is_current, description, position, created_at, updated_at';
+
+const PROFESSIONAL_CREDENTIAL_SELECT =
+  'id, profile_id, credential_type, name, issuer, issued_year, issued_month, expires_year, expires_month, does_not_expire, position, created_at, updated_at';
 
 function isUuid(value: string): boolean {
   return UUID_PATTERN.test(value.toLowerCase());
@@ -62,7 +82,11 @@ function formatProfessionalError(
     message.includes('service area') ||
     message.includes('availability') ||
     message.includes('work preference') ||
-    message.includes('skill')
+    message.includes('skill') ||
+    message.includes('experience') ||
+    message.includes('credential') ||
+    message.includes('organisation') ||
+    message.includes('issuer')
   ) {
     return error.message;
   }
@@ -222,6 +246,309 @@ export async function saveOwnProfessionalProfile(
 
   return {
     profileId: result.data.toLowerCase(),
+    error: null,
+  };
+}
+
+export async function getProfessionalExperiences(
+  profileId: string,
+): Promise<{
+  experiences: ProfessionalExperience[];
+  error: string | null;
+}> {
+  const userId = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return {
+      experiences: [],
+      error: 'Sign in to view this Professional experience.',
+    };
+  }
+
+  const id = profileId.trim().toLowerCase();
+
+  if (!isUuid(id)) {
+    return {
+      experiences: [],
+      error:
+        'This Professional experience could not be found.',
+    };
+  }
+
+  const result = await supabase
+    .from('professional_experiences')
+    .select(PROFESSIONAL_EXPERIENCE_SELECT)
+    .eq('profile_id', id)
+    .order('position', { ascending: true });
+
+  if (result.error) {
+    return {
+      experiences: [],
+      error: formatProfessionalError(
+        result.error,
+        'Professional experience could not be loaded. Try again.',
+      ),
+    };
+  }
+
+  if (result.data == null) {
+    return {
+      experiences: [],
+      error:
+        'Professional experience could not be loaded. Try again.',
+    };
+  }
+
+  const rows = result.data.filter(isProfessionalExperienceRow);
+
+  if (rows.length !== result.data.length) {
+    return {
+      experiences: [],
+      error:
+        'Professional experience could not be loaded. Try again.',
+    };
+  }
+
+  return {
+    experiences: rows.map(mapProfessionalExperienceRow),
+    error: null,
+  };
+}
+
+export async function getOwnProfessionalExperiences(): Promise<{
+  experiences: ProfessionalExperience[];
+  error: string | null;
+}> {
+  const userId = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return {
+      experiences: [],
+      error:
+        'Sign in to view your Professional experience.',
+    };
+  }
+
+  return getProfessionalExperiences(userId);
+}
+
+export async function getProfessionalCredentials(
+  profileId: string,
+): Promise<{
+  credentials: ProfessionalCredential[];
+  error: string | null;
+}> {
+  const userId = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return {
+      credentials: [],
+      error:
+        'Sign in to view these Professional credentials.',
+    };
+  }
+
+  const id = profileId.trim().toLowerCase();
+
+  if (!isUuid(id)) {
+    return {
+      credentials: [],
+      error:
+        'These Professional credentials could not be found.',
+    };
+  }
+
+  const result = await supabase
+    .from('professional_credentials')
+    .select(PROFESSIONAL_CREDENTIAL_SELECT)
+    .eq('profile_id', id)
+    .order('position', { ascending: true });
+
+  if (result.error) {
+    return {
+      credentials: [],
+      error: formatProfessionalError(
+        result.error,
+        'Professional credentials could not be loaded. Try again.',
+      ),
+    };
+  }
+
+  if (result.data == null) {
+    return {
+      credentials: [],
+      error:
+        'Professional credentials could not be loaded. Try again.',
+    };
+  }
+
+  const rows = result.data.filter(isProfessionalCredentialRow);
+
+  if (rows.length !== result.data.length) {
+    return {
+      credentials: [],
+      error:
+        'Professional credentials could not be loaded. Try again.',
+    };
+  }
+
+  return {
+    credentials: rows.map(mapProfessionalCredentialRow),
+    error: null,
+  };
+}
+
+export async function getOwnProfessionalCredentials(): Promise<{
+  credentials: ProfessionalCredential[];
+  error: string | null;
+}> {
+  const userId = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return {
+      credentials: [],
+      error:
+        'Sign in to view your Professional credentials.',
+    };
+  }
+
+  return getProfessionalCredentials(userId);
+}
+
+export async function saveOwnProfessionalExperiences(
+  entries: ProfessionalExperienceSaveInput[],
+): Promise<{
+  experiences: ProfessionalExperience[];
+  error: string | null;
+}> {
+  const userId = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return {
+      experiences: [],
+      error:
+        'Sign in to update your Professional experience.',
+    };
+  }
+
+  const result = await supabase.rpc(
+    'save_own_professional_experiences',
+    {
+      p_entries: entries.map(
+        toOwnProfessionalExperienceRpcEntry,
+      ),
+    },
+  );
+
+  if (result.error) {
+    return {
+      experiences: [],
+      error: formatProfessionalError(
+        result.error,
+        'Your Professional experience could not be saved. Try again.',
+      ),
+    };
+  }
+
+  if (result.data == null) {
+    return {
+      experiences: [],
+      error:
+        'Your Professional experience could not be saved. Try again.',
+    };
+  }
+
+  if (!Array.isArray(result.data)) {
+    return {
+      experiences: [],
+      error:
+        'Your Professional experience could not be saved. Try again.',
+    };
+  }
+
+  const rows = result.data.filter(
+    isProfessionalExperienceRpcRow,
+  );
+
+  if (rows.length !== result.data.length) {
+    return {
+      experiences: [],
+      error:
+        'Your Professional experience could not be saved. Try again.',
+    };
+  }
+
+  return {
+    experiences: rows.map(mapProfessionalExperienceRpcRow),
+    error: null,
+  };
+}
+
+export async function saveOwnProfessionalCredentials(
+  entries: ProfessionalCredentialSaveInput[],
+): Promise<{
+  credentials: ProfessionalCredential[];
+  error: string | null;
+}> {
+  const userId = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return {
+      credentials: [],
+      error:
+        'Sign in to update your Professional credentials.',
+    };
+  }
+
+  const result = await supabase.rpc(
+    'save_own_professional_credentials',
+    {
+      p_entries: entries.map(
+        toOwnProfessionalCredentialRpcEntry,
+      ),
+    },
+  );
+
+  if (result.error) {
+    return {
+      credentials: [],
+      error: formatProfessionalError(
+        result.error,
+        'Your Professional credentials could not be saved. Try again.',
+      ),
+    };
+  }
+
+  if (result.data == null) {
+    return {
+      credentials: [],
+      error:
+        'Your Professional credentials could not be saved. Try again.',
+    };
+  }
+
+  if (!Array.isArray(result.data)) {
+    return {
+      credentials: [],
+      error:
+        'Your Professional credentials could not be saved. Try again.',
+    };
+  }
+
+  const rows = result.data.filter(
+    isProfessionalCredentialRpcRow,
+  );
+
+  if (rows.length !== result.data.length) {
+    return {
+      credentials: [],
+      error:
+        'Your Professional credentials could not be saved. Try again.',
+    };
+  }
+
+  return {
+    credentials: rows.map(mapProfessionalCredentialRpcRow),
     error: null,
   };
 }

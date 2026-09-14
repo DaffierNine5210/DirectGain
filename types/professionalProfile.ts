@@ -58,3 +58,74 @@ export type SaveOwnProfessionalProfileInput = {
   workPreference: ProfessionalWorkPreference | null;
   skills: string[];
 };
+
+export type ProfessionalCredentialType =
+  | 'qualification'
+  | 'licence'
+  | 'certification';
+
+export const PROFESSIONAL_CREDENTIAL_TYPES: ProfessionalCredentialType[] =
+  [
+    'qualification',
+    'licence',
+    'certification',
+  ];
+
+export const PROFESSIONAL_EXPERIENCES_MAX = 12;
+export const PROFESSIONAL_CREDENTIALS_MAX = 15;
+
+export type ProfessionalExperience = {
+  id: string;
+  profileId: string;
+  title: string;
+  organisation: string;
+  startYear: number;
+  startMonth: number | null;
+  endYear: number | null;
+  endMonth: number | null;
+  isCurrent: boolean;
+  description: string | null;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProfessionalCredential = {
+  id: string;
+  profileId: string;
+  credentialType: ProfessionalCredentialType;
+  name: string;
+  issuer: string | null;
+  issuedYear: number | null;
+  issuedMonth: number | null;
+  expiresYear: number | null;
+  expiresMonth: number | null;
+  doesNotExpire: boolean;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProfessionalExperienceSaveInput = {
+  id?: string | null;
+  title: string;
+  organisation: string;
+  startYear: number;
+  startMonth: number | null;
+  endYear: number | null;
+  endMonth: number | null;
+  isCurrent: boolean;
+  description: string | null;
+};
+
+export type ProfessionalCredentialSaveInput = {
+  id?: string | null;
+  credentialType: ProfessionalCredentialType;
+  name: string;
+  issuer: string | null;
+  issuedYear: number | null;
+  issuedMonth: number | null;
+  expiresYear: number | null;
+  expiresMonth: number | null;
+  doesNotExpire: boolean;
+};
