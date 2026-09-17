@@ -5,6 +5,11 @@ import type {
   ProfessionalCredentialType,
   ProfessionalExperience,
   ProfessionalExperienceSaveInput,
+  ProfessionalPortfolioDraftProject,
+  ProfessionalPortfolioMedia,
+  ProfessionalPortfolioMediaSaveInput,
+  ProfessionalPortfolioProject,
+  ProfessionalPortfolioProjectSaveInput,
   ProfessionalProfileCore,
   ProfessionalSkill,
   ProfessionalWorkPreference,
@@ -14,14 +19,34 @@ import type {
 import {
   PROFESSIONAL_ABOUT_MAX,
   PROFESSIONAL_AVAILABILITIES,
+  PROFESSIONAL_CREDENTIAL_EXPIRY_YEAR_HORIZON,
+  PROFESSIONAL_CREDENTIAL_ISSUER_MAX,
+  PROFESSIONAL_CREDENTIAL_NAME_MAX,
+  PROFESSIONAL_CREDENTIAL_NAME_MIN,
+  PROFESSIONAL_CREDENTIALS_MAX,
+  PROFESSIONAL_CREDENTIAL_TYPES,
+  PROFESSIONAL_EXPERIENCE_DESCRIPTION_MAX,
+  PROFESSIONAL_EXPERIENCE_ORGANISATION_MAX,
+  PROFESSIONAL_EXPERIENCE_ORGANISATION_MIN,
+  PROFESSIONAL_EXPERIENCE_TITLE_MAX,
+  PROFESSIONAL_EXPERIENCE_TITLE_MIN,
+  PROFESSIONAL_EXPERIENCES_MAX,
   PROFESSIONAL_HEADLINE_MAX,
   PROFESSIONAL_HEADLINE_MIN,
+  PROFESSIONAL_PORTFOLIO_DESCRIPTION_MAX,
+  PROFESSIONAL_PORTFOLIO_JPEG_MIME,
+  PROFESSIONAL_PORTFOLIO_MEDIA_MAX,
+  PROFESSIONAL_PORTFOLIO_MEDIA_MAX_BYTES,
+  PROFESSIONAL_PORTFOLIO_PROJECTS_MAX,
+  PROFESSIONAL_PORTFOLIO_TITLE_MAX,
+  PROFESSIONAL_PORTFOLIO_TITLE_MIN,
   PROFESSIONAL_SERVICE_AREA_MAX,
   PROFESSIONAL_SKILL_NAME_MAX,
   PROFESSIONAL_SKILL_NAME_MIN,
-  PROFESSIONAL_CREDENTIAL_TYPES,
   PROFESSIONAL_SKILLS_MAX,
   PROFESSIONAL_WORK_PREFERENCES,
+  PROFESSIONAL_YEAR_MIN,
+  PROFESSIONAL_YEAR_STRUCTURAL_MAX,
 } from '../../types/professionalProfile';
 
 export type ProfessionalProfileRow = {
@@ -197,7 +222,7 @@ export function getMissingProfessionalCoreFieldLabels(
   }
 
   if (!profile?.skills.length) {
-    missing.push('Skills');
+    missing.push('Skills & services');
   }
 
   return missing;
@@ -630,4 +655,1009 @@ export function toOwnProfessionalCredentialRpcEntry(
   }
 
   return entry;
+}
+
+export const PROFESSIONAL_MONTH_LABELS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const;
+
+export function getProfessionalDeviceCalendarYear(): number {
+  return new Date().getFullYear();
+}
+
+export function getProfessionalCredentialExpiryYearMax(
+  currentYear = getProfessionalDeviceCalendarYear(),
+): number {
+  return Math.min(
+    currentYear + PROFESSIONAL_CREDENTIAL_EXPIRY_YEAR_HORIZON,
+    PROFESSIONAL_YEAR_STRUCTURAL_MAX,
+  );
+}
+
+export function formatProfessionalMonthLabel(
+  month: number,
+): string | null {
+  if (month < 1 || month > 12) {
+    return null;
+  }
+
+  return PROFESSIONAL_MONTH_LABELS[month - 1];
+}
+
+export function formatProfessionalYearMonth(
+  year: number,
+  month: number | null,
+): string {
+  const label =
+    month == null ? null : formatProfessionalMonthLabel(month);
+
+  return label ? `${label} ${year}` : String(year);
+}
+
+export function formatProfessionalExperienceDateRange(
+  experience: Pick<
+    ProfessionalExperience,
+    'startYear' | 'startMonth' | 'endYear' | 'endMonth' | 'isCurrent'
+  >,
+): string {
+  const start = formatProfessionalYearMonth(
+    experience.startYear,
+    experience.startMonth,
+  );
+
+  if (experience.isCurrent) {
+    return `${start} – Current`;
+  }
+
+  if (experience.endYear == null) {
+    return start;
+  }
+
+  return `${start} – ${formatProfessionalYearMonth(
+    experience.endYear,
+    experience.endMonth,
+  )}`;
+}
+
+export function formatProfessionalCredentialTypeLabel(
+  value: ProfessionalCredentialType,
+): string {
+  switch (value) {
+    case 'qualification':
+      return 'Qualification';
+    case 'licence':
+      return 'Licence';
+    case 'certification':
+      return 'Certification';
+  }
+}
+
+export function formatProfessionalCredentialIssued(
+  credential: Pick<
+    ProfessionalCredential,
+    'issuedYear' | 'issuedMonth'
+  >,
+): string | null {
+  if (credential.issuedYear == null) {
+    return null;
+  }
+
+  return `Issued ${formatProfessionalYearMonth(
+    credential.issuedYear,
+    credential.issuedMonth,
+  )}`;
+}
+
+export function formatProfessionalCredentialExpiry(
+  credential: Pick<
+    ProfessionalCredential,
+    'doesNotExpire' | 'expiresYear' | 'expiresMonth'
+  >,
+): string | null {
+  if (credential.doesNotExpire) {
+    return 'Does not expire';
+  }
+
+  if (credential.expiresYear == null) {
+    return null;
+  }
+
+  return `Expires ${formatProfessionalYearMonth(
+    credential.expiresYear,
+    credential.expiresMonth,
+  )}`;
+}
+
+function isValidMonth(
+  value: number | null,
+): boolean {
+  return (
+    value === null ||
+    (Number.isInteger(value) && value >= 1 && value <= 12)
+  );
+}
+
+function chronologyValue(
+  year: number,
+  month: number | null,
+  missingMonth: number,
+): number {
+  return year * 12 + (month ?? missingMonth);
+}
+
+export function professionalStartIsDefinitelyAfterEnd(
+  startYear: number,
+  startMonth: number | null,
+  endYear: number,
+  endMonth: number | null,
+): boolean {
+  return (
+    chronologyValue(startYear, startMonth, 1) >
+    chronologyValue(endYear, endMonth, 12)
+  );
+}
+
+function parseOptionalYearText(
+  value: string,
+): number | null | 'invalid' {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  if (!/^\d{4}$/.test(trimmed)) {
+    return 'invalid';
+  }
+
+  return Number(trimmed);
+}
+
+function optionalPersistedId(
+  value: string | null | undefined,
+): string | undefined {
+  const id = value?.trim();
+  return id ? id.toLowerCase() : undefined;
+}
+
+export type ProfessionalExperienceDraftFields = {
+  id?: string | null;
+  title: string;
+  organisation: string;
+  startYearText: string;
+  startMonth: number | null;
+  isCurrent: boolean;
+  endYearText: string;
+  endMonth: number | null;
+  description: string;
+};
+
+export type ProfessionalCredentialDraftFields = {
+  id?: string | null;
+  credentialType: ProfessionalCredentialType | null;
+  name: string;
+  issuer: string;
+  issuedYearText: string;
+  issuedMonth: number | null;
+  doesNotExpire: boolean;
+  expiresYearText: string;
+  expiresMonth: number | null;
+};
+
+export function sanitiseOwnProfessionalExperiences(
+  drafts: ProfessionalExperienceDraftFields[],
+  currentYear = getProfessionalDeviceCalendarYear(),
+):
+  | {
+      ok: true;
+      entries: ProfessionalExperienceSaveInput[];
+    }
+  | {
+      ok: false;
+      error: string;
+    } {
+  if (drafts.length > PROFESSIONAL_EXPERIENCES_MAX) {
+    return {
+      ok: false,
+      error: 'You can add up to 12 experience entries.',
+    };
+  }
+
+  const entries: ProfessionalExperienceSaveInput[] = [];
+
+  for (let index = 0; index < drafts.length; index += 1) {
+    const draft = drafts[index];
+    const label = `Experience ${index + 1}`;
+    const title = draft.title.trim();
+    const organisation = draft.organisation.trim();
+    const description = optionalProfessionalText(
+      draft.description,
+    );
+
+    if (
+      title.length < PROFESSIONAL_EXPERIENCE_TITLE_MIN ||
+      title.length > PROFESSIONAL_EXPERIENCE_TITLE_MAX
+    ) {
+      return {
+        ok: false,
+        error: `${label}: role / title must be between 2 and 80 characters.`,
+      };
+    }
+
+    if (
+      organisation.length <
+        PROFESSIONAL_EXPERIENCE_ORGANISATION_MIN ||
+      organisation.length >
+        PROFESSIONAL_EXPERIENCE_ORGANISATION_MAX
+    ) {
+      return {
+        ok: false,
+        error: `${label}: organisation must be between 1 and 80 characters.`,
+      };
+    }
+
+    const startYear = parseOptionalYearText(draft.startYearText);
+
+    if (startYear === null || startYear === 'invalid') {
+      return {
+        ok: false,
+        error: `${label}: choose a start year.`,
+      };
+    }
+
+    if (
+      startYear < PROFESSIONAL_YEAR_MIN ||
+      startYear > currentYear
+    ) {
+      return {
+        ok: false,
+        error: `${label}: start year must be between ${PROFESSIONAL_YEAR_MIN} and ${currentYear}.`,
+      };
+    }
+
+    if (!isValidMonth(draft.startMonth)) {
+      return {
+        ok: false,
+        error: `${label}: choose a valid start month.`,
+      };
+    }
+
+    if (
+      description &&
+      description.length > PROFESSIONAL_EXPERIENCE_DESCRIPTION_MAX
+    ) {
+      return {
+        ok: false,
+        error: `${label}: keep the description to 800 characters or fewer.`,
+      };
+    }
+
+    if (draft.isCurrent) {
+      entries.push({
+        id: optionalPersistedId(draft.id),
+        title,
+        organisation,
+        startYear,
+        startMonth: draft.startMonth,
+        endYear: null,
+        endMonth: null,
+        isCurrent: true,
+        description,
+      });
+      continue;
+    }
+
+    const endYear = parseOptionalYearText(draft.endYearText);
+
+    if (endYear === null || endYear === 'invalid') {
+      return {
+        ok: false,
+        error: `${label}: choose an end year, or mark this as a current role.`,
+      };
+    }
+
+    if (
+      endYear < PROFESSIONAL_YEAR_MIN ||
+      endYear > currentYear
+    ) {
+      return {
+        ok: false,
+        error: `${label}: end year must be between ${PROFESSIONAL_YEAR_MIN} and ${currentYear}.`,
+      };
+    }
+
+    if (!isValidMonth(draft.endMonth)) {
+      return {
+        ok: false,
+        error: `${label}: choose a valid end month.`,
+      };
+    }
+
+    if (
+      professionalStartIsDefinitelyAfterEnd(
+        startYear,
+        draft.startMonth,
+        endYear,
+        draft.endMonth,
+      )
+    ) {
+      return {
+        ok: false,
+        error: `${label}: the start date cannot be after the end date.`,
+      };
+    }
+
+    entries.push({
+      id: optionalPersistedId(draft.id),
+      title,
+      organisation,
+      startYear,
+      startMonth: draft.startMonth,
+      endYear,
+      endMonth: draft.endMonth,
+      isCurrent: false,
+      description,
+    });
+  }
+
+  return {
+    ok: true,
+    entries,
+  };
+}
+
+export function sanitiseOwnProfessionalCredentials(
+  drafts: ProfessionalCredentialDraftFields[],
+  currentYear = getProfessionalDeviceCalendarYear(),
+):
+  | {
+      ok: true;
+      entries: ProfessionalCredentialSaveInput[];
+    }
+  | {
+      ok: false;
+      error: string;
+    } {
+  if (drafts.length > PROFESSIONAL_CREDENTIALS_MAX) {
+    return {
+      ok: false,
+      error:
+        'You can add up to 15 qualifications, licences and certifications.',
+    };
+  }
+
+  const expiryYearMax =
+    getProfessionalCredentialExpiryYearMax(currentYear);
+  const entries: ProfessionalCredentialSaveInput[] = [];
+
+  for (let index = 0; index < drafts.length; index += 1) {
+    const draft = drafts[index];
+    const label = `Credential ${index + 1}`;
+    const name = draft.name.trim();
+    const issuer = optionalProfessionalText(draft.issuer);
+
+    if (!isProfessionalCredentialType(draft.credentialType)) {
+      return {
+        ok: false,
+        error: `${label}: choose Qualification, Licence or Certification.`,
+      };
+    }
+
+    if (
+      name.length < PROFESSIONAL_CREDENTIAL_NAME_MIN ||
+      name.length > PROFESSIONAL_CREDENTIAL_NAME_MAX
+    ) {
+      return {
+        ok: false,
+        error: `${label}: name must be between 2 and 120 characters.`,
+      };
+    }
+
+    if (
+      issuer &&
+      issuer.length > PROFESSIONAL_CREDENTIAL_ISSUER_MAX
+    ) {
+      return {
+        ok: false,
+        error: `${label}: issuer must be 120 characters or fewer.`,
+      };
+    }
+
+    const issuedYear = parseOptionalYearText(
+      draft.issuedYearText,
+    );
+
+    if (issuedYear === 'invalid') {
+      return {
+        ok: false,
+        error: `${label}: issued year must be a 4-digit year.`,
+      };
+    }
+
+    if (
+      issuedYear != null &&
+      (issuedYear < PROFESSIONAL_YEAR_MIN ||
+        issuedYear > currentYear)
+    ) {
+      return {
+        ok: false,
+        error: `${label}: issued year must be between ${PROFESSIONAL_YEAR_MIN} and ${currentYear}.`,
+      };
+    }
+
+    if (draft.issuedMonth != null && issuedYear == null) {
+      return {
+        ok: false,
+        error: `${label}: choose an issued year before an issued month.`,
+      };
+    }
+
+    if (!isValidMonth(draft.issuedMonth)) {
+      return {
+        ok: false,
+        error: `${label}: choose a valid issued month.`,
+      };
+    }
+
+    if (draft.doesNotExpire) {
+      entries.push({
+        id: optionalPersistedId(draft.id),
+        credentialType: draft.credentialType,
+        name,
+        issuer,
+        issuedYear,
+        issuedMonth: issuedYear == null ? null : draft.issuedMonth,
+        expiresYear: null,
+        expiresMonth: null,
+        doesNotExpire: true,
+      });
+      continue;
+    }
+
+    const expiresYear = parseOptionalYearText(
+      draft.expiresYearText,
+    );
+
+    if (expiresYear === 'invalid') {
+      return {
+        ok: false,
+        error: `${label}: expiry year must be a 4-digit year.`,
+      };
+    }
+
+    if (
+      expiresYear != null &&
+      (expiresYear < PROFESSIONAL_YEAR_MIN ||
+        expiresYear > expiryYearMax)
+    ) {
+      return {
+        ok: false,
+        error: `${label}: expiry year must be between ${PROFESSIONAL_YEAR_MIN} and ${expiryYearMax}.`,
+      };
+    }
+
+    if (draft.expiresMonth != null && expiresYear == null) {
+      return {
+        ok: false,
+        error: `${label}: choose an expiry year before an expiry month.`,
+      };
+    }
+
+    if (!isValidMonth(draft.expiresMonth)) {
+      return {
+        ok: false,
+        error: `${label}: choose a valid expiry month.`,
+      };
+    }
+
+    if (
+      issuedYear != null &&
+      expiresYear != null &&
+      professionalStartIsDefinitelyAfterEnd(
+        issuedYear,
+        draft.issuedMonth,
+        expiresYear,
+        draft.expiresMonth,
+      )
+    ) {
+      return {
+        ok: false,
+        error: `${label}: the issued date cannot be after the expiry date.`,
+      };
+    }
+
+    entries.push({
+      id: optionalPersistedId(draft.id),
+      credentialType: draft.credentialType,
+      name,
+      issuer,
+      issuedYear,
+      issuedMonth: issuedYear == null ? null : draft.issuedMonth,
+      expiresYear,
+      expiresMonth:
+        expiresYear == null ? null : draft.expiresMonth,
+      doesNotExpire: false,
+    });
+  }
+
+  return {
+    ok: true,
+    entries,
+  };
+}
+
+const PROFESSIONAL_UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+const PROFESSIONAL_PORTFOLIO_STORAGE_PATH =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jpg$/;
+
+function isProfessionalUuid(value: string): boolean {
+  return PROFESSIONAL_UUID_PATTERN.test(value.toLowerCase());
+}
+
+export type ProfessionalPortfolioProjectRow = {
+  id: string;
+  profile_id: string;
+  title: string;
+  description: string | null;
+  position: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProfessionalPortfolioProjectRpcRow = {
+  id: string;
+  profile_id: string;
+  title: string;
+  description: string | null;
+  sort_position: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProfessionalPortfolioMediaRow = {
+  id: string;
+  project_id: string;
+  profile_id: string;
+  storage_path: string;
+  position: number;
+  media_type: string;
+  mime_type: string;
+  byte_size: number;
+  created_at: string;
+};
+
+export function isProfessionalPortfolioStoragePath(
+  value: string,
+  profileId: string,
+  projectId: string,
+): boolean {
+  const path = value.trim().toLowerCase();
+  const owner = profileId.trim().toLowerCase();
+  const project = projectId.trim().toLowerCase();
+
+  if (
+    !PROFESSIONAL_PORTFOLIO_STORAGE_PATH.test(path) ||
+    !isProfessionalUuid(owner) ||
+    !isProfessionalUuid(project)
+  ) {
+    return false;
+  }
+
+  const [pathOwner, pathProject] = path.split('/');
+
+  return pathOwner === owner && pathProject === project;
+}
+
+export function isProfessionalPortfolioProjectRow(
+  value: unknown,
+): value is ProfessionalPortfolioProjectRow {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+
+  const row = value as ProfessionalPortfolioProjectRow;
+
+  return (
+    typeof row.id === 'string' &&
+    isProfessionalUuid(row.id) &&
+    typeof row.profile_id === 'string' &&
+    isProfessionalUuid(row.profile_id) &&
+    typeof row.title === 'string' &&
+    (row.description === null ||
+      typeof row.description === 'string') &&
+    isFiniteNumber(row.position) &&
+    typeof row.created_at === 'string' &&
+    typeof row.updated_at === 'string'
+  );
+}
+
+export function isProfessionalPortfolioProjectRpcRow(
+  value: unknown,
+): value is ProfessionalPortfolioProjectRpcRow {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+
+  const row = value as ProfessionalPortfolioProjectRpcRow;
+
+  return (
+    typeof row.id === 'string' &&
+    isProfessionalUuid(row.id) &&
+    typeof row.profile_id === 'string' &&
+    isProfessionalUuid(row.profile_id) &&
+    typeof row.title === 'string' &&
+    (row.description === null ||
+      typeof row.description === 'string') &&
+    isFiniteNumber(row.sort_position) &&
+    typeof row.created_at === 'string' &&
+    typeof row.updated_at === 'string'
+  );
+}
+
+export function isProfessionalPortfolioMediaRow(
+  value: unknown,
+): value is ProfessionalPortfolioMediaRow {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+
+  const row = value as ProfessionalPortfolioMediaRow;
+
+  return (
+    typeof row.id === 'string' &&
+    isProfessionalUuid(row.id) &&
+    typeof row.project_id === 'string' &&
+    isProfessionalUuid(row.project_id) &&
+    typeof row.profile_id === 'string' &&
+    isProfessionalUuid(row.profile_id) &&
+    typeof row.storage_path === 'string' &&
+    isProfessionalPortfolioStoragePath(
+      row.storage_path,
+      row.profile_id,
+      row.project_id,
+    ) &&
+    isFiniteNumber(row.position) &&
+    row.position >= 0 &&
+    row.position <= 4 &&
+    row.media_type === 'photo' &&
+    row.mime_type === PROFESSIONAL_PORTFOLIO_JPEG_MIME &&
+    isFiniteNumber(row.byte_size) &&
+    row.byte_size > 0 &&
+    row.byte_size <= PROFESSIONAL_PORTFOLIO_MEDIA_MAX_BYTES &&
+    typeof row.created_at === 'string'
+  );
+}
+
+export function mapProfessionalPortfolioMediaRow(
+  row: ProfessionalPortfolioMediaRow,
+): ProfessionalPortfolioMedia {
+  return {
+    id: row.id.toLowerCase(),
+    projectId: row.project_id.toLowerCase(),
+    profileId: row.profile_id.toLowerCase(),
+    storagePath: row.storage_path.toLowerCase(),
+    mimeType: PROFESSIONAL_PORTFOLIO_JPEG_MIME,
+    byteSize: row.byte_size,
+    position: row.position,
+    createdAt: row.created_at,
+  };
+}
+
+export function mapProfessionalPortfolioProjectRow(
+  row: ProfessionalPortfolioProjectRow,
+  mediaRows: ProfessionalPortfolioMediaRow[],
+): ProfessionalPortfolioProject {
+  const projectId = row.id.toLowerCase();
+
+  return {
+    id: projectId,
+    profileId: row.profile_id.toLowerCase(),
+    title: row.title,
+    description: optionalProfessionalText(row.description),
+    position: row.position,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    media: mediaRows
+      .filter(item => item.project_id.toLowerCase() === projectId)
+      .sort((left, right) => left.position - right.position)
+      .map(mapProfessionalPortfolioMediaRow),
+  };
+}
+
+export function toOwnProfessionalPortfolioRpcEntry(
+  input: ProfessionalPortfolioProjectSaveInput,
+): Record<string, unknown> {
+  return {
+    id: input.id.toLowerCase(),
+    title: input.title,
+    description: input.description,
+    media: input.media.map(item => {
+      const entry: Record<string, unknown> = {
+        storage_path: item.storagePath.toLowerCase(),
+        mime_type: PROFESSIONAL_PORTFOLIO_JPEG_MIME,
+        byte_size: item.byteSize,
+      };
+
+      const id = item.id?.trim();
+
+      if (id) {
+        entry.id = id.toLowerCase();
+      }
+
+      return entry;
+    }),
+  };
+}
+
+export function validateProfessionalPortfolioDrafts(
+  drafts: ProfessionalPortfolioDraftProject[],
+):
+  | { ok: true }
+  | { ok: false; error: string } {
+  if (drafts.length > PROFESSIONAL_PORTFOLIO_PROJECTS_MAX) {
+    return {
+      ok: false,
+      error: 'You can add up to 12 portfolio projects.',
+    };
+  }
+
+  const seenProjectIds = new Set<string>();
+
+  for (let index = 0; index < drafts.length; index += 1) {
+    const draft = drafts[index];
+    const label = `Project ${index + 1}`;
+    const projectId = draft.id.trim().toLowerCase();
+    const title = draft.title.trim();
+    const description = optionalProfessionalText(
+      draft.description,
+    );
+
+    if (!isProfessionalUuid(projectId)) {
+      return {
+        ok: false,
+        error: `${label}: this project could not be saved.`,
+      };
+    }
+
+    if (seenProjectIds.has(projectId)) {
+      return {
+        ok: false,
+        error: `${label}: each project can only appear once.`,
+      };
+    }
+
+    seenProjectIds.add(projectId);
+
+    if (
+      title.length < PROFESSIONAL_PORTFOLIO_TITLE_MIN ||
+      title.length > PROFESSIONAL_PORTFOLIO_TITLE_MAX
+    ) {
+      return {
+        ok: false,
+        error: `${label}: title must be between 2 and 80 characters.`,
+      };
+    }
+
+    if (
+      description &&
+      description.length > PROFESSIONAL_PORTFOLIO_DESCRIPTION_MAX
+    ) {
+      return {
+        ok: false,
+        error: `${label}: keep the description to 800 characters or fewer.`,
+      };
+    }
+
+    if (
+      draft.media.length < 1 ||
+      draft.media.length > PROFESSIONAL_PORTFOLIO_MEDIA_MAX
+    ) {
+      return {
+        ok: false,
+        error: `${label}: add between 1 and 5 photos.`,
+      };
+    }
+
+    for (const item of draft.media) {
+      const hasLocal = Boolean(item.localPreviewUri?.trim());
+      const hasPath = Boolean(item.storagePath?.trim());
+
+      if (!hasLocal && !hasPath) {
+        return {
+          ok: false,
+          error: `${label}: each photo needs an image.`,
+        };
+      }
+
+      if (
+        !Number.isInteger(item.byteSize) ||
+        item.byteSize < 1 ||
+        item.byteSize > PROFESSIONAL_PORTFOLIO_MEDIA_MAX_BYTES
+      ) {
+        return {
+          ok: false,
+          error: `${label}: each photo must be 2 MB or smaller.`,
+        };
+      }
+    }
+  }
+
+  return { ok: true };
+}
+
+export function sanitiseOwnProfessionalPortfolio(
+  drafts: ProfessionalPortfolioDraftProject[],
+):
+  | {
+      ok: true;
+      entries: ProfessionalPortfolioProjectSaveInput[];
+    }
+  | {
+      ok: false;
+      error: string;
+    } {
+  if (drafts.length > PROFESSIONAL_PORTFOLIO_PROJECTS_MAX) {
+    return {
+      ok: false,
+      error: 'You can add up to 12 portfolio projects.',
+    };
+  }
+
+  const seenProjectIds = new Set<string>();
+  const seenMediaIds = new Set<string>();
+  const seenPaths = new Set<string>();
+  const entries: ProfessionalPortfolioProjectSaveInput[] = [];
+
+  for (let index = 0; index < drafts.length; index += 1) {
+    const draft = drafts[index];
+    const label = `Project ${index + 1}`;
+    const projectId = draft.id.trim().toLowerCase();
+    const title = draft.title.trim();
+    const description = optionalProfessionalText(
+      draft.description,
+    );
+
+    if (!isProfessionalUuid(projectId)) {
+      return {
+        ok: false,
+        error: `${label}: this project could not be saved.`,
+      };
+    }
+
+    if (seenProjectIds.has(projectId)) {
+      return {
+        ok: false,
+        error: `${label}: each project can only appear once.`,
+      };
+    }
+
+    seenProjectIds.add(projectId);
+
+    if (
+      title.length < PROFESSIONAL_PORTFOLIO_TITLE_MIN ||
+      title.length > PROFESSIONAL_PORTFOLIO_TITLE_MAX
+    ) {
+      return {
+        ok: false,
+        error: `${label}: title must be between 2 and 80 characters.`,
+      };
+    }
+
+    if (
+      description &&
+      description.length > PROFESSIONAL_PORTFOLIO_DESCRIPTION_MAX
+    ) {
+      return {
+        ok: false,
+        error: `${label}: keep the description to 800 characters or fewer.`,
+      };
+    }
+
+    if (
+      draft.media.length < 1 ||
+      draft.media.length > PROFESSIONAL_PORTFOLIO_MEDIA_MAX
+    ) {
+      return {
+        ok: false,
+        error: `${label}: add between 1 and 5 photos.`,
+      };
+    }
+
+    const media: ProfessionalPortfolioMediaSaveInput[] = [];
+
+    for (const item of draft.media) {
+      const storagePath = item.storagePath?.trim().toLowerCase();
+
+      if (
+        !storagePath ||
+        !PROFESSIONAL_PORTFOLIO_STORAGE_PATH.test(storagePath)
+      ) {
+        return {
+          ok: false,
+          error: `${label}: each photo must be prepared before save.`,
+        };
+      }
+
+      const pathProject = storagePath.split('/')[1];
+
+      if (pathProject !== projectId) {
+        return {
+          ok: false,
+          error: `${label}: a photo path does not match this project.`,
+        };
+      }
+
+      if (seenPaths.has(storagePath)) {
+        return {
+          ok: false,
+          error: `${label}: each photo can only be used once.`,
+        };
+      }
+
+      seenPaths.add(storagePath);
+
+      if (
+        !Number.isInteger(item.byteSize) ||
+        item.byteSize < 1 ||
+        item.byteSize > PROFESSIONAL_PORTFOLIO_MEDIA_MAX_BYTES
+      ) {
+        return {
+          ok: false,
+          error: `${label}: each photo must be 2 MB or smaller.`,
+        };
+      }
+
+      const persistedId = item.persistedId?.trim().toLowerCase();
+
+      if (persistedId) {
+        if (!isProfessionalUuid(persistedId)) {
+          return {
+            ok: false,
+            error: `${label}: a photo could not be saved.`,
+          };
+        }
+
+        if (seenMediaIds.has(persistedId)) {
+          return {
+            ok: false,
+            error: `${label}: each photo can only appear once.`,
+          };
+        }
+
+        seenMediaIds.add(persistedId);
+      }
+
+      media.push({
+        id: persistedId,
+        storagePath,
+        mimeType: PROFESSIONAL_PORTFOLIO_JPEG_MIME,
+        byteSize: item.byteSize,
+      });
+    }
+
+    entries.push({
+      id: projectId,
+      title,
+      description,
+      media,
+    });
+  }
+
+  return {
+    ok: true,
+    entries,
+  };
 }

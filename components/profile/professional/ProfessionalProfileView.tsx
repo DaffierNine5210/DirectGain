@@ -14,7 +14,12 @@ import ProfessionalReviews from './ProfessionalReviews';
 import type { PresentedProfileReview } from '../profilePresentation';
 
 import type { DirectGainProfile } from '../../../types/profile';
-import type { ProfessionalProfileCore } from '../../../types/professionalProfile';
+import type {
+  ProfessionalCredential,
+  ProfessionalExperience as ProfessionalExperienceEntry,
+  ProfessionalPortfolioPresentedProject,
+  ProfessionalProfileCore,
+} from '../../../types/professionalProfile';
 import type { ProfileReviewStats } from '../../../types/reviews';
 
 import { layout, spacing } from '../../../theme/designSystem';
@@ -25,6 +30,17 @@ type ProfessionalProfileViewProps = {
   professionalError: string | null;
   onRetryProfessional: () => void;
   onEditProfessional: () => void;
+  experiences: ProfessionalExperienceEntry[];
+  credentials: ProfessionalCredential[];
+  backgroundLoading: boolean;
+  backgroundError: string | null;
+  onRetryBackground: () => void;
+  onEditBackground: () => void;
+  portfolioProjects: ProfessionalPortfolioPresentedProject[];
+  portfolioLoading: boolean;
+  portfolioError: string | null;
+  onRetryPortfolio: () => void;
+  onEditPortfolio: () => void;
   avatarUrl?: string | null;
   avatarUnavailable?: boolean;
   reviews: PresentedProfileReview[];
@@ -43,6 +59,17 @@ export default function ProfessionalProfileView({
   professionalError,
   onRetryProfessional,
   onEditProfessional,
+  experiences,
+  credentials,
+  backgroundLoading,
+  backgroundError,
+  onRetryBackground,
+  onEditBackground,
+  portfolioProjects,
+  portfolioLoading,
+  portfolioError,
+  onRetryPortfolio,
+  onEditPortfolio,
   avatarUrl = null,
   avatarUnavailable = false,
   reviews,
@@ -96,11 +123,26 @@ export default function ProfessionalProfileView({
         ) : null}
 
         {selectedTab === 'portfolio' ? (
-          <ProfessionalPortfolio />
+          <ProfessionalPortfolio
+            loading={portfolioLoading}
+            error={portfolioError}
+            projects={portfolioProjects}
+            onRetry={onRetryPortfolio}
+            ownerPreview
+            onEditPortfolio={onEditPortfolio}
+          />
         ) : null}
 
         {selectedTab === 'experience' ? (
-          <ProfessionalExperience />
+          <ProfessionalExperience
+            loading={backgroundLoading}
+            error={backgroundError}
+            experiences={experiences}
+            credentials={credentials}
+            onRetry={onRetryBackground}
+            ownerPreview
+            onEditBackground={onEditBackground}
+          />
         ) : null}
 
         {selectedTab === 'reviews' ? (

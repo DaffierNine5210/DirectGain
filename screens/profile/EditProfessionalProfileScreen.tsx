@@ -468,6 +468,57 @@ export default function EditProfessionalProfileScreen({
               you use Professional.
             </Text>
 
+            <Pressable
+              onPress={() => {
+                if (saving) {
+                  return;
+                }
+
+                navigation.navigate('EditProfessionalExperience');
+              }}
+              disabled={saving}
+              accessibilityRole="button"
+              accessibilityLabel="Experience and credentials"
+              style={({ pressed }) => [
+                styles.linkCard,
+                pressed && styles.linkCardPressed,
+                saving && styles.linkCardDisabled,
+              ]}
+            >
+              <Text style={styles.linkTitle}>
+                Experience & credentials
+              </Text>
+              <Text style={styles.linkSubtitle}>
+                Add your work history, qualifications, licences
+                and certifications.
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => {
+                if (saving) {
+                  return;
+                }
+
+                navigation.navigate('EditProfessionalPortfolio');
+              }}
+              disabled={saving}
+              accessibilityRole="button"
+              accessibilityLabel="Portfolio"
+              style={({ pressed }) => [
+                styles.linkCard,
+                pressed && styles.linkCardPressed,
+                saving && styles.linkCardDisabled,
+              ]}
+            >
+              <Text style={styles.linkTitle}>
+                Portfolio
+              </Text>
+              <Text style={styles.linkSubtitle}>
+                Add project photos that show examples of your work.
+              </Text>
+            </Pressable>
+
             <Text style={styles.sectionLabel}>
               PROFESSIONAL IDENTITY
             </Text>
@@ -579,15 +630,19 @@ export default function EditProfessionalProfileScreen({
               accessibilityLabel="Professional service area"
             />
 
-            <Text style={styles.sectionLabel}>SKILLS</Text>
+            <Text style={styles.sectionLabel}>
+              SKILLS & SERVICES
+            </Text>
             <Text style={styles.helper}>
-              Ordered capability labels. Add up to 20.
+              Ordered labels for the work you offer. Add up
+              to 20. These are your claims — Direct Gain has
+              not verified them.
             </Text>
 
             <View style={styles.skillAddRow}>
               <View style={styles.skillInput}>
                 <DGInput
-                  label="Add a skill"
+                  label="Add a skill or service"
                   value={skillDraft}
                   onChangeText={(value) => {
                     setSkillDraft(value);
@@ -601,7 +656,7 @@ export default function EditProfessionalProfileScreen({
                   returnKeyType="done"
                   errorMessage={skillError ?? undefined}
                   helperText={`${skillDraft.trim().length}/${PROFESSIONAL_SKILL_NAME_MAX} · ${skills.length}/${PROFESSIONAL_SKILLS_MAX} added`}
-                  accessibilityLabel="Add a skill"
+                  accessibilityLabel="Add a skill or service"
                 />
               </View>
               <Pressable
@@ -780,6 +835,38 @@ const styles = StyleSheet.create({
     color: textColor.secondary,
     fontSize: 14,
     lineHeight: 20,
+    fontWeight: '500',
+  },
+
+  linkCard: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: alpha.green12,
+    backgroundColor: alpha.green04,
+    gap: 4,
+  },
+
+  linkCardPressed: {
+    opacity: 0.88,
+  },
+
+  linkCardDisabled: {
+    opacity: 0.5,
+  },
+
+  linkTitle: {
+    color: textColor.primary,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '800',
+  },
+
+  linkSubtitle: {
+    color: textColor.secondary,
+    fontSize: 12,
+    lineHeight: 16,
     fontWeight: '500',
   },
 

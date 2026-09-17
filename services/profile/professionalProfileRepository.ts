@@ -46,6 +46,85 @@ function isUuid(value: string): boolean {
   return UUID_PATTERN.test(value.toLowerCase());
 }
 
+function describeUnknownValue(value: unknown): string {
+  if (value === null) {
+    return 'null';
+  }
+
+  if (Array.isArray(value)) {
+    return 'array';
+  }
+
+  return typeof value;
+}
+
+function rowKeyTypes(
+  value: unknown,
+): Record<string, string> | null {
+  if (typeof value !== 'object' || value === null) {
+    return null;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [
+      key,
+      describeUnknownValue(item),
+    ]),
+  );
+}
+
+function logOwnProfessionalExperienceSaveDiagnostic(input: {
+  stage:
+    | 'rpc_error'
+    | 'data_null'
+    | 'data_not_array'
+    | 'row_shape_mismatch';
+  payload: Record<string, unknown>[];
+  error: {
+    message?: string;
+    code?: string;
+    details?: string;
+    hint?: string;
+  } | null;
+  data: unknown;
+}): void {
+  if (!__DEV__) {
+    return;
+  }
+
+  const firstRow = Array.isArray(input.data)
+    ? input.data[0]
+    : input.data;
+
+  console.warn('[Direct Gain] professional experience save failed', {
+    stage: input.stage,
+    payloadCount: input.payload.length,
+    payloadKeys: input.payload.map(entry =>
+      Object.keys(entry),
+    ),
+    payloadIdPresent: input.payload.map(entry =>
+      Object.prototype.hasOwnProperty.call(entry, 'id'),
+    ),
+    errorCode: input.error?.code ?? null,
+    errorMessage: input.error?.message ?? null,
+    errorDetails: input.error?.details ?? null,
+    errorHint: input.error?.hint ?? null,
+    dataIsNull: input.data == null,
+    dataIsArray: Array.isArray(input.data),
+    dataType: describeUnknownValue(input.data),
+    dataLength: Array.isArray(input.data)
+      ? input.data.length
+      : null,
+    firstRowKeys:
+      firstRow &&
+      typeof firstRow === 'object' &&
+      !Array.isArray(firstRow)
+        ? Object.keys(firstRow)
+        : null,
+    firstRowTypes: rowKeyTypes(firstRow),
+  });
+}
+
 function formatProfessionalError(
   error: {
     message?: string;
@@ -86,7 +165,9 @@ function formatProfessionalError(
     message.includes('experience') ||
     message.includes('credential') ||
     message.includes('organisation') ||
-    message.includes('issuer')
+    message.includes('issuer') ||
+    message.includes('portfolio') ||
+    message.includes('photo')
   ) {
     return error.message;
   }
@@ -431,16 +512,25 @@ export async function saveOwnProfessionalExperiences(
     };
   }
 
+  const payload = entries.map(
+    toOwnProfessionalExperienceRpcEntry,
+  );
+
   const result = await supabase.rpc(
     'save_own_professional_experiences',
     {
-      p_entries: entries.map(
-        toOwnProfessionalExperienceRpcEntry,
-      ),
+      p_entries: payload,
     },
   );
 
   if (result.error) {
+    logOwnProfessionalExperienceSaveDiagnostic({
+      stage: 'rpc_error',
+      payload,
+      error: result.error,
+      data: result.data,
+    });
+
     return {
       experiences: [],
       error: formatProfessionalError(
@@ -451,6 +541,13 @@ export async function saveOwnProfessionalExperiences(
   }
 
   if (result.data == null) {
+    logOwnProfessionalExperienceSaveDiagnostic({
+      stage: 'data_null',
+      payload,
+      error: null,
+      data: result.data,
+    });
+
     return {
       experiences: [],
       error:
@@ -459,6 +556,13 @@ export async function saveOwnProfessionalExperiences(
   }
 
   if (!Array.isArray(result.data)) {
+    logOwnProfessionalExperienceSaveDiagnostic({
+      stage: 'data_not_array',
+      payload,
+      error: null,
+      data: result.data,
+    });
+
     return {
       experiences: [],
       error:
@@ -471,6 +575,13 @@ export async function saveOwnProfessionalExperiences(
   );
 
   if (rows.length !== result.data.length) {
+    logOwnProfessionalExperienceSaveDiagnostic({
+      stage: 'row_shape_mismatch',
+      payload,
+      error: null,
+      data: result.data,
+    });
+
     return {
       experiences: [],
       error:

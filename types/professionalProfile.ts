@@ -74,6 +74,20 @@ export const PROFESSIONAL_CREDENTIAL_TYPES: ProfessionalCredentialType[] =
 export const PROFESSIONAL_EXPERIENCES_MAX = 12;
 export const PROFESSIONAL_CREDENTIALS_MAX = 15;
 
+export const PROFESSIONAL_EXPERIENCE_TITLE_MIN = 2;
+export const PROFESSIONAL_EXPERIENCE_TITLE_MAX = 80;
+export const PROFESSIONAL_EXPERIENCE_ORGANISATION_MIN = 1;
+export const PROFESSIONAL_EXPERIENCE_ORGANISATION_MAX = 80;
+export const PROFESSIONAL_EXPERIENCE_DESCRIPTION_MAX = 800;
+
+export const PROFESSIONAL_CREDENTIAL_NAME_MIN = 2;
+export const PROFESSIONAL_CREDENTIAL_NAME_MAX = 120;
+export const PROFESSIONAL_CREDENTIAL_ISSUER_MAX = 120;
+
+export const PROFESSIONAL_YEAR_MIN = 1950;
+export const PROFESSIONAL_YEAR_STRUCTURAL_MAX = 2100;
+export const PROFESSIONAL_CREDENTIAL_EXPIRY_YEAR_HORIZON = 50;
+
 export type ProfessionalExperience = {
   id: string;
   profileId: string;
@@ -128,4 +142,83 @@ export type ProfessionalCredentialSaveInput = {
   expiresYear: number | null;
   expiresMonth: number | null;
   doesNotExpire: boolean;
+};
+
+export const PROFESSIONAL_PORTFOLIO_PROJECTS_MAX = 12;
+export const PROFESSIONAL_PORTFOLIO_MEDIA_MAX = 5;
+export const PROFESSIONAL_PORTFOLIO_TITLE_MIN = 2;
+export const PROFESSIONAL_PORTFOLIO_TITLE_MAX = 80;
+export const PROFESSIONAL_PORTFOLIO_DESCRIPTION_MAX = 800;
+export const PROFESSIONAL_PORTFOLIO_MEDIA_MAX_BYTES = 2 * 1024 * 1024;
+export const PROFESSIONAL_PORTFOLIO_JPEG_MIME = 'image/jpeg';
+
+export type ProfessionalPortfolioMedia = {
+  id: string;
+  projectId: string;
+  profileId: string;
+  storagePath: string;
+  mimeType: typeof PROFESSIONAL_PORTFOLIO_JPEG_MIME;
+  byteSize: number;
+  position: number;
+  createdAt: string;
+};
+
+export type ProfessionalPortfolioProject = {
+  id: string;
+  profileId: string;
+  title: string;
+  description: string | null;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+  media: ProfessionalPortfolioMedia[];
+};
+
+export type ProfessionalPortfolioPresentedMedia =
+  ProfessionalPortfolioMedia & {
+    displayUrl: string | null;
+  };
+
+export type ProfessionalPortfolioPresentedProject = Omit<
+  ProfessionalPortfolioProject,
+  'media'
+> & {
+  media: ProfessionalPortfolioPresentedMedia[];
+};
+
+export type ProfessionalPortfolioMediaSaveInput = {
+  id?: string;
+  storagePath: string;
+  mimeType: typeof PROFESSIONAL_PORTFOLIO_JPEG_MIME;
+  byteSize: number;
+};
+
+export type ProfessionalPortfolioProjectSaveInput = {
+  id: string;
+  title: string;
+  description: string | null;
+  media: ProfessionalPortfolioMediaSaveInput[];
+};
+
+export type PendingProfessionalPortfolioPhoto = {
+  localId: string;
+  uri: string;
+  byteSize: number;
+};
+
+export type ProfessionalPortfolioDraftMedia = {
+  draftKey: string;
+  persistedId: string | null;
+  storagePath: string | null;
+  byteSize: number;
+  localPreviewUri: string | null;
+  displayUrl: string | null;
+};
+
+export type ProfessionalPortfolioDraftProject = {
+  id: string;
+  persisted: boolean;
+  title: string;
+  description: string;
+  media: ProfessionalPortfolioDraftMedia[];
 };

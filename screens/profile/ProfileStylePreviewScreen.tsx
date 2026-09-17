@@ -38,10 +38,20 @@ import {
   getAuthenticatedUserId,
   getOwnProfile,
 } from '../../services/profile/profileRepository';
-import { getOwnProfessionalProfile } from '../../services/profile/professionalProfileRepository';
+import {
+  getOwnProfessionalCredentials,
+  getOwnProfessionalExperiences,
+  getOwnProfessionalProfile,
+} from '../../services/profile/professionalProfileRepository';
+import { getOwnProfessionalPortfolio } from '../../services/profile/professionalPortfolioRepository';
 import { loadProfileReputation } from '../../services/reviews/reviewRepository';
 
-import type { ProfessionalProfileCore } from '../../types/professionalProfile';
+import type {
+  ProfessionalCredential,
+  ProfessionalExperience,
+  ProfessionalPortfolioPresentedProject,
+  ProfessionalProfileCore,
+} from '../../types/professionalProfile';
 
 import {
   alpha,
@@ -73,10 +83,20 @@ export default function ProfileStylePreviewScreen({
   const reputationRequestIdRef = useRef(0);
   const professionalRequestIdRef = useRef(0);
   const professionalLoadedRef = useRef(false);
+  const backgroundRequestIdRef = useRef(0);
+  const backgroundLoadedRef = useRef(false);
+  const portfolioRequestIdRef = useRef(0);
+  const portfolioLoadedRef = useRef(false);
   const loadRef = useRef<
     (quiet: boolean) => Promise<void>
   >(async () => {});
   const loadProfessionalRef = useRef<
+    (quiet: boolean) => Promise<void>
+  >(async () => {});
+  const loadBackgroundRef = useRef<
+    (quiet: boolean) => Promise<void>
+  >(async () => {});
+  const loadPortfolioRef = useRef<
     (quiet: boolean) => Promise<void>
   >(async () => {});
 
@@ -112,6 +132,25 @@ export default function ProfileStylePreviewScreen({
     useState<ProfessionalProfileCore | null>(null);
   const [professionalError, setProfessionalError] =
     useState<string | null>(null);
+  const [experiences, setExperiences] = useState<
+    ProfessionalExperience[]
+  >([]);
+  const [credentials, setCredentials] = useState<
+    ProfessionalCredential[]
+  >([]);
+  const [backgroundLoading, setBackgroundLoading] =
+    useState(false);
+  const [backgroundError, setBackgroundError] = useState<
+    string | null
+  >(null);
+  const [portfolioProjects, setPortfolioProjects] = useState<
+    ProfessionalPortfolioPresentedProject[]
+  >([]);
+  const [portfolioLoading, setPortfolioLoading] =
+    useState(false);
+  const [portfolioError, setPortfolioError] = useState<
+    string | null
+  >(null);
 
   const loadReputation = useCallback(
     async (
@@ -177,6 +216,63 @@ export default function ProfileStylePreviewScreen({
     [],
   );
 
+  const applyBackgroundResult = useCallback(
+    (
+      experienceResult: {
+        experiences: ProfessionalExperience[];
+        error: string | null;
+      },
+      credentialResult: {
+        credentials: ProfessionalCredential[];
+        error: string | null;
+      },
+      quiet: boolean,
+    ) => {
+      const error =
+        experienceResult.error ?? credentialResult.error;
+
+      if (error) {
+        setBackgroundError(error);
+
+        if (!quiet) {
+          setExperiences([]);
+          setCredentials([]);
+        }
+
+        return;
+      }
+
+      setBackgroundError(null);
+      setExperiences(experienceResult.experiences);
+      setCredentials(credentialResult.credentials);
+    },
+    [],
+  );
+
+  const applyPortfolioResult = useCallback(
+    (
+      result: {
+        projects: ProfessionalPortfolioPresentedProject[];
+        error: string | null;
+      },
+      quiet: boolean,
+    ) => {
+      if (result.error) {
+        setPortfolioError(result.error);
+
+        if (!quiet) {
+          setPortfolioProjects([]);
+        }
+
+        return;
+      }
+
+      setPortfolioError(null);
+      setPortfolioProjects(result.projects);
+    },
+    [],
+  );
+
   const loadProfessional = useCallback(
     async (quiet: boolean) => {
       const requestId = ++professionalRequestIdRef.current;
@@ -195,6 +291,62 @@ export default function ProfileStylePreviewScreen({
     [applyProfessionalResult],
   );
 
+  const loadBackground = useCallback(
+    async (quiet: boolean) => {
+      const requestId = ++backgroundRequestIdRef.current;
+
+      if (!quiet) {
+        setBackgroundLoading(true);
+      }
+
+      const [experienceResult, credentialResult] =
+        await Promise.all([
+          getOwnProfessionalExperiences(),
+          getOwnProfessionalCredentials(),
+        ]);
+
+      if (
+        requestId !== backgroundRequestIdRef.current ||
+        !mountedRef.current
+      ) {
+        return;
+      }
+
+      setBackgroundLoading(false);
+      applyBackgroundResult(
+        experienceResult,
+        credentialResult,
+        quiet,
+      );
+      backgroundLoadedRef.current = true;
+    },
+    [applyBackgroundResult],
+  );
+
+  const loadPortfolio = useCallback(
+    async (quiet: boolean) => {
+      const requestId = ++portfolioRequestIdRef.current;
+
+      if (!quiet) {
+        setPortfolioLoading(true);
+      }
+
+      const result = await getOwnProfessionalPortfolio();
+
+      if (
+        requestId !== portfolioRequestIdRef.current ||
+        !mountedRef.current
+      ) {
+        return;
+      }
+
+      setPortfolioLoading(false);
+      applyPortfolioResult(result, quiet);
+      portfolioLoadedRef.current = true;
+    },
+    [applyPortfolioResult],
+  );
+
   const loadProfile = useCallback(async (quiet: boolean) => {
     const requestId = ++requestIdRef.current;
 
@@ -208,13 +360,37 @@ export default function ProfileStylePreviewScreen({
         ? ++professionalRequestIdRef.current
         : null;
 
-    const [identityResult, professionalResult] =
-      await Promise.all([
-        getOwnProfile(),
-        template === 'professional'
-          ? getOwnProfessionalProfile()
-          : Promise.resolve(null),
-      ]);
+    const backgroundRequestId =
+      template === 'professional'
+        ? ++backgroundRequestIdRef.current
+        : null;
+
+    const portfolioRequestId =
+      template === 'professional'
+        ? ++portfolioRequestIdRef.current
+        : null;
+
+    const [
+      identityResult,
+      professionalResult,
+      experienceResult,
+      credentialResult,
+      portfolioResult,
+    ] = await Promise.all([
+      getOwnProfile(),
+      template === 'professional'
+        ? getOwnProfessionalProfile()
+        : Promise.resolve(null),
+      template === 'professional'
+        ? getOwnProfessionalExperiences()
+        : Promise.resolve(null),
+      template === 'professional'
+        ? getOwnProfessionalCredentials()
+        : Promise.resolve(null),
+      template === 'professional'
+        ? getOwnProfessionalPortfolio()
+        : Promise.resolve(null),
+    ]);
 
     if (
       requestId !== requestIdRef.current ||
@@ -249,10 +425,39 @@ export default function ProfileStylePreviewScreen({
       applyProfessionalResult(professionalResult, quiet);
       professionalLoadedRef.current = true;
     }
-  }, [applyProfessionalResult, loadReputation, template]);
+
+    if (
+      experienceResult &&
+      credentialResult &&
+      backgroundRequestId === backgroundRequestIdRef.current
+    ) {
+      applyBackgroundResult(
+        experienceResult,
+        credentialResult,
+        quiet,
+      );
+      backgroundLoadedRef.current = true;
+    }
+
+    if (
+      portfolioResult &&
+      portfolioRequestId === portfolioRequestIdRef.current
+    ) {
+      applyPortfolioResult(portfolioResult, quiet);
+      portfolioLoadedRef.current = true;
+    }
+  }, [
+    applyBackgroundResult,
+    applyPortfolioResult,
+    applyProfessionalResult,
+    loadReputation,
+    template,
+  ]);
 
   loadRef.current = loadProfile;
   loadProfessionalRef.current = loadProfessional;
+  loadBackgroundRef.current = loadBackground;
+  loadPortfolioRef.current = loadPortfolio;
 
   useFocusEffect(
     useCallback(() => {
@@ -263,6 +468,20 @@ export default function ProfileStylePreviewScreen({
         professionalLoadedRef.current
       ) {
         void loadProfessionalRef.current(true);
+      }
+
+      if (
+        template === 'professional' &&
+        backgroundLoadedRef.current
+      ) {
+        void loadBackgroundRef.current(true);
+      }
+
+      if (
+        template === 'professional' &&
+        portfolioLoadedRef.current
+      ) {
+        void loadPortfolioRef.current(true);
       }
     }, [hideTabBar, template]),
   );
@@ -420,6 +639,29 @@ export default function ProfileStylePreviewScreen({
                 onEditProfessional={() => {
                   navigation.navigate(
                     'EditProfessionalProfile',
+                  );
+                }}
+                experiences={experiences}
+                credentials={credentials}
+                backgroundLoading={backgroundLoading}
+                backgroundError={backgroundError}
+                onRetryBackground={() => {
+                  void loadBackground(false);
+                }}
+                onEditBackground={() => {
+                  navigation.navigate(
+                    'EditProfessionalExperience',
+                  );
+                }}
+                portfolioProjects={portfolioProjects}
+                portfolioLoading={portfolioLoading}
+                portfolioError={portfolioError}
+                onRetryPortfolio={() => {
+                  void loadPortfolio(false);
+                }}
+                onEditPortfolio={() => {
+                  navigation.navigate(
+                    'EditProfessionalPortfolio',
                   );
                 }}
                 avatarUrl={avatarUrl}

@@ -210,7 +210,22 @@ Private communication supporting:
 
 The user's profile and reputation hub.
 
-It should include:
+Direct Gain has three distinct profile experiences:
+
+- **Personal** — social/community. This is the live
+  public profile today.
+- **Professional** — work/career. Owner preview only
+  until activation. Core identity, skills & services,
+  experience, qualifications/licences/certifications,
+  and owner-claimed Portfolio v1 now persist in
+  Professional preview. New Portfolio projects
+  default to the top; manual ordering remains
+  supported. Professional is still not public.
+  Résumé comes later.
+- **Business** — customer-facing business presence.
+  Not started.
+
+My Gain should include:
 
 - Profile photo
 - Bio

@@ -9,9 +9,7 @@ import {
 } from '../../../theme/designSystem';
 
 const LATER_ITEMS = [
-  'Experience',
-  'Portfolio',
-  'Qualifications',
+  'Résumé',
 ] as const;
 
 type ProfessionalSetupModuleProps = {
@@ -32,8 +30,8 @@ export default function ProfessionalSetupModule({
       accessibilityRole="text"
       accessibilityLabel={
         hasMissing
-          ? `Owner preview. Complete your Professional profile. Missing: ${missingLabel}. Experience, Portfolio and Qualifications come later. These details are not public yet.`
-          : 'Owner preview. Core Professional details are ready. Experience, Portfolio and Qualifications come later. These details are not public yet.'
+          ? `Owner preview. Complete your Professional profile. Missing: ${missingLabel}. Résumé comes later. These details are not public yet.`
+          : 'Owner preview. Core Professional details are ready. Add experience, credentials and portfolio any time. Résumé comes later. These details are not public yet.'
       }
     >
       <Text style={styles.kicker}>OWNER PREVIEW</Text>
@@ -45,7 +43,7 @@ export default function ProfessionalSetupModule({
       <Text style={styles.body}>
         {hasMissing
           ? `Still to add: ${missingLabel}.`
-          : 'Headline, About, availability, service area, work preference and skills can be edited any time.'}
+          : 'Headline, About, availability, service area, work preference, skills, experience, credentials and portfolio can be edited any time.'}
       </Text>
       <Text style={styles.items}>
         Coming later · {LATER_ITEMS.join(' · ')}

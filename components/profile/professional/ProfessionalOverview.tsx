@@ -128,7 +128,13 @@ export default function ProfessionalOverview({
 
           {skills.length > 0 ? (
             <View style={styles.block}>
-              <Text style={styles.label}>Skills</Text>
+              <Text style={styles.label}>
+                Skills & services
+              </Text>
+              <Text style={styles.claimNote}>
+                These are your claims. Direct Gain has not
+                verified them.
+              </Text>
               <View style={styles.skillWrap}>
                 {skills.map(skill => (
                   <View
@@ -142,7 +148,11 @@ export default function ProfessionalOverview({
                 ))}
               </View>
             </View>
-          ) : null}
+          ) : (
+            <Text style={styles.quietEmpty}>
+              No skills or services added yet.
+            </Text>
+          )}
 
           <ProfessionalSetupModule
             missingFields={missingFields}
@@ -196,6 +206,20 @@ const styles = StyleSheet.create({
     color: textColor.primary,
     fontSize: 14,
     lineHeight: 20,
+    fontWeight: '500',
+  },
+
+  claimNote: {
+    color: textColor.muted,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '500',
+  },
+
+  quietEmpty: {
+    color: textColor.muted,
+    fontSize: 12,
+    lineHeight: 16,
     fontWeight: '500',
   },
 
