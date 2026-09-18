@@ -22,6 +22,7 @@ type ProfessionalResumeCardProps = {
   error?: string | null;
   resume: ProfessionalResume | null;
   mutating?: boolean;
+  presentation?: 'full' | 'landing';
   onRetry?: () => void;
   onAdd: () => void;
   onView: () => void;
@@ -34,15 +35,17 @@ export default function ProfessionalResumeCard({
   error = null,
   resume,
   mutating = false,
+  presentation = 'full',
   onRetry,
   onAdd,
   onView,
   onReplace,
   onRemove,
 }: ProfessionalResumeCardProps) {
+  const landing = presentation === 'landing';
   if (loading) {
     return (
-      <View style={styles.card}>
+      <View style={landing ? styles.landingRoot : styles.card}>
         <Text style={styles.status}>Loading résumé…</Text>
       </View>
     );
@@ -50,8 +53,10 @@ export default function ProfessionalResumeCard({
 
   if (error) {
     return (
-      <View style={styles.card}>
-        <Text style={styles.title}>Résumé</Text>
+      <View style={landing ? styles.landingRoot : styles.card}>
+        {landing ? null : (
+          <Text style={styles.title}>Résumé</Text>
+        )}
         <Text style={styles.errorBody}>{error}</Text>
         {onRetry ? (
           <Pressable
@@ -71,6 +76,30 @@ export default function ProfessionalResumeCard({
   }
 
   if (!resume) {
+    if (landing) {
+      return (
+        <View style={styles.landingRoot}>
+          <Text style={styles.body}>
+            Add a résumé when you are ready. It stays private
+            while Professional is preview-only.
+          </Text>
+          <Pressable
+            onPress={onAdd}
+            disabled={mutating}
+            accessibilityRole="button"
+            accessibilityLabel="Add résumé"
+            style={({ pressed }) => [
+              styles.landingAction,
+              pressed && styles.pressed,
+              mutating && styles.disabled,
+            ]}
+          >
+            <Text style={styles.landingActionText}>Add résumé</Text>
+          </Pressable>
+        </View>
+      );
+    }
+
     return (
       <View style={styles.card}>
         <View style={styles.headerRow}>
@@ -109,6 +138,70 @@ export default function ProfessionalResumeCard({
     resume.byteSize,
   );
 
+  if (landing) {
+    return (
+      <View style={styles.landingRoot}>
+        <View style={styles.landingRow}>
+          <Pressable
+            onPress={onView}
+            disabled={mutating}
+            accessibilityRole="button"
+            accessibilityLabel="View résumé"
+            accessibilityHint="Opens your private résumé in Direct Gain"
+            style={({ pressed }) => [
+              styles.landingIdentity,
+              pressed && styles.pressed,
+              mutating && styles.disabled,
+            ]}
+          >
+            <Ionicons
+              name="document-text-outline"
+              size={iconSize.md}
+              color={textColor.muted}
+            />
+            <View style={styles.copy}>
+              <Text style={styles.filename} numberOfLines={1}>
+                {resume.originalFilename}
+              </Text>
+              <Text style={styles.meta}>
+                {sizeLabel ? `${sizeLabel} · ` : ''}PDF · Private
+              </Text>
+            </View>
+          </Pressable>
+          <Pressable
+            onPress={onView}
+            disabled={mutating}
+            accessibilityRole="button"
+            accessibilityLabel="View résumé"
+            accessibilityHint="Opens your private résumé in Direct Gain"
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.landingAction,
+              pressed && styles.pressed,
+              mutating && styles.disabled,
+            ]}
+          >
+            <Text style={styles.landingActionText}>View</Text>
+          </Pressable>
+        </View>
+        <Pressable
+          onPress={onReplace}
+          disabled={mutating}
+          accessibilityRole="button"
+          accessibilityLabel="Manage résumé"
+          accessibilityHint="Opens résumé replace and remove options"
+          style={({ pressed }) => [
+            styles.manageLink,
+            pressed && styles.pressed,
+            mutating && styles.disabled,
+          ]}
+        >
+          <Text style={styles.manageLinkText}>Manage résumé</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.card}>
       <View style={styles.headerRow}>
@@ -135,13 +228,16 @@ export default function ProfessionalResumeCard({
           disabled={mutating}
           accessibilityRole="button"
           accessibilityLabel="View résumé"
+          accessibilityHint="Opens your private résumé in Direct Gain"
           style={({ pressed }) => [
             styles.primaryAction,
             pressed && styles.pressed,
             mutating && styles.disabled,
           ]}
         >
-          <Text style={styles.primaryActionText}>View résumé</Text>
+          <Text style={styles.primaryActionText}>
+            View résumé
+          </Text>
         </Pressable>
         <Pressable
           onPress={onReplace}
@@ -154,7 +250,9 @@ export default function ProfessionalResumeCard({
             mutating && styles.disabled,
           ]}
         >
-          <Text style={styles.secondaryActionText}>Replace</Text>
+          <Text style={styles.secondaryActionText}>
+            Replace
+          </Text>
         </Pressable>
         <Pressable
           onPress={onRemove}
@@ -182,6 +280,46 @@ const styles = StyleSheet.create({
     borderColor: alpha.white08,
     backgroundColor: surface.cardRaised,
     gap: spacing.sm,
+  },
+
+  landingCard: {
+    padding: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: alpha.white08,
+    backgroundColor: surface.cardRaised,
+    gap: spacing.xs,
+  },
+
+  landingRoot: {
+    gap: spacing.xxs,
+  },
+
+  landingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+
+  landingIdentity: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    minHeight: 44,
+  },
+
+  landingAction: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xxs,
+  },
+
+  landingActionText: {
+    color: palette.opportunityGreen,
+    fontSize: 13,
+    fontWeight: '800',
   },
 
   headerRow: {
@@ -282,6 +420,18 @@ const styles = StyleSheet.create({
     color: palette.danger,
     fontSize: 13,
     fontWeight: '800',
+  },
+
+  manageLink: {
+    alignSelf: 'flex-start',
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+
+  manageLinkText: {
+    color: textColor.muted,
+    fontSize: 13,
+    fontWeight: '700',
   },
 
   pressed: {

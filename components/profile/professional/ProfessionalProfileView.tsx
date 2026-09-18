@@ -157,6 +157,23 @@ export default function ProfessionalProfileView({
             professionalError={professionalError}
             onRetryProfessional={onRetryProfessional}
             onEditProfessional={onEditProfessional}
+            experiences={experiences}
+            credentials={credentials}
+            backgroundLoading={backgroundLoading}
+            backgroundError={backgroundError}
+            onRetryBackground={onRetryBackground}
+            onEditBackground={onEditBackground}
+            portfolioProjects={portfolioProjects}
+            portfolioLoading={portfolioLoading}
+            portfolioError={portfolioError}
+            onRetryPortfolio={onRetryPortfolio}
+            onEditPortfolio={onEditPortfolio}
+            onViewPortfolio={() => {
+              setSelectedTab('portfolio');
+            }}
+            onViewExperience={() => {
+              setSelectedTab('experience');
+            }}
             resume={resume}
             resumeLoading={resumeLoading}
             resumeError={resumeError}
@@ -166,8 +183,6 @@ export default function ProfessionalProfileView({
             onViewResume={onViewResume}
             onReplaceResume={onReplaceResume}
             onRemoveResume={onRemoveResume}
-            reviews={reviews}
-            onPressReviewer={onPressReviewer}
           />
         ) : null}
 

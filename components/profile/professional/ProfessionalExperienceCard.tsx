@@ -25,11 +25,13 @@ type ProfessionalExperienceCardProps = {
     | 'isCurrent'
     | 'description'
   >;
+  compact?: boolean;
   footer?: ReactNode;
 };
 
 export default function ProfessionalExperienceCard({
   experience,
+  compact = false,
   footer,
 }: ProfessionalExperienceCardProps) {
   return (
@@ -43,7 +45,7 @@ export default function ProfessionalExperienceCard({
       <Text style={styles.dates}>
         {formatProfessionalExperienceDateRange(experience)}
       </Text>
-      {experience.description ? (
+      {!compact && experience.description ? (
         <Text style={styles.description} numberOfLines={4}>
           {experience.description}
         </Text>

@@ -1,10 +1,10 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import ProfileReviewCard from '../ProfileReviewCard';
+import ProfessionalExperiencePreview from './ProfessionalExperiencePreview';
+import ProfessionalLandingSectionHeader from './ProfessionalLandingSectionHeader';
+import ProfessionalPortfolioPreview from './ProfessionalPortfolioPreview';
 import ProfessionalResumeCard from './ProfessionalResumeCard';
 import ProfessionalSetupModule from './ProfessionalSetupModule';
-
-import type { PresentedProfileReview } from '../profilePresentation';
 
 import {
   formatProfessionalAvailabilityLabel,
@@ -13,6 +13,9 @@ import {
 } from '../../../services/profile/professionalProfileAdapter';
 
 import type {
+  ProfessionalCredential,
+  ProfessionalExperience as ProfessionalExperienceEntry,
+  ProfessionalPortfolioPresentedProject,
   ProfessionalProfileCore,
   ProfessionalResume,
 } from '../../../types/professionalProfile';
@@ -30,6 +33,19 @@ type ProfessionalOverviewProps = {
   professionalError: string | null;
   onRetryProfessional: () => void;
   onEditProfessional: () => void;
+  experiences: ProfessionalExperienceEntry[];
+  credentials: ProfessionalCredential[];
+  backgroundLoading: boolean;
+  backgroundError: string | null;
+  onRetryBackground: () => void;
+  onEditBackground: () => void;
+  portfolioProjects: ProfessionalPortfolioPresentedProject[];
+  portfolioLoading: boolean;
+  portfolioError: string | null;
+  onRetryPortfolio: () => void;
+  onEditPortfolio: () => void;
+  onViewPortfolio: () => void;
+  onViewExperience: () => void;
   resume: ProfessionalResume | null;
   resumeLoading: boolean;
   resumeError: string | null;
@@ -39,8 +55,6 @@ type ProfessionalOverviewProps = {
   onViewResume: () => void;
   onReplaceResume: () => void;
   onRemoveResume: () => void;
-  reviews: PresentedProfileReview[];
-  onPressReviewer: (profileId: string) => void;
 };
 
 export default function ProfessionalOverview({
@@ -48,6 +62,19 @@ export default function ProfessionalOverview({
   professionalError,
   onRetryProfessional,
   onEditProfessional,
+  experiences,
+  credentials,
+  backgroundLoading,
+  backgroundError,
+  onRetryBackground,
+  onEditBackground,
+  portfolioProjects,
+  portfolioLoading,
+  portfolioError,
+  onRetryPortfolio,
+  onEditPortfolio,
+  onViewPortfolio,
+  onViewExperience,
   resume,
   resumeLoading,
   resumeError,
@@ -57,25 +84,32 @@ export default function ProfessionalOverview({
   onViewResume,
   onReplaceResume,
   onRemoveResume,
-  reviews,
-  onPressReviewer,
 }: ProfessionalOverviewProps) {
-  const recentReviews = reviews.slice(0, 2);
   const missingFields = professionalError
     ? []
     : getMissingProfessionalCoreFieldLabels(professional);
 
-  const availabilityLabel = professional?.availability
-    ? formatProfessionalAvailabilityLabel(
-        professional.availability,
-      )
-    : null;
-  const workPreferenceLabel = professional?.workPreference
-    ? formatProfessionalWorkPreferenceLabel(
-        professional.workPreference,
-      )
-    : null;
-  const skills = professional?.skills ?? [];
+  const availabilityLabel = professionalError
+    ? null
+    : professional?.availability
+      ? formatProfessionalAvailabilityLabel(
+          professional.availability,
+        )
+      : null;
+  const workPreferenceLabel = professionalError
+    ? null
+    : professional?.workPreference
+      ? formatProfessionalWorkPreferenceLabel(
+          professional.workPreference,
+        )
+      : null;
+  const detailsParts = [
+    availabilityLabel,
+    workPreferenceLabel,
+  ].filter((value): value is string => Boolean(value));
+  const skills = professionalError
+    ? []
+    : professional?.skills ?? [];
 
   return (
     <View style={styles.root}>
@@ -113,134 +147,98 @@ export default function ProfessionalOverview({
           </Pressable>
         </View>
       ) : (
-        <>
-          {professional?.about ? (
-            <View style={styles.block}>
-              <Text style={styles.label}>About</Text>
-              <Text style={styles.value}>
-                {professional.about}
-              </Text>
-            </View>
-          ) : null}
-
-          {availabilityLabel || workPreferenceLabel ? (
-            <View style={styles.metaRow}>
-              {availabilityLabel ? (
-                <View style={styles.block}>
-                  <Text style={styles.label}>
-                    Availability
-                  </Text>
-                  <Text style={styles.value}>
-                    {availabilityLabel}
-                  </Text>
-                </View>
-              ) : null}
-              {workPreferenceLabel ? (
-                <View style={styles.block}>
-                  <Text style={styles.label}>
-                    Work preference
-                  </Text>
-                  <Text style={styles.value}>
-                    {workPreferenceLabel}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-          ) : null}
-
+        <View style={styles.block}>
+          <ProfessionalLandingSectionHeader title="Skills & services" />
+          <Text style={styles.claimNote}>
+            These are your claims. Direct Gain has not
+            verified them.
+          </Text>
           {skills.length > 0 ? (
-            <View style={styles.block}>
-              <Text style={styles.label}>
-                Skills & services
-              </Text>
-              <Text style={styles.claimNote}>
-                These are your claims. Direct Gain has not
-                verified them.
-              </Text>
-              <View style={styles.skillWrap}>
-                {skills.map(skill => (
-                  <View
-                    key={skill.id}
-                    style={styles.skillChip}
-                  >
-                    <Text style={styles.skillText}>
-                      {skill.name}
-                    </Text>
-                  </View>
-                ))}
-              </View>
+            <View style={styles.skillWrap}>
+              {skills.map(skill => (
+                <View key={skill.id} style={styles.skillChip}>
+                  <Text style={styles.skillText}>
+                    {skill.name}
+                  </Text>
+                </View>
+              ))}
             </View>
           ) : (
             <Text style={styles.quietEmpty}>
               No skills or services added yet.
             </Text>
           )}
-
-          <ProfessionalResumeCard
-            loading={resumeLoading}
-            error={resumeError}
-            resume={resume}
-            mutating={resumeMutating}
-            onRetry={onRetryResume}
-            onAdd={onAddResume}
-            onView={onViewResume}
-            onReplace={onReplaceResume}
-            onRemove={onRemoveResume}
-          />
-
-          <ProfessionalSetupModule
-            missingFields={missingFields}
-            onEditPress={onEditProfessional}
-          />
-        </>
+        </View>
       )}
 
-      {recentReviews.length > 0 ? (
-        <View style={styles.recent}>
-          <Text style={styles.sectionTitle}>
-            Recent reviews
+      <ProfessionalPortfolioPreview
+        loading={portfolioLoading}
+        error={portfolioError}
+        projects={portfolioProjects}
+        onRetry={onRetryPortfolio}
+        onViewAll={onViewPortfolio}
+        onEditPortfolio={onEditPortfolio}
+      />
+
+      <ProfessionalExperiencePreview
+        loading={backgroundLoading}
+        error={backgroundError}
+        experiences={experiences}
+        credentials={credentials}
+        onRetry={onRetryBackground}
+        onViewAll={onViewExperience}
+        onEditBackground={onEditBackground}
+      />
+
+      {detailsParts.length > 0 ? (
+        <View style={styles.block}>
+          <ProfessionalLandingSectionHeader title="Details" />
+          <Text
+            style={styles.detailsValue}
+            accessibilityLabel={detailsParts.join(', ')}
+          >
+            {detailsParts.join(' · ')}
           </Text>
-          {recentReviews.map(review => (
-            <ProfileReviewCard
-              key={review.cardKey}
-              review={review}
-              onPressReviewer={onPressReviewer}
-            />
-          ))}
         </View>
       ) : null}
+
+      <View style={styles.block}>
+        <ProfessionalLandingSectionHeader title="Résumé" />
+        <ProfessionalResumeCard
+          presentation="landing"
+          loading={resumeLoading}
+          error={resumeError}
+          resume={resume}
+          mutating={resumeMutating}
+          onRetry={onRetryResume}
+          onAdd={onAddResume}
+          onView={onViewResume}
+          onReplace={onReplaceResume}
+          onRemove={onRemoveResume}
+        />
+      </View>
+
+      <View style={styles.block}>
+        <ProfessionalLandingSectionHeader title="Owner preview" />
+        <ProfessionalSetupModule
+          compact
+          missingFields={missingFields}
+          onEditPress={onEditProfessional}
+        />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: {
-    gap: spacing.md,
+    gap: spacing.sm,
+    paddingBottom: spacing.md,
   },
 
   block: {
-    gap: 6,
-    flex: 1,
+    gap: spacing.xxs,
     minWidth: 0,
-  },
-
-  metaRow: {
-    gap: spacing.sm,
-  },
-
-  label: {
-    color: textColor.muted,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-  },
-
-  value: {
-    color: textColor.primary,
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '500',
   },
 
   claimNote: {
@@ -279,15 +277,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  recent: {
-    gap: spacing.sm,
-  },
-
-  sectionTitle: {
+  detailsValue: {
     color: textColor.primary,
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 20,
-    fontWeight: '800',
+    fontWeight: '600',
   },
 
   errorCard: {

@@ -11,35 +11,45 @@ import {
 type ProfessionalSetupModuleProps = {
   missingFields: string[];
   onEditPress: () => void;
+  compact?: boolean;
 };
 
 export default function ProfessionalSetupModule({
   missingFields,
   onEditPress,
+  compact = false,
 }: ProfessionalSetupModuleProps) {
   const hasMissing = missingFields.length > 0;
   const missingLabel = missingFields.join(', ');
+  const readyTitle = compact
+    ? 'Professional profile details are ready.'
+    : 'Core Professional details are ready';
+  const readyBody = compact
+    ? 'Edit your information at any time.'
+    : 'Headline, About, availability, service area, work preference, skills, experience, credentials, portfolio and résumé can be edited any time.';
 
   return (
     <View
-      style={styles.card}
+      style={[styles.card, compact && styles.cardCompact]}
       accessibilityRole="text"
       accessibilityLabel={
         hasMissing
           ? `Owner preview. Complete your Professional profile. Missing: ${missingLabel}. These details are not public yet.`
-          : 'Owner preview. Core Professional details are ready. Add experience, credentials, portfolio and résumé any time. These details are not public yet.'
+          : 'Owner preview. Professional profile details are ready. Edit your information at any time. These details are not public yet.'
       }
     >
-      <Text style={styles.kicker}>OWNER PREVIEW</Text>
+      {compact ? null : (
+        <Text style={styles.kicker}>OWNER PREVIEW</Text>
+      )}
       <Text style={styles.title}>
         {hasMissing
           ? 'Complete your Professional profile'
-          : 'Core Professional details are ready'}
+          : readyTitle}
       </Text>
       <Text style={styles.body}>
         {hasMissing
           ? `Still to add: ${missingLabel}.`
-          : 'Headline, About, availability, service area, work preference, skills, experience, credentials, portfolio and résumé can be edited any time.'}
+          : readyBody}
       </Text>
 
       <Pressable
@@ -48,6 +58,7 @@ export default function ProfessionalSetupModule({
         accessibilityLabel="Edit Professional Profile"
         style={({ pressed }) => [
           styles.editButton,
+          compact && styles.editButtonCompact,
           pressed && styles.editButtonPressed,
         ]}
       >
@@ -68,6 +79,14 @@ const styles = StyleSheet.create({
     borderColor: alpha.green12,
     backgroundColor: alpha.green04,
     gap: 4,
+  },
+
+  cardCompact: {
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
+    gap: spacing.xxs,
   },
 
   kicker: {
@@ -95,9 +114,18 @@ const styles = StyleSheet.create({
     marginTop: 6,
     minHeight: 44,
     borderRadius: radius.pill,
-    backgroundColor: palette.opportunityGreen,
+    borderWidth: 1,
+    borderColor: alpha.white08,
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  editButtonCompact: {
+    marginTop: spacing.xxs,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 0,
+    borderWidth: 0,
   },
 
   editButtonPressed: {
@@ -105,7 +133,7 @@ const styles = StyleSheet.create({
   },
 
   editButtonText: {
-    color: textColor.inverse,
+    color: palette.opportunityGreen,
     fontSize: 13,
     fontWeight: '800',
   },
