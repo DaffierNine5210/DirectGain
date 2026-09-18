@@ -58,6 +58,8 @@ type ProfessionalProfileViewProps = {
   stats: ProfileReviewStats | null;
   statsError: string | null;
   statsLoading: boolean;
+  completedJobsCount: number | null;
+  completedJobsError: string | null;
   reviewsLoading: boolean;
   reviewsError: string | null;
   onRetryReviews: () => void;
@@ -97,6 +99,8 @@ export default function ProfessionalProfileView({
   stats,
   statsError,
   statsLoading,
+  completedJobsCount,
+  completedJobsError,
   reviewsLoading,
   reviewsError,
   onRetryReviews,
@@ -114,6 +118,12 @@ export default function ProfessionalProfileView({
   const serviceArea = professionalError
     ? null
     : professional?.serviceArea ?? null;
+  const about = professionalError
+    ? null
+    : professional?.about ?? null;
+  const skillsCount = professionalError
+    ? null
+    : professional?.skills.length ?? 0;
 
   return (
     <View style={styles.root}>
@@ -121,10 +131,16 @@ export default function ProfessionalProfileView({
         displayName={profile.displayName}
         headline={headline}
         serviceArea={serviceArea}
+        about={about}
+        skillsCount={skillsCount}
         hasStoredPhoto={Boolean(profile.avatarPath)}
         avatarUrl={avatarUrl}
         avatarUnavailable={avatarUnavailable}
         stats={stats}
+        statsError={statsError}
+        statsLoading={statsLoading}
+        completedJobsCount={completedJobsCount}
+        completedJobsError={completedJobsError}
       />
 
       <ProfessionalProfileActions onMessage={onMessage} />

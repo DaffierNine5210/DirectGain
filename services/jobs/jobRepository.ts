@@ -609,6 +609,43 @@ export async function listMyAssignedJobs(): Promise<{
   };
 }
 
+export async function countCompletedJobsForAssignedUser(
+  profileId: string,
+): Promise<{
+  count: number | null;
+  error: string | null;
+}> {
+  const id = profileId.trim().toLowerCase();
+
+  if (!isUuid(id)) {
+    return {
+      count: null,
+      error: 'This profile could not be found.',
+    };
+  }
+
+  const result = await supabase
+    .from('jobs')
+    .select('id', {
+      count: 'exact',
+      head: true,
+    })
+    .eq('assigned_user_id', id)
+    .eq('status', 'completed');
+
+  if (result.error) {
+    return {
+      count: null,
+      error: formatOwnedJobsError(),
+    };
+  }
+
+  return {
+    count: result.count ?? 0,
+    error: null,
+  };
+}
+
 function sanitiseCreateInput(
   input: CreateOpenJobInput,
 ):

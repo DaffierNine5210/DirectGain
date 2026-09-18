@@ -49,6 +49,7 @@ import {
   getOwnProfessionalResume,
   removeOwnProfessionalResume,
 } from '../../services/profile/professionalResumeRepository';
+import { countCompletedJobsForAssignedUser } from '../../services/jobs/jobRepository';
 import { loadProfileReputation } from '../../services/reviews/reviewRepository';
 
 import type {
@@ -95,6 +96,7 @@ export default function ProfileStylePreviewScreen({
   const portfolioLoadedRef = useRef(false);
   const resumeRequestIdRef = useRef(0);
   const resumeLoadedRef = useRef(false);
+  const completedJobsRequestIdRef = useRef(0);
   const loadRef = useRef<
     (quiet: boolean) => Promise<void>
   >(async () => {});
@@ -170,6 +172,10 @@ export default function ProfileStylePreviewScreen({
     null,
   );
   const [resumeMutating, setResumeMutating] = useState(false);
+  const [completedJobsCount, setCompletedJobsCount] =
+    useState<number | null>(null);
+  const [completedJobsError, setCompletedJobsError] =
+    useState<string | null>(null);
 
   const loadReputation = useCallback(
     async (
@@ -206,6 +212,27 @@ export default function ProfileStylePreviewScreen({
               result.reviews,
               result.reviewersById,
             ),
+      );
+    },
+    [],
+  );
+
+  const loadCompletedJobsCount = useCallback(
+    async (profileId: string) => {
+      const requestId = ++completedJobsRequestIdRef.current;
+      const result =
+        await countCompletedJobsForAssignedUser(profileId);
+
+      if (
+        requestId !== completedJobsRequestIdRef.current ||
+        !mountedRef.current
+      ) {
+        return;
+      }
+
+      setCompletedJobsError(result.error);
+      setCompletedJobsCount(
+        result.error ? null : result.count,
       );
     },
     [],
@@ -493,6 +520,10 @@ export default function ProfileStylePreviewScreen({
     setProfile(identityResult.profile);
     void loadReputation(identityResult.profile.id, !quiet);
 
+    if (template === 'professional') {
+      void loadCompletedJobsCount(identityResult.profile.id);
+    }
+
     if (
       professionalResult &&
       professionalRequestId ===
@@ -535,6 +566,7 @@ export default function ProfileStylePreviewScreen({
     applyPortfolioResult,
     applyProfessionalResult,
     applyResumeResult,
+    loadCompletedJobsCount,
     loadReputation,
     template,
   ]);
@@ -639,7 +671,7 @@ export default function ProfileStylePreviewScreen({
   const unavailable = template === 'business';
   const previewTitle =
     template === 'professional'
-      ? 'Professional preview'
+      ? 'Preview'
       : 'Personal preview';
   const isProfessional = template === 'professional';
 
@@ -697,7 +729,11 @@ export default function ProfileStylePreviewScreen({
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={
+            isProfessional
+              ? styles.scrollProfessional
+              : styles.scroll
+          }
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -830,6 +866,8 @@ export default function ProfileStylePreviewScreen({
                 stats={reviewStats}
                 statsError={reviewStatsError}
                 statsLoading={reviewStatsLoading}
+                completedJobsCount={completedJobsCount}
+                completedJobsError={completedJobsError}
                 reviewsLoading={reviewsLoading}
                 reviewsError={reviewsError}
                 onRetryReviews={() => {
@@ -932,6 +970,11 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
 
+  scrollProfessional: {
+    paddingBottom: spacing.massive,
+    gap: 0,
+  },
+
   banner: {
     marginHorizontal: spacing.lg,
     marginTop: spacing.sm,
@@ -967,9 +1010,10 @@ const styles = StyleSheet.create({
 
   professionalNotice: {
     marginHorizontal: spacing.lg,
-    marginTop: spacing.xs,
+    marginTop: 0,
+    marginBottom: spacing.xxs,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
+    paddingVertical: spacing.xxs,
     borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: alpha.green12,
