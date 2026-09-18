@@ -220,8 +220,16 @@ Direct Gain has three distinct profile experiences:
   and owner-claimed Portfolio v1 now persist in
   Professional preview. New Portfolio projects
   default to the top; manual ordering remains
-  supported. Professional is still not public.
-  Résumé comes later.
+  supported. Owner-claimed PDF résumé v1 is complete
+  and runtime verified: one private current file,
+  5 MiB max, private `professional-resumes` bucket,
+  owner-only Storage/RLS, metadata in
+  `professional_resumes`, memory-only signed URLs,
+  in-app Direct Gain PDF viewer (no external browser).
+  Migrations 017–019 applied (018 Storage SELECT
+  lifecycle; 019 canonical path parser / INSERT RLS).
+  Professional is still not public. Contact actions
+  come next.
 - **Business** — customer-facing business presence.
   Not started.
 

@@ -222,3 +222,18 @@ export type ProfessionalPortfolioDraftProject = {
   description: string;
   media: ProfessionalPortfolioDraftMedia[];
 };
+
+export const PROFESSIONAL_RESUME_PDF_MIME = 'application/pdf';
+export const PROFESSIONAL_RESUME_MAX_BYTES = 5 * 1024 * 1024;
+export const PROFESSIONAL_RESUME_FILENAME_MIN = 5;
+export const PROFESSIONAL_RESUME_FILENAME_MAX = 120;
+
+export type ProfessionalResume = {
+  profileId: string;
+  storagePath: string;
+  mimeType: typeof PROFESSIONAL_RESUME_PDF_MIME;
+  byteSize: number;
+  originalFilename: string;
+  createdAt: string;
+  updatedAt: string;
+};

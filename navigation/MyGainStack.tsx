@@ -6,6 +6,8 @@ import EditOwnProfileScreen from '../screens/profile/EditOwnProfileScreen';
 import EditProfessionalProfileScreen from '../screens/profile/EditProfessionalProfileScreen';
 import EditProfessionalExperienceScreen from '../screens/profile/EditProfessionalExperienceScreen';
 import EditProfessionalPortfolioScreen from '../screens/profile/EditProfessionalPortfolioScreen';
+import EditProfessionalResumeScreen from '../screens/profile/EditProfessionalResumeScreen';
+import ProfessionalResumeViewerScreen from '../screens/profile/ProfessionalResumeViewerScreen';
 import ProfileStylePreviewScreen from '../screens/profile/ProfileStylePreviewScreen';
 import ProfileStyleScreen from '../screens/profile/ProfileStyleScreen';
 import PublicProfileScreen from '../screens/profile/PublicProfileScreen';
@@ -27,6 +29,11 @@ export type MyGainStackParamList = {
   EditProfessionalProfile: undefined;
   EditProfessionalExperience: undefined;
   EditProfessionalPortfolio: undefined;
+  EditProfessionalResume: undefined;
+  ProfessionalResumeViewer: {
+    storagePath: string;
+    originalFilename: string;
+  };
   Work: NavigatorScreenParams<WorkStackParamList> | undefined;
 } & PublicProfileParamList;
 
@@ -82,6 +89,16 @@ export default function MyGainStack() {
       <Stack.Screen
         name="EditProfessionalPortfolio"
         component={EditProfessionalPortfolioScreen}
+      />
+
+      <Stack.Screen
+        name="EditProfessionalResume"
+        component={EditProfessionalResumeScreen}
+      />
+
+      <Stack.Screen
+        name="ProfessionalResumeViewer"
+        component={ProfessionalResumeViewerScreen}
       />
 
       <Stack.Screen

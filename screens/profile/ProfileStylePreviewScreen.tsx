@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -44,6 +45,10 @@ import {
   getOwnProfessionalProfile,
 } from '../../services/profile/professionalProfileRepository';
 import { getOwnProfessionalPortfolio } from '../../services/profile/professionalPortfolioRepository';
+import {
+  getOwnProfessionalResume,
+  removeOwnProfessionalResume,
+} from '../../services/profile/professionalResumeRepository';
 import { loadProfileReputation } from '../../services/reviews/reviewRepository';
 
 import type {
@@ -51,6 +56,7 @@ import type {
   ProfessionalExperience,
   ProfessionalPortfolioPresentedProject,
   ProfessionalProfileCore,
+  ProfessionalResume,
 } from '../../types/professionalProfile';
 
 import {
@@ -87,6 +93,8 @@ export default function ProfileStylePreviewScreen({
   const backgroundLoadedRef = useRef(false);
   const portfolioRequestIdRef = useRef(0);
   const portfolioLoadedRef = useRef(false);
+  const resumeRequestIdRef = useRef(0);
+  const resumeLoadedRef = useRef(false);
   const loadRef = useRef<
     (quiet: boolean) => Promise<void>
   >(async () => {});
@@ -97,6 +105,9 @@ export default function ProfileStylePreviewScreen({
     (quiet: boolean) => Promise<void>
   >(async () => {});
   const loadPortfolioRef = useRef<
+    (quiet: boolean) => Promise<void>
+  >(async () => {});
+  const loadResumeRef = useRef<
     (quiet: boolean) => Promise<void>
   >(async () => {});
 
@@ -151,6 +162,14 @@ export default function ProfileStylePreviewScreen({
   const [portfolioError, setPortfolioError] = useState<
     string | null
   >(null);
+  const [resume, setResume] = useState<ProfessionalResume | null>(
+    null,
+  );
+  const [resumeLoading, setResumeLoading] = useState(false);
+  const [resumeError, setResumeError] = useState<string | null>(
+    null,
+  );
+  const [resumeMutating, setResumeMutating] = useState(false);
 
   const loadReputation = useCallback(
     async (
@@ -273,6 +292,30 @@ export default function ProfileStylePreviewScreen({
     [],
   );
 
+  const applyResumeResult = useCallback(
+    (
+      result: {
+        resume: ProfessionalResume | null;
+        error: string | null;
+      },
+      quiet: boolean,
+    ) => {
+      if (result.error) {
+        setResumeError(result.error);
+
+        if (!quiet) {
+          setResume(null);
+        }
+
+        return;
+      }
+
+      setResumeError(null);
+      setResume(result.resume);
+    },
+    [],
+  );
+
   const loadProfessional = useCallback(
     async (quiet: boolean) => {
       const requestId = ++professionalRequestIdRef.current;
@@ -347,6 +390,30 @@ export default function ProfileStylePreviewScreen({
     [applyPortfolioResult],
   );
 
+  const loadResume = useCallback(
+    async (quiet: boolean) => {
+      const requestId = ++resumeRequestIdRef.current;
+
+      if (!quiet) {
+        setResumeLoading(true);
+      }
+
+      const result = await getOwnProfessionalResume();
+
+      if (
+        requestId !== resumeRequestIdRef.current ||
+        !mountedRef.current
+      ) {
+        return;
+      }
+
+      setResumeLoading(false);
+      applyResumeResult(result, quiet);
+      resumeLoadedRef.current = true;
+    },
+    [applyResumeResult],
+  );
+
   const loadProfile = useCallback(async (quiet: boolean) => {
     const requestId = ++requestIdRef.current;
 
@@ -370,12 +437,18 @@ export default function ProfileStylePreviewScreen({
         ? ++portfolioRequestIdRef.current
         : null;
 
+    const resumeRequestId =
+      template === 'professional'
+        ? ++resumeRequestIdRef.current
+        : null;
+
     const [
       identityResult,
       professionalResult,
       experienceResult,
       credentialResult,
       portfolioResult,
+      resumeResult,
     ] = await Promise.all([
       getOwnProfile(),
       template === 'professional'
@@ -389,6 +462,9 @@ export default function ProfileStylePreviewScreen({
         : Promise.resolve(null),
       template === 'professional'
         ? getOwnProfessionalPortfolio()
+        : Promise.resolve(null),
+      template === 'professional'
+        ? getOwnProfessionalResume()
         : Promise.resolve(null),
     ]);
 
@@ -446,10 +522,19 @@ export default function ProfileStylePreviewScreen({
       applyPortfolioResult(portfolioResult, quiet);
       portfolioLoadedRef.current = true;
     }
+
+    if (
+      resumeResult &&
+      resumeRequestId === resumeRequestIdRef.current
+    ) {
+      applyResumeResult(resumeResult, quiet);
+      resumeLoadedRef.current = true;
+    }
   }, [
     applyBackgroundResult,
     applyPortfolioResult,
     applyProfessionalResult,
+    applyResumeResult,
     loadReputation,
     template,
   ]);
@@ -458,6 +543,7 @@ export default function ProfileStylePreviewScreen({
   loadProfessionalRef.current = loadProfessional;
   loadBackgroundRef.current = loadBackground;
   loadPortfolioRef.current = loadPortfolio;
+  loadResumeRef.current = loadResume;
 
   useFocusEffect(
     useCallback(() => {
@@ -482,6 +568,13 @@ export default function ProfileStylePreviewScreen({
         portfolioLoadedRef.current
       ) {
         void loadPortfolioRef.current(true);
+      }
+
+      if (
+        template === 'professional' &&
+        resumeLoadedRef.current
+      ) {
+        void loadResumeRef.current(true);
       }
     }, [hideTabBar, template]),
   );
@@ -662,6 +755,73 @@ export default function ProfileStylePreviewScreen({
                 onEditPortfolio={() => {
                   navigation.navigate(
                     'EditProfessionalPortfolio',
+                  );
+                }}
+                resume={resume}
+                resumeLoading={resumeLoading}
+                resumeError={resumeError}
+                resumeMutating={resumeMutating}
+                onRetryResume={() => {
+                  void loadResume(false);
+                }}
+                onAddResume={() => {
+                  navigation.navigate('EditProfessionalResume');
+                }}
+                onViewResume={() => {
+                  if (!resume) {
+                    return;
+                  }
+
+                  navigation.navigate('ProfessionalResumeViewer', {
+                    storagePath: resume.storagePath,
+                    originalFilename: resume.originalFilename,
+                  });
+                }}
+                onReplaceResume={() => {
+                  navigation.navigate('EditProfessionalResume');
+                }}
+                onRemoveResume={() => {
+                  if (!resume || resumeMutating) {
+                    return;
+                  }
+
+                  Alert.alert(
+                    'Remove this résumé?',
+                    'It will be removed from your Professional preview.',
+                    [
+                      { text: 'Keep', style: 'cancel' },
+                      {
+                        text: 'Remove',
+                        style: 'destructive',
+                        onPress: () => {
+                          void (async () => {
+                            setResumeMutating(true);
+                            const removed =
+                              await removeOwnProfessionalResume(
+                                resume,
+                              );
+                            setResumeMutating(false);
+
+                            if (removed.error) {
+                              Alert.alert(
+                                'Résumé could not be removed',
+                                removed.error,
+                              );
+                              return;
+                            }
+
+                            setResume(null);
+
+                            if (removed.cleanupWarning) {
+                              Alert.alert(
+                                'Résumé removed',
+                                removed.cleanupWarning,
+                              );
+                            }
+                          })();
+                        },
+                      },
+                    ],
                   );
                 }}
                 avatarUrl={avatarUrl}

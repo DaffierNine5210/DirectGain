@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import ProfileReviewCard from '../ProfileReviewCard';
+import ProfessionalResumeCard from './ProfessionalResumeCard';
 import ProfessionalSetupModule from './ProfessionalSetupModule';
 
 import type { PresentedProfileReview } from '../profilePresentation';
@@ -11,7 +12,10 @@ import {
   getMissingProfessionalCoreFieldLabels,
 } from '../../../services/profile/professionalProfileAdapter';
 
-import type { ProfessionalProfileCore } from '../../../types/professionalProfile';
+import type {
+  ProfessionalProfileCore,
+  ProfessionalResume,
+} from '../../../types/professionalProfile';
 
 import {
   alpha,
@@ -26,6 +30,15 @@ type ProfessionalOverviewProps = {
   professionalError: string | null;
   onRetryProfessional: () => void;
   onEditProfessional: () => void;
+  resume: ProfessionalResume | null;
+  resumeLoading: boolean;
+  resumeError: string | null;
+  resumeMutating?: boolean;
+  onRetryResume: () => void;
+  onAddResume: () => void;
+  onViewResume: () => void;
+  onReplaceResume: () => void;
+  onRemoveResume: () => void;
   reviews: PresentedProfileReview[];
   onPressReviewer: (profileId: string) => void;
 };
@@ -35,6 +48,15 @@ export default function ProfessionalOverview({
   professionalError,
   onRetryProfessional,
   onEditProfessional,
+  resume,
+  resumeLoading,
+  resumeError,
+  resumeMutating = false,
+  onRetryResume,
+  onAddResume,
+  onViewResume,
+  onReplaceResume,
+  onRemoveResume,
   reviews,
   onPressReviewer,
 }: ProfessionalOverviewProps) {
@@ -153,6 +175,18 @@ export default function ProfessionalOverview({
               No skills or services added yet.
             </Text>
           )}
+
+          <ProfessionalResumeCard
+            loading={resumeLoading}
+            error={resumeError}
+            resume={resume}
+            mutating={resumeMutating}
+            onRetry={onRetryResume}
+            onAdd={onAddResume}
+            onView={onViewResume}
+            onReplace={onReplaceResume}
+            onRemove={onRemoveResume}
+          />
 
           <ProfessionalSetupModule
             missingFields={missingFields}

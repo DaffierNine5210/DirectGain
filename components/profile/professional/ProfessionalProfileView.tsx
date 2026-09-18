@@ -19,6 +19,7 @@ import type {
   ProfessionalExperience as ProfessionalExperienceEntry,
   ProfessionalPortfolioPresentedProject,
   ProfessionalProfileCore,
+  ProfessionalResume,
 } from '../../../types/professionalProfile';
 import type { ProfileReviewStats } from '../../../types/reviews';
 
@@ -41,6 +42,15 @@ type ProfessionalProfileViewProps = {
   portfolioError: string | null;
   onRetryPortfolio: () => void;
   onEditPortfolio: () => void;
+  resume: ProfessionalResume | null;
+  resumeLoading: boolean;
+  resumeError: string | null;
+  resumeMutating?: boolean;
+  onRetryResume: () => void;
+  onAddResume: () => void;
+  onViewResume: () => void;
+  onReplaceResume: () => void;
+  onRemoveResume: () => void;
   avatarUrl?: string | null;
   avatarUnavailable?: boolean;
   reviews: PresentedProfileReview[];
@@ -70,6 +80,15 @@ export default function ProfessionalProfileView({
   portfolioError,
   onRetryPortfolio,
   onEditPortfolio,
+  resume,
+  resumeLoading,
+  resumeError,
+  resumeMutating = false,
+  onRetryResume,
+  onAddResume,
+  onViewResume,
+  onReplaceResume,
+  onRemoveResume,
   avatarUrl = null,
   avatarUnavailable = false,
   reviews,
@@ -117,6 +136,15 @@ export default function ProfessionalProfileView({
             professionalError={professionalError}
             onRetryProfessional={onRetryProfessional}
             onEditProfessional={onEditProfessional}
+            resume={resume}
+            resumeLoading={resumeLoading}
+            resumeError={resumeError}
+            resumeMutating={resumeMutating}
+            onRetryResume={onRetryResume}
+            onAddResume={onAddResume}
+            onViewResume={onViewResume}
+            onReplaceResume={onReplaceResume}
+            onRemoveResume={onRemoveResume}
             reviews={reviews}
             onPressReviewer={onPressReviewer}
           />

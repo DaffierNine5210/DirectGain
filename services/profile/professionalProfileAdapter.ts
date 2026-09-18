@@ -11,6 +11,7 @@ import type {
   ProfessionalPortfolioProject,
   ProfessionalPortfolioProjectSaveInput,
   ProfessionalProfileCore,
+  ProfessionalResume,
   ProfessionalSkill,
   ProfessionalWorkPreference,
   SaveOwnProfessionalProfileInput,
@@ -40,6 +41,10 @@ import {
   PROFESSIONAL_PORTFOLIO_PROJECTS_MAX,
   PROFESSIONAL_PORTFOLIO_TITLE_MAX,
   PROFESSIONAL_PORTFOLIO_TITLE_MIN,
+  PROFESSIONAL_RESUME_FILENAME_MAX,
+  PROFESSIONAL_RESUME_FILENAME_MIN,
+  PROFESSIONAL_RESUME_MAX_BYTES,
+  PROFESSIONAL_RESUME_PDF_MIME,
   PROFESSIONAL_SERVICE_AREA_MAX,
   PROFESSIONAL_SKILL_NAME_MAX,
   PROFESSIONAL_SKILL_NAME_MIN,
@@ -1659,5 +1664,145 @@ export function sanitiseOwnProfessionalPortfolio(
   return {
     ok: true,
     entries,
+  };
+}
+
+const PROFESSIONAL_RESUME_OBJECT_PATH =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$/;
+
+export type ProfessionalResumeRow = {
+  profile_id: string;
+  storage_path: string;
+  mime_type: string;
+  byte_size: number | string;
+  original_filename: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export function isProfessionalResumeStoragePath(
+  value: string,
+  profileId: string,
+): boolean {
+  const path = value.trim().toLowerCase();
+  const owner = profileId.trim().toLowerCase();
+
+  if (
+    !PROFESSIONAL_RESUME_OBJECT_PATH.test(path) ||
+    !isProfessionalUuid(owner)
+  ) {
+    return false;
+  }
+
+  return path.split('/')[0] === owner;
+}
+
+export function normalizeProfessionalResumeFilename(
+  value: string,
+): string | null {
+  let nextName = value.replace(/\\/g, '/');
+
+  if (nextName.includes('/')) {
+    const parts = nextName.split('/');
+    nextName = parts[parts.length - 1] ?? '';
+  }
+
+  nextName = nextName.trim().replace(/\s+/g, ' ');
+
+  if (!nextName) {
+    return null;
+  }
+
+  if (/[\u0000-\u001F\u007F]/.test(nextName)) {
+    return null;
+  }
+
+  if (
+    nextName.includes('..') ||
+    nextName.includes('/') ||
+    nextName.includes('://')
+  ) {
+    return null;
+  }
+
+  if (
+    nextName.length < PROFESSIONAL_RESUME_FILENAME_MIN ||
+    nextName.length > PROFESSIONAL_RESUME_FILENAME_MAX
+  ) {
+    return null;
+  }
+
+  if (nextName.slice(-4).toLowerCase() !== '.pdf') {
+    return null;
+  }
+
+  const stem = nextName.slice(0, -4).trim();
+
+  if (!stem || stem === '.') {
+    return null;
+  }
+
+  return `${stem}.pdf`;
+}
+
+export function formatProfessionalResumeByteSize(
+  byteSize: number,
+): string {
+  if (!Number.isFinite(byteSize) || byteSize <= 0) {
+    return '';
+  }
+
+  if (byteSize < 1024) {
+    return `${byteSize} B`;
+  }
+
+  if (byteSize < 1024 * 1024) {
+    return `${Math.round(byteSize / 1024)} KB`;
+  }
+
+  return `${(byteSize / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export function isProfessionalResumeRow(
+  value: unknown,
+): value is ProfessionalResumeRow {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+
+  const row = value as ProfessionalResumeRow;
+  const byteSize = Number(row.byte_size);
+
+  return (
+    typeof row.profile_id === 'string' &&
+    isProfessionalUuid(row.profile_id) &&
+    typeof row.storage_path === 'string' &&
+    isProfessionalResumeStoragePath(
+      row.storage_path,
+      row.profile_id,
+    ) &&
+    row.mime_type === PROFESSIONAL_RESUME_PDF_MIME &&
+    Number.isFinite(byteSize) &&
+    byteSize > 0 &&
+    byteSize <= PROFESSIONAL_RESUME_MAX_BYTES &&
+    typeof row.original_filename === 'string' &&
+    normalizeProfessionalResumeFilename(row.original_filename) ===
+      row.original_filename &&
+    typeof row.created_at === 'string' &&
+    typeof row.updated_at === 'string'
+  );
+}
+
+export function mapProfessionalResumeRow(
+  row: ProfessionalResumeRow,
+): ProfessionalResume {
+  return {
+    profileId: row.profile_id.toLowerCase(),
+    storagePath: row.storage_path.toLowerCase(),
+    mimeType: PROFESSIONAL_RESUME_PDF_MIME,
+    byteSize: Number(row.byte_size),
+    originalFilename: row.original_filename,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }

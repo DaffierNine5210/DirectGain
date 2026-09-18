@@ -35,6 +35,17 @@ Completed backend:
   owner-only reads, `save_own_professional_portfolio`).
   Applied. Post-apply structure/security verification
   passed.
+- Migration 017 — Professional Résumé v1 (one private PDF
+  per owner, `professional-resumes` bucket, owner-only
+  reads, `save_own_professional_resume` /
+  `remove_own_professional_resume`). Applied. Post-apply
+  structure/security verification passed.
+- Migration 018 — résumé Storage SELECT no longer
+  requires a metadata row during upload/RETURNING.
+  Applied.
+- Migration 019 — `professional_resume_path_profile_id`
+  SQL parser fix so canonical owner paths parse (Storage
+  INSERT RLS). Applied and catalog-verified.
 
 Completed client (runtime verified):
 
@@ -45,11 +56,18 @@ Completed client (runtime verified):
 - Newly created Portfolio projects default to the
   top of the collection; manual up/down ordering
   remains supported
+- Professional Résumé v1 owner preview + editor
+  (PDF only, 5 MiB, private, one current file)
+- In-app Direct Gain PDF viewer (WebView, private
+  signed URL, no external browser)
+- Full iOS simulator lifecycle verified:
+  upload → view → replace → view replacement →
+  remove → re-upload → view
 
 Later:
 
-- Résumé / contact actions
-- Public Professional activation
+- Contact / professional actions
+- Public Professional activation (not started)
 
 ---
 

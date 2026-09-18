@@ -519,6 +519,32 @@ export default function EditProfessionalProfileScreen({
               </Text>
             </Pressable>
 
+            <Pressable
+              onPress={() => {
+                if (saving) {
+                  return;
+                }
+
+                navigation.navigate('EditProfessionalResume');
+              }}
+              disabled={saving}
+              accessibilityRole="button"
+              accessibilityLabel="Résumé"
+              style={({ pressed }) => [
+                styles.linkCard,
+                pressed && styles.linkCardPressed,
+                saving && styles.linkCardDisabled,
+              ]}
+            >
+              <Text style={styles.linkTitle}>
+                Résumé
+              </Text>
+              <Text style={styles.linkSubtitle}>
+                Attach a private PDF résumé to your Professional
+                profile.
+              </Text>
+            </Pressable>
+
             <Text style={styles.sectionLabel}>
               PROFESSIONAL IDENTITY
             </Text>
