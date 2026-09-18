@@ -8,10 +8,6 @@ import {
   textColor,
 } from '../../../theme/designSystem';
 
-const LATER_ITEMS = [
-  'Contact actions',
-] as const;
-
 type ProfessionalSetupModuleProps = {
   missingFields: string[];
   onEditPress: () => void;
@@ -30,8 +26,8 @@ export default function ProfessionalSetupModule({
       accessibilityRole="text"
       accessibilityLabel={
         hasMissing
-          ? `Owner preview. Complete your Professional profile. Missing: ${missingLabel}. Contact actions come later. These details are not public yet.`
-          : 'Owner preview. Core Professional details are ready. Add experience, credentials, portfolio and résumé any time. Contact actions come later. These details are not public yet.'
+          ? `Owner preview. Complete your Professional profile. Missing: ${missingLabel}. These details are not public yet.`
+          : 'Owner preview. Core Professional details are ready. Add experience, credentials, portfolio and résumé any time. These details are not public yet.'
       }
     >
       <Text style={styles.kicker}>OWNER PREVIEW</Text>
@@ -44,9 +40,6 @@ export default function ProfessionalSetupModule({
         {hasMissing
           ? `Still to add: ${missingLabel}.`
           : 'Headline, About, availability, service area, work preference, skills, experience, credentials, portfolio and résumé can be edited any time.'}
-      </Text>
-      <Text style={styles.items}>
-        Coming later · {LATER_ITEMS.join(' · ')}
       </Text>
 
       <Pressable
@@ -96,13 +89,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '500',
-  },
-
-  items: {
-    color: textColor.muted,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '600',
   },
 
   editButton: {

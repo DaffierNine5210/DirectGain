@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import ProfessionalExperience from './ProfessionalExperience';
 import ProfessionalOverview from './ProfessionalOverview';
 import ProfessionalPortfolio from './ProfessionalPortfolio';
+import ProfessionalProfileActions from './ProfessionalProfileActions';
 import ProfessionalProfileHero from './ProfessionalProfileHero';
 import ProfessionalProfileTabs, {
   DEFAULT_PROFESSIONAL_TAB,
@@ -61,6 +62,7 @@ type ProfessionalProfileViewProps = {
   reviewsError: string | null;
   onRetryReviews: () => void;
   onPressReviewer: (profileId: string) => void;
+  onMessage?: () => void;
 };
 
 export default function ProfessionalProfileView({
@@ -99,6 +101,7 @@ export default function ProfessionalProfileView({
   reviewsError,
   onRetryReviews,
   onPressReviewer,
+  onMessage,
 }: ProfessionalProfileViewProps) {
   const [selectedTab, setSelectedTab] =
     useState<ProfessionalProfileTabKey>(
@@ -123,6 +126,8 @@ export default function ProfessionalProfileView({
         avatarUnavailable={avatarUnavailable}
         stats={stats}
       />
+
+      <ProfessionalProfileActions onMessage={onMessage} />
 
       <ProfessionalProfileTabs
         selectedTab={selectedTab}
