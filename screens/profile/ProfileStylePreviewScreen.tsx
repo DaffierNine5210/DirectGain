@@ -788,6 +788,7 @@ export default function ProfileStylePreviewScreen({
               </View>
 
               <ProfessionalProfileView
+                mode="ownerPreview"
                 profile={profile}
                 professional={professional}
                 professionalError={professionalError}

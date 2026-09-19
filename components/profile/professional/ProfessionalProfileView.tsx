@@ -44,14 +44,14 @@ type ProfessionalProfileViewProps = {
   onRetryPortfolio: () => void;
   onEditPortfolio: () => void;
   resume: ProfessionalResume | null;
-  resumeLoading: boolean;
-  resumeError: string | null;
+  resumeLoading?: boolean;
+  resumeError?: string | null;
   resumeMutating?: boolean;
-  onRetryResume: () => void;
-  onAddResume: () => void;
-  onViewResume: () => void;
-  onReplaceResume: () => void;
-  onRemoveResume: () => void;
+  onRetryResume?: () => void;
+  onAddResume?: () => void;
+  onViewResume?: () => void;
+  onReplaceResume?: () => void;
+  onRemoveResume?: () => void;
   avatarUrl?: string | null;
   avatarUnavailable?: boolean;
   reviews: PresentedProfileReview[];
@@ -66,6 +66,7 @@ type ProfessionalProfileViewProps = {
   onPressReviewer: (profileId: string) => void;
   onMessage?: () => void;
   identityVerified?: boolean;
+  mode?: 'ownerPreview' | 'visitor';
 };
 
 export default function ProfessionalProfileView({
@@ -86,8 +87,8 @@ export default function ProfessionalProfileView({
   onRetryPortfolio,
   onEditPortfolio,
   resume,
-  resumeLoading,
-  resumeError,
+  resumeLoading = false,
+  resumeError = null,
   resumeMutating = false,
   onRetryResume,
   onAddResume,
@@ -108,12 +109,14 @@ export default function ProfessionalProfileView({
   onPressReviewer,
   onMessage,
   identityVerified = false,
+  mode = 'ownerPreview',
 }: ProfessionalProfileViewProps) {
   const [selectedTab, setSelectedTab] =
     useState<ProfessionalProfileTabKey>(
       DEFAULT_PROFESSIONAL_TAB,
     );
 
+  const isOwnerPreview = mode === 'ownerPreview';
   const headline = professionalError
     ? null
     : professional?.headline ?? null;
@@ -144,9 +147,12 @@ export default function ProfessionalProfileView({
         completedJobsCount={completedJobsCount}
         completedJobsError={completedJobsError}
         identityVerified={identityVerified}
+        audience={mode}
       />
 
-      <ProfessionalProfileActions onMessage={onMessage} />
+      {isOwnerPreview ? (
+        <ProfessionalProfileActions onMessage={onMessage} />
+      ) : null}
 
       <ProfessionalProfileTabs
         selectedTab={selectedTab}
@@ -186,6 +192,7 @@ export default function ProfessionalProfileView({
             onViewResume={onViewResume}
             onReplaceResume={onReplaceResume}
             onRemoveResume={onRemoveResume}
+            mode={mode}
           />
         ) : null}
 
@@ -195,8 +202,10 @@ export default function ProfessionalProfileView({
             error={portfolioError}
             projects={portfolioProjects}
             onRetry={onRetryPortfolio}
-            ownerPreview
-            onEditPortfolio={onEditPortfolio}
+            ownerPreview={isOwnerPreview}
+            onEditPortfolio={
+              isOwnerPreview ? onEditPortfolio : undefined
+            }
           />
         ) : null}
 
@@ -207,8 +216,10 @@ export default function ProfessionalProfileView({
             experiences={experiences}
             credentials={credentials}
             onRetry={onRetryBackground}
-            ownerPreview
-            onEditBackground={onEditBackground}
+            ownerPreview={isOwnerPreview}
+            onEditBackground={
+              isOwnerPreview ? onEditBackground : undefined
+            }
           />
         ) : null}
 

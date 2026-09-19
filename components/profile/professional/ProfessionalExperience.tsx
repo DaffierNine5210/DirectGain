@@ -77,8 +77,16 @@ export default function ProfessionalExperience({
         <ProfileSectionEmptyState
           compact
           icon="briefcase-outline"
-          title="Add your work experience"
-          body="Share roles, qualifications, licences and certifications. These are your claims — Direct Gain has not verified them."
+          title={
+            ownerPreview
+              ? 'Add your work experience'
+              : 'No work experience yet'
+          }
+          body={
+            ownerPreview
+              ? 'Share roles, qualifications, licences and certifications. These are your claims — Direct Gain has not verified them.'
+              : 'This Professional has not added work experience or credentials. These details are self-claimed when present — Direct Gain has not verified them.'
+          }
           actionTitle={
             ownerPreview && onEditBackground
               ? 'Edit experience & credentials'

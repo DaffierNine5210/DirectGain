@@ -44,6 +44,7 @@ type ProfessionalProfileHeroProps = {
   completedJobsCount: number | null;
   completedJobsError: string | null;
   identityVerified?: boolean;
+  audience?: 'ownerPreview' | 'visitor';
 };
 
 function buildRatingStat(
@@ -95,6 +96,7 @@ export default function ProfessionalProfileHero({
   completedJobsCount,
   completedJobsError,
   identityVerified = false,
+  audience = 'ownerPreview',
 }: ProfessionalProfileHeroProps) {
   const trimmedHeadline = headline?.trim() || null;
   const trimmedServiceArea = serviceArea?.trim() || null;
@@ -143,10 +145,15 @@ export default function ProfessionalProfileHero({
       ? 'Skills unavailable'
       : `${skillsCount} skills`;
 
+  const profileKind =
+    audience === 'visitor'
+      ? 'Direct Gain professional profile'
+      : 'Direct Gain professional profile preview';
+
   return (
     <View
       style={styles.root}
-      accessibilityLabel={`${displayName}. Direct Gain professional profile preview. ${ratingDetail}. ${jobsDetail}. ${skillsDetail}.`}
+      accessibilityLabel={`${displayName}. ${profileKind}. ${ratingDetail}. ${jobsDetail}. ${skillsDetail}.`}
     >
       <View
         style={styles.backdrop}

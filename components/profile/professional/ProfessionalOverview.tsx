@@ -47,14 +47,15 @@ type ProfessionalOverviewProps = {
   onViewPortfolio: () => void;
   onViewExperience: () => void;
   resume: ProfessionalResume | null;
-  resumeLoading: boolean;
-  resumeError: string | null;
+  resumeLoading?: boolean;
+  resumeError?: string | null;
   resumeMutating?: boolean;
-  onRetryResume: () => void;
-  onAddResume: () => void;
-  onViewResume: () => void;
-  onReplaceResume: () => void;
-  onRemoveResume: () => void;
+  onRetryResume?: () => void;
+  onAddResume?: () => void;
+  onViewResume?: () => void;
+  onReplaceResume?: () => void;
+  onRemoveResume?: () => void;
+  mode?: 'ownerPreview' | 'visitor';
 };
 
 export default function ProfessionalOverview({
@@ -76,15 +77,17 @@ export default function ProfessionalOverview({
   onViewPortfolio,
   onViewExperience,
   resume,
-  resumeLoading,
-  resumeError,
+  resumeLoading = false,
+  resumeError = null,
   resumeMutating = false,
   onRetryResume,
   onAddResume,
   onViewResume,
   onReplaceResume,
   onRemoveResume,
+  mode = 'ownerPreview',
 }: ProfessionalOverviewProps) {
+  const isOwnerPreview = mode === 'ownerPreview';
   const missingFields = professionalError
     ? []
     : getMissingProfessionalCoreFieldLabels(professional);
@@ -132,26 +135,29 @@ export default function ProfessionalOverview({
           >
             <Text style={styles.retryText}>Retry</Text>
           </Pressable>
-          <Pressable
-            onPress={onEditProfessional}
-            accessibilityRole="button"
-            accessibilityLabel="Edit Professional Profile"
-            style={({ pressed }) => [
-              styles.editLink,
-              pressed && styles.retryPressed,
-            ]}
-          >
-            <Text style={styles.editLinkText}>
-              Edit Professional Profile
-            </Text>
-          </Pressable>
+          {isOwnerPreview ? (
+            <Pressable
+              onPress={onEditProfessional}
+              accessibilityRole="button"
+              accessibilityLabel="Edit Professional Profile"
+              style={({ pressed }) => [
+                styles.editLink,
+                pressed && styles.retryPressed,
+              ]}
+            >
+              <Text style={styles.editLinkText}>
+                Edit Professional Profile
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : (
         <View style={styles.block}>
           <ProfessionalLandingSectionHeader title="Skills & services" />
           <Text style={styles.claimNote}>
-            These are your claims. Direct Gain has not
-            verified them.
+            {isOwnerPreview
+              ? 'These are your claims. Direct Gain has not verified them.'
+              : 'These are claimed skills and services. Direct Gain has not verified them.'}
           </Text>
           {skills.length > 0 ? (
             <View style={styles.skillWrap}>
@@ -177,7 +183,9 @@ export default function ProfessionalOverview({
         projects={portfolioProjects}
         onRetry={onRetryPortfolio}
         onViewAll={onViewPortfolio}
-        onEditPortfolio={onEditPortfolio}
+        onEditPortfolio={
+          isOwnerPreview ? onEditPortfolio : undefined
+        }
       />
 
       <ProfessionalExperiencePreview
@@ -187,7 +195,9 @@ export default function ProfessionalOverview({
         credentials={credentials}
         onRetry={onRetryBackground}
         onViewAll={onViewExperience}
-        onEditBackground={onEditBackground}
+        onEditBackground={
+          isOwnerPreview ? onEditBackground : undefined
+        }
       />
 
       {detailsParts.length > 0 ? (
@@ -202,30 +212,38 @@ export default function ProfessionalOverview({
         </View>
       ) : null}
 
-      <View style={styles.block}>
-        <ProfessionalLandingSectionHeader title="Résumé" />
-        <ProfessionalResumeCard
-          presentation="landing"
-          loading={resumeLoading}
-          error={resumeError}
-          resume={resume}
-          mutating={resumeMutating}
-          onRetry={onRetryResume}
-          onAdd={onAddResume}
-          onView={onViewResume}
-          onReplace={onReplaceResume}
-          onRemove={onRemoveResume}
-        />
-      </View>
+      {isOwnerPreview &&
+      onAddResume &&
+      onViewResume &&
+      onReplaceResume &&
+      onRemoveResume ? (
+        <View style={styles.block}>
+          <ProfessionalLandingSectionHeader title="Résumé" />
+          <ProfessionalResumeCard
+            presentation="landing"
+            loading={resumeLoading}
+            error={resumeError}
+            resume={resume}
+            mutating={resumeMutating}
+            onRetry={onRetryResume}
+            onAdd={onAddResume}
+            onView={onViewResume}
+            onReplace={onReplaceResume}
+            onRemove={onRemoveResume}
+          />
+        </View>
+      ) : null}
 
-      <View style={styles.block}>
-        <ProfessionalLandingSectionHeader title="Owner preview" />
-        <ProfessionalSetupModule
-          compact
-          missingFields={missingFields}
-          onEditPress={onEditProfessional}
-        />
-      </View>
+      {isOwnerPreview ? (
+        <View style={styles.block}>
+          <ProfessionalLandingSectionHeader title="Owner preview" />
+          <ProfessionalSetupModule
+            compact
+            missingFields={missingFields}
+            onEditPress={onEditProfessional}
+          />
+        </View>
+      ) : null}
     </View>
   );
 }

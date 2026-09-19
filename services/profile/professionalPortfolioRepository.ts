@@ -118,7 +118,7 @@ function formatPortfolioError(
     code === '42501' ||
     message.includes('row-level security')
   ) {
-    return 'You do not have permission to update this Professional portfolio.';
+    return fallback;
   }
 
   if (
@@ -354,23 +354,16 @@ function withDisplayUrls(
   }));
 }
 
-async function loadOwnPortfolioMetadata(): Promise<{
+async function loadProfessionalPortfolioMetadata(
+  profileId: string,
+): Promise<{
   projects: ProfessionalPortfolioProject[];
   error: string | null;
 }> {
-  const userId = await getAuthenticatedUserId();
-
-  if (!userId) {
-    return {
-      projects: [],
-      error: 'Sign in to view your Professional portfolio.',
-    };
-  }
-
   const projectResult = await supabase
     .from('professional_portfolio_projects')
     .select(PROJECT_SELECT)
-    .eq('profile_id', userId)
+    .eq('profile_id', profileId)
     .order('position', { ascending: true });
 
   if (projectResult.error) {
@@ -404,7 +397,7 @@ async function loadOwnPortfolioMetadata(): Promise<{
   const mediaResult = await supabase
     .from('professional_portfolio_media')
     .select(MEDIA_SELECT)
-    .eq('profile_id', userId)
+    .eq('profile_id', profileId)
     .in('project_id', projectIds)
     .order('position', { ascending: true });
 
@@ -445,11 +438,31 @@ async function loadOwnPortfolioMetadata(): Promise<{
   return { projects, error: null };
 }
 
-export async function getOwnProfessionalPortfolio(): Promise<{
+export async function getProfessionalPortfolio(
+  profileId: string,
+): Promise<{
   projects: ProfessionalPortfolioPresentedProject[];
   error: string | null;
 }> {
-  const loaded = await loadOwnPortfolioMetadata();
+  const userId = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return {
+      projects: [],
+      error: 'Sign in to view this Professional portfolio.',
+    };
+  }
+
+  const id = profileId.trim().toLowerCase();
+
+  if (!isUuid(id)) {
+    return {
+      projects: [],
+      error: 'This Professional portfolio could not be found.',
+    };
+  }
+
+  const loaded = await loadProfessionalPortfolioMetadata(id);
 
   if (loaded.error) {
     return { projects: [], error: loaded.error };
@@ -465,6 +478,22 @@ export async function getOwnProfessionalPortfolio(): Promise<{
     projects: withDisplayUrls(loaded.projects, urls),
     error: null,
   };
+}
+
+export async function getOwnProfessionalPortfolio(): Promise<{
+  projects: ProfessionalPortfolioPresentedProject[];
+  error: string | null;
+}> {
+  const userId = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return {
+      projects: [],
+      error: 'Sign in to view your Professional portfolio.',
+    };
+  }
+
+  return getProfessionalPortfolio(userId);
 }
 
 export function presentedPortfolioToDrafts(

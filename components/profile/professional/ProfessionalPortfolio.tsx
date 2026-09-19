@@ -68,8 +68,16 @@ export default function ProfessionalPortfolio({
         <ProfileSectionEmptyState
           compact
           icon="images-outline"
-          title="Show examples of your work"
-          body="Add project photos so people can see the kind of work you do. These are your examples — Direct Gain has not verified them."
+          title={
+            ownerPreview
+              ? 'Show examples of your work'
+              : 'No portfolio yet'
+          }
+          body={
+            ownerPreview
+              ? 'Add project photos so people can see the kind of work you do. These are your examples — Direct Gain has not verified them.'
+              : 'This Professional has not added portfolio projects. Examples shown here are self-claimed — Direct Gain has not verified them.'
+          }
           actionTitle={
             ownerPreview && onEditPortfolio
               ? 'Edit portfolio'

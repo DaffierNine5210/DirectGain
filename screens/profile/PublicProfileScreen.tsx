@@ -19,6 +19,7 @@ import {
   type ProfileContentTabKey,
 } from '../../components/profile/ProfileContentTabs';
 import PersonalProfileHero from '../../components/profile/PersonalProfileHero';
+import ProfessionalProfileView from '../../components/profile/professional/ProfessionalProfileView';
 import {
   presentProfileAbout,
   presentProfileHeroIdentity,
@@ -34,12 +35,20 @@ import {
   type PublicProfileParamList,
 } from '../../navigation/publicProfile';
 
+import { countCompletedJobsForAssignedUser } from '../../services/jobs/jobRepository';
 import { getProfileIdentityVerified } from '../../services/profile/identityVerificationRepository';
 import { resolveProfileAvatarUrl } from '../../services/profile/profileAvatarRepository';
+import { getProfilePresentation } from '../../services/profile/profilePresentationRepository';
 import {
   getAuthenticatedUserId,
   getProfileById,
 } from '../../services/profile/profileRepository';
+import { getProfessionalPortfolio } from '../../services/profile/professionalPortfolioRepository';
+import {
+  getProfessionalCredentials,
+  getProfessionalExperiences,
+  getProfessionalProfile,
+} from '../../services/profile/professionalProfileRepository';
 import { loadProfileReputation } from '../../services/reviews/reviewRepository';
 
 import {
@@ -53,6 +62,12 @@ import {
 } from '../../theme/designSystem';
 
 import type { DirectGainProfile } from '../../types/profile';
+import type {
+  ProfessionalCredential,
+  ProfessionalExperience,
+  ProfessionalPortfolioPresentedProject,
+  ProfessionalProfileCore,
+} from '../../types/professionalProfile';
 import type { ProfileReviewStats } from '../../types/reviews';
 
 type Props = NativeStackScreenProps<
@@ -75,6 +90,7 @@ export default function PublicProfileScreen({
   const requestIdRef = useRef(0);
   const reputationRequestIdRef = useRef(0);
   const identityRequestIdRef = useRef(0);
+  const professionalRequestIdRef = useRef(0);
   const hasLoadedRef = useRef(false);
   const loadRef = useRef<
     (id: string, quiet: boolean) => Promise<void>
@@ -110,6 +126,35 @@ export default function PublicProfileScreen({
     useState(false);
   const [identityVerified, setIdentityVerified] =
     useState(false);
+  const [showProfessional, setShowProfessional] =
+    useState(false);
+  const [professional, setProfessional] =
+    useState<ProfessionalProfileCore | null>(null);
+  const [professionalError, setProfessionalError] =
+    useState<string | null>(null);
+  const [experiences, setExperiences] = useState<
+    ProfessionalExperience[]
+  >([]);
+  const [credentials, setCredentials] = useState<
+    ProfessionalCredential[]
+  >([]);
+  const [backgroundLoading, setBackgroundLoading] =
+    useState(false);
+  const [backgroundError, setBackgroundError] = useState<
+    string | null
+  >(null);
+  const [portfolioProjects, setPortfolioProjects] = useState<
+    ProfessionalPortfolioPresentedProject[]
+  >([]);
+  const [portfolioLoading, setPortfolioLoading] =
+    useState(false);
+  const [portfolioError, setPortfolioError] = useState<
+    string | null
+  >(null);
+  const [completedJobsCount, setCompletedJobsCount] =
+    useState<number | null>(null);
+  const [completedJobsError, setCompletedJobsError] =
+    useState<string | null>(null);
 
   const loadIdentityVerified = useCallback(
     async (id: string) => {
@@ -126,6 +171,95 @@ export default function PublicProfileScreen({
       setIdentityVerified(
         result.error == null &&
           result.result?.verified === true,
+      );
+    },
+    [],
+  );
+
+  const clearProfessionalState = useCallback(() => {
+    setShowProfessional(false);
+    setProfessional(null);
+    setProfessionalError(null);
+    setExperiences([]);
+    setCredentials([]);
+    setBackgroundLoading(false);
+    setBackgroundError(null);
+    setPortfolioProjects([]);
+    setPortfolioLoading(false);
+    setPortfolioError(null);
+    setCompletedJobsCount(null);
+    setCompletedJobsError(null);
+  }, []);
+
+  const loadProfessionalBundle = useCallback(
+    async (id: string, showPlaceholder: boolean) => {
+      const requestId = ++professionalRequestIdRef.current;
+
+      if (showPlaceholder) {
+        setProfessionalError(null);
+        setBackgroundError(null);
+        setPortfolioError(null);
+        setBackgroundLoading(true);
+        setPortfolioLoading(true);
+      }
+
+      const [
+        professionalResult,
+        experienceResult,
+        credentialResult,
+        portfolioResult,
+        jobsResult,
+      ] = await Promise.all([
+        getProfessionalProfile(id),
+        getProfessionalExperiences(id),
+        getProfessionalCredentials(id),
+        getProfessionalPortfolio(id),
+        countCompletedJobsForAssignedUser(id),
+      ]);
+
+      if (
+        requestId !== professionalRequestIdRef.current ||
+        !mountedRef.current
+      ) {
+        return;
+      }
+
+      setBackgroundLoading(false);
+      setPortfolioLoading(false);
+
+      if (professionalResult.error) {
+        setProfessional(null);
+        setProfessionalError(professionalResult.error);
+      } else {
+        setProfessionalError(null);
+        setProfessional(professionalResult.profile);
+      }
+
+      if (experienceResult.error || credentialResult.error) {
+        setExperiences([]);
+        setCredentials([]);
+        setBackgroundError(
+          experienceResult.error ??
+            credentialResult.error ??
+            'Professional experience could not be loaded. Try again.',
+        );
+      } else {
+        setBackgroundError(null);
+        setExperiences(experienceResult.experiences);
+        setCredentials(credentialResult.credentials);
+      }
+
+      if (portfolioResult.error) {
+        setPortfolioProjects([]);
+        setPortfolioError(portfolioResult.error);
+      } else {
+        setPortfolioError(null);
+        setPortfolioProjects(portfolioResult.projects);
+      }
+
+      setCompletedJobsError(jobsResult.error);
+      setCompletedJobsCount(
+        jobsResult.error ? null : jobsResult.count,
       );
     },
     [],
@@ -188,6 +322,7 @@ export default function PublicProfileScreen({
       setReviewStatsError(null);
       setPresentedReviews([]);
       setReviewsError(null);
+      clearProfessionalState();
     }
 
     const userId = await getAuthenticatedUserId();
@@ -208,7 +343,10 @@ export default function PublicProfileScreen({
       return;
     }
 
-    const result = await getProfileById(id);
+    const [result, presentationResult] = await Promise.all([
+      getProfileById(id),
+      getProfilePresentation(id),
+    ]);
 
     if (
       requestId !== requestIdRef.current ||
@@ -244,7 +382,25 @@ export default function PublicProfileScreen({
     hasLoadedRef.current = true;
     void loadReputation(result.profile.id, !quiet);
     void loadIdentityVerified(result.profile.id);
-  }, [loadIdentityVerified, loadReputation, navigation]);
+
+    const useProfessional =
+      presentationResult.error == null &&
+      presentationResult.presentation.activeTemplate ===
+        'professional';
+
+    if (useProfessional) {
+      setShowProfessional(true);
+      void loadProfessionalBundle(result.profile.id, !quiet);
+    } else {
+      clearProfessionalState();
+    }
+  }, [
+    clearProfessionalState,
+    loadIdentityVerified,
+    loadProfessionalBundle,
+    loadReputation,
+    navigation,
+  ]);
 
   loadRef.current = loadProfile;
 
@@ -389,6 +545,52 @@ export default function PublicProfileScreen({
             />
           }
         >
+          {showProfessional ? (
+            <ProfessionalProfileView
+              mode="visitor"
+              profile={profile}
+              professional={professional}
+              professionalError={professionalError}
+              onRetryProfessional={() => {
+                void loadProfessionalBundle(profile.id, true);
+              }}
+              onEditProfessional={() => {}}
+              experiences={experiences}
+              credentials={credentials}
+              backgroundLoading={backgroundLoading}
+              backgroundError={backgroundError}
+              onRetryBackground={() => {
+                void loadProfessionalBundle(profile.id, true);
+              }}
+              onEditBackground={() => {}}
+              portfolioProjects={portfolioProjects}
+              portfolioLoading={portfolioLoading}
+              portfolioError={portfolioError}
+              onRetryPortfolio={() => {
+                void loadProfessionalBundle(profile.id, true);
+              }}
+              onEditPortfolio={() => {}}
+              resume={null}
+              avatarUrl={avatarUrl}
+              avatarUnavailable={avatarUnavailable}
+              identityVerified={identityVerified}
+              reviews={presentedReviews}
+              stats={reviewStats}
+              statsError={reviewStatsError}
+              statsLoading={reviewStatsLoading}
+              completedJobsCount={completedJobsCount}
+              completedJobsError={completedJobsError}
+              reviewsLoading={reviewsLoading}
+              reviewsError={reviewsError}
+              onRetryReviews={() => {
+                void loadReputation(profile.id, true);
+              }}
+              onPressReviewer={(reviewerId) => {
+                void openReviewerProfile(reviewerId);
+              }}
+            />
+          ) : (
+            <>
           <PersonalProfileHero
             identity={presentProfileHeroIdentity(profile)}
             mode="public"
@@ -420,6 +622,8 @@ export default function PublicProfileScreen({
               />
             }
           />
+            </>
+          )}
         </ScrollView>
       )}
     </SafeAreaView>
