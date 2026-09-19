@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 
 import DGButton from '../DGButton';
+import IdentityVerifiedMark from './IdentityVerifiedMark';
 import ProfileAvatar from './ProfileAvatar';
 import PersonalProfileBadgeRow, {
   type PersonalProfileBadge,
@@ -42,6 +43,7 @@ type PersonalProfileHeroProps = {
   onEditProfilePress?: () => void;
   editProfileDisabled?: boolean;
   publicActions?: ReactNode;
+  identityVerified?: boolean;
 };
 
 export default function PersonalProfileHero({
@@ -59,6 +61,7 @@ export default function PersonalProfileHero({
   onEditProfilePress,
   editProfileDisabled = false,
   publicActions = null,
+  identityVerified = false,
 }: PersonalProfileHeroProps) {
   const isOwner = mode === 'owner';
   const hasCoverImage = Boolean(coverImageUri);
@@ -131,6 +134,10 @@ export default function PersonalProfileHero({
             >
               {identity.displayName}
             </Text>
+
+            <IdentityVerifiedMark
+              identityVerified={identityVerified}
+            />
 
             <View style={styles.metaRow}>
               <Text style={styles.accountType}>

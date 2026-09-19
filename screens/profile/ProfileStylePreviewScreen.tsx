@@ -34,6 +34,7 @@ import useTabBarVisibility from '../../hooks/useTabBarVisibility';
 import type { MyGainStackParamList } from '../../navigation/MyGainStack';
 import { navigateToOwnMyGain } from '../../navigation/publicProfile';
 
+import { getProfileIdentityVerified } from '../../services/profile/identityVerificationRepository';
 import { resolveProfileAvatarUrl } from '../../services/profile/profileAvatarRepository';
 import {
   getAuthenticatedUserId,
@@ -88,6 +89,7 @@ export default function ProfileStylePreviewScreen({
   const mountedRef = useRef(true);
   const requestIdRef = useRef(0);
   const reputationRequestIdRef = useRef(0);
+  const identityRequestIdRef = useRef(0);
   const professionalRequestIdRef = useRef(0);
   const professionalLoadedRef = useRef(false);
   const backgroundRequestIdRef = useRef(0);
@@ -176,6 +178,30 @@ export default function ProfileStylePreviewScreen({
     useState<number | null>(null);
   const [completedJobsError, setCompletedJobsError] =
     useState<string | null>(null);
+  const [identityVerified, setIdentityVerified] =
+    useState(false);
+
+  const loadIdentityVerified = useCallback(
+    async (profileId: string) => {
+      const requestId = ++identityRequestIdRef.current;
+      const result = await getProfileIdentityVerified(
+        profileId,
+      );
+
+      if (
+        requestId !== identityRequestIdRef.current ||
+        !mountedRef.current
+      ) {
+        return;
+      }
+
+      setIdentityVerified(
+        result.error == null &&
+          result.result?.verified === true,
+      );
+    },
+    [],
+  );
 
   const loadReputation = useCallback(
     async (
@@ -508,6 +534,7 @@ export default function ProfileStylePreviewScreen({
     if (identityResult.error || !identityResult.profile) {
       if (!quiet) {
         setProfile(null);
+        setIdentityVerified(false);
         setError(
           identityResult.error ??
             'Your profile could not be loaded.',
@@ -519,6 +546,7 @@ export default function ProfileStylePreviewScreen({
     setError(null);
     setProfile(identityResult.profile);
     void loadReputation(identityResult.profile.id, !quiet);
+    void loadIdentityVerified(identityResult.profile.id);
 
     if (template === 'professional') {
       void loadCompletedJobsCount(identityResult.profile.id);
@@ -567,6 +595,7 @@ export default function ProfileStylePreviewScreen({
     applyProfessionalResult,
     applyResumeResult,
     loadCompletedJobsCount,
+    loadIdentityVerified,
     loadReputation,
     template,
   ]);
@@ -862,6 +891,7 @@ export default function ProfileStylePreviewScreen({
                 }}
                 avatarUrl={avatarUrl}
                 avatarUnavailable={avatarUnavailable}
+                identityVerified={identityVerified}
                 reviews={presentedReviews}
                 stats={reviewStats}
                 statsError={reviewStatsError}
@@ -912,6 +942,7 @@ export default function ProfileStylePreviewScreen({
               <PersonalProfileHero
                 identity={presentProfileHeroIdentity(profile)}
                 mode="public"
+                identityVerified={identityVerified}
                 avatarUrl={avatarUrl}
                 avatarUnavailable={avatarUnavailable}
               />

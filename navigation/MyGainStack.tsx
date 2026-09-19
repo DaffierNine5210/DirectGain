@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import MyGainScreen from '../screens/MyGainScreen';
 import EditOwnProfileScreen from '../screens/profile/EditOwnProfileScreen';
+import IdentityVerificationScreen from '../screens/profile/IdentityVerificationScreen';
 import EditProfessionalProfileScreen from '../screens/profile/EditProfessionalProfileScreen';
 import EditProfessionalExperienceScreen from '../screens/profile/EditProfessionalExperienceScreen';
 import EditProfessionalPortfolioScreen from '../screens/profile/EditProfessionalPortfolioScreen';
@@ -22,6 +23,7 @@ import type { ProfileTemplate } from '../types/profile';
 export type MyGainStackParamList = {
   MyGainHome: undefined;
   EditProfile: undefined;
+  IdentityVerification: undefined;
   ProfileStyle: undefined;
   ProfileStylePreview: {
     template: ProfileTemplate;
@@ -64,6 +66,11 @@ export default function MyGainStack() {
       <Stack.Screen
         name="EditProfile"
         component={EditOwnProfileScreen}
+      />
+
+      <Stack.Screen
+        name="IdentityVerification"
+        component={IdentityVerificationScreen}
       />
 
       <Stack.Screen

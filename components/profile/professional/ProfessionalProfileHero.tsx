@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
+import IdentityVerifiedMark from '../IdentityVerifiedMark';
 import ProfileAvatar from '../ProfileAvatar';
 import PersonalProfileStatsRow, {
   type PersonalProfileStat,
@@ -42,6 +43,7 @@ type ProfessionalProfileHeroProps = {
   statsLoading: boolean;
   completedJobsCount: number | null;
   completedJobsError: string | null;
+  identityVerified?: boolean;
 };
 
 function buildRatingStat(
@@ -92,6 +94,7 @@ export default function ProfessionalProfileHero({
   statsLoading,
   completedJobsCount,
   completedJobsError,
+  identityVerified = false,
 }: ProfessionalProfileHeroProps) {
   const trimmedHeadline = headline?.trim() || null;
   const trimmedServiceArea = serviceArea?.trim() || null;
@@ -175,6 +178,10 @@ export default function ProfessionalProfileHero({
         >
           {displayName}
         </Text>
+
+        <IdentityVerifiedMark
+          identityVerified={identityVerified}
+        />
 
         {trimmedHeadline || trimmedServiceArea ? (
           <View style={styles.metaStack}>

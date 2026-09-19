@@ -34,6 +34,7 @@ import {
   type PublicProfileParamList,
 } from '../../navigation/publicProfile';
 
+import { getProfileIdentityVerified } from '../../services/profile/identityVerificationRepository';
 import { resolveProfileAvatarUrl } from '../../services/profile/profileAvatarRepository';
 import {
   getAuthenticatedUserId,
@@ -73,6 +74,7 @@ export default function PublicProfileScreen({
   const mountedRef = useRef(true);
   const requestIdRef = useRef(0);
   const reputationRequestIdRef = useRef(0);
+  const identityRequestIdRef = useRef(0);
   const hasLoadedRef = useRef(false);
   const loadRef = useRef<
     (id: string, quiet: boolean) => Promise<void>
@@ -106,6 +108,28 @@ export default function PublicProfileScreen({
     useState<string | null>(null);
   const [reviewsLoading, setReviewsLoading] =
     useState(false);
+  const [identityVerified, setIdentityVerified] =
+    useState(false);
+
+  const loadIdentityVerified = useCallback(
+    async (id: string) => {
+      const requestId = ++identityRequestIdRef.current;
+      const result = await getProfileIdentityVerified(id);
+
+      if (
+        requestId !== identityRequestIdRef.current ||
+        !mountedRef.current
+      ) {
+        return;
+      }
+
+      setIdentityVerified(
+        result.error == null &&
+          result.result?.verified === true,
+      );
+    },
+    [],
+  );
 
   const loadReputation = useCallback(
     async (
@@ -157,6 +181,7 @@ export default function PublicProfileScreen({
       setLoading(true);
       setError(null);
       setProfile(null);
+      setIdentityVerified(false);
       setAvatarUrl(null);
       setAvatarUnavailable(false);
       setReviewStats(null);
@@ -198,6 +223,7 @@ export default function PublicProfileScreen({
     if (result.error || !result.profile) {
       if (!quiet) {
         setProfile(null);
+        setIdentityVerified(false);
         setError(
           result.error ??
             'This profile could not be found.',
@@ -217,7 +243,8 @@ export default function PublicProfileScreen({
     setProfile(result.profile);
     hasLoadedRef.current = true;
     void loadReputation(result.profile.id, !quiet);
-  }, [loadReputation, navigation]);
+    void loadIdentityVerified(result.profile.id);
+  }, [loadIdentityVerified, loadReputation, navigation]);
 
   loadRef.current = loadProfile;
 
@@ -365,6 +392,7 @@ export default function PublicProfileScreen({
           <PersonalProfileHero
             identity={presentProfileHeroIdentity(profile)}
             mode="public"
+            identityVerified={identityVerified}
             avatarUrl={avatarUrl}
             avatarUnavailable={avatarUnavailable}
           />

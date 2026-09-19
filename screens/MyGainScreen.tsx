@@ -48,6 +48,7 @@ import {
   resolveProfileAvatarUrl,
   uploadOwnProfileAvatar,
 } from '../services/profile/profileAvatarRepository';
+import { getProfileIdentityVerified } from '../services/profile/identityVerificationRepository';
 import {
   getAuthenticatedUserId,
   getOwnProfile,
@@ -81,6 +82,7 @@ export default function MyGainScreen({
   const mountedRef = useRef(true);
   const requestIdRef = useRef(0);
   const reputationRequestIdRef = useRef(0);
+  const identityRequestIdRef = useRef(0);
   const hasLoadedRef = useRef(false);
   const mutatingRef = useRef(false);
   const loadRef = useRef<
@@ -122,6 +124,30 @@ export default function MyGainScreen({
     useState<string | null>(null);
   const [reviewsLoading, setReviewsLoading] =
     useState(false);
+  const [identityVerified, setIdentityVerified] =
+    useState(false);
+
+  const loadIdentityVerified = useCallback(
+    async (profileId: string) => {
+      const requestId = ++identityRequestIdRef.current;
+      const result = await getProfileIdentityVerified(
+        profileId,
+      );
+
+      if (
+        requestId !== identityRequestIdRef.current ||
+        !mountedRef.current
+      ) {
+        return;
+      }
+
+      setIdentityVerified(
+        result.error == null &&
+          result.result?.verified === true,
+      );
+    },
+    [],
+  );
 
   const loadReputation = useCallback(
     async (
@@ -186,6 +212,7 @@ export default function MyGainScreen({
 
       if (result.error || !result.profile) {
         setProfile(null);
+        setIdentityVerified(false);
         setError(
           result.error ??
             'Your profile could not be loaded.',
@@ -199,8 +226,9 @@ export default function MyGainScreen({
         result.profile.id,
         showSpinner,
       );
+      void loadIdentityVerified(result.profile.id);
     },
-    [loadReputation],
+    [loadIdentityVerified, loadReputation],
   );
 
   loadRef.current = loadProfile;
@@ -488,6 +516,7 @@ export default function MyGainScreen({
             <PersonalProfileHero
               identity={presentProfileHeroIdentity(profile)}
               mode="owner"
+              identityVerified={identityVerified}
               avatarUrl={avatarUrl}
               avatarBusy={avatarBusy}
               avatarUnavailable={avatarUnavailable}

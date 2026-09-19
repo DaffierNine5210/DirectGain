@@ -65,6 +65,7 @@ type ProfessionalProfileViewProps = {
   onRetryReviews: () => void;
   onPressReviewer: (profileId: string) => void;
   onMessage?: () => void;
+  identityVerified?: boolean;
 };
 
 export default function ProfessionalProfileView({
@@ -106,6 +107,7 @@ export default function ProfessionalProfileView({
   onRetryReviews,
   onPressReviewer,
   onMessage,
+  identityVerified = false,
 }: ProfessionalProfileViewProps) {
   const [selectedTab, setSelectedTab] =
     useState<ProfessionalProfileTabKey>(
@@ -141,6 +143,7 @@ export default function ProfessionalProfileView({
         statsLoading={statsLoading}
         completedJobsCount={completedJobsCount}
         completedJobsError={completedJobsError}
+        identityVerified={identityVerified}
       />
 
       <ProfessionalProfileActions onMessage={onMessage} />

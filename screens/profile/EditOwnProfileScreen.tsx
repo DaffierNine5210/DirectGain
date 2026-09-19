@@ -303,6 +303,39 @@ export default function EditOwnProfileScreen({
               />
             </Pressable>
 
+            <Pressable
+              onPress={() => {
+                if (savingRef.current) {
+                  return;
+                }
+
+                navigation.navigate('IdentityVerification');
+              }}
+              disabled={saving}
+              accessibilityRole="button"
+              accessibilityLabel="Identity verification"
+              accessibilityHint="Opens identity verification status"
+              style={({ pressed }) => [
+                styles.styleRow,
+                pressed && styles.styleRowPressed,
+                saving && styles.styleRowDisabled,
+              ]}
+            >
+              <View style={styles.styleCopy}>
+                <Text style={styles.styleLabel}>
+                  Identity verification
+                </Text>
+                <Text style={styles.styleValue}>
+                  Status
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={iconSize.md}
+                color={textColor.muted}
+              />
+            </Pressable>
+
             <DGInput
               label="Display name"
               value={displayName}
