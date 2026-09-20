@@ -220,8 +220,8 @@ function createLiveConversationPlaceholder(
       name: 'Direct Gain member',
     },
     context: {
-      type: 'market',
-      title: 'Conversation',
+      type: 'general',
+      title: '',
     },
     messages: [],
     unreadCount: 0,
@@ -1128,6 +1128,17 @@ useFocusEffect(
           return;
         }
 
+        const mappedType = conversationRecord
+          ? mapConversationType(
+              conversationRecord.context_type,
+            )
+          : null;
+
+        const isGeneralConversation =
+          conversationRecord?.context_type ===
+            'general' ||
+          mappedType === 'general';
+
         setConversation(
           current => ({
             ...current,
@@ -1150,22 +1161,21 @@ useFocusEffect(
             context: {
               ...current.context,
               type:
-                conversationRecord
-                  ? mapConversationType(
-                      conversationRecord.context_type,
-                    )
-                  : current.context.type,
-              title:
-                jobTitle ??
-                conversationRecord
-                  ?.title
-                  ?.trim() ??
-                current.context.title,
-              itemId:
-                jobItemId ??
-                conversationRecord
-                  ?.context_id ??
-                current.context.itemId,
+                mappedType ??
+                current.context.type,
+              title: isGeneralConversation
+                ? ''
+                : jobTitle ??
+                  conversationRecord
+                    ?.title
+                    ?.trim() ??
+                  current.context.title,
+              itemId: isGeneralConversation
+                ? undefined
+                : jobItemId ??
+                  conversationRecord
+                    ?.context_id ??
+                  current.context.itemId,
               payLabel:
                 jobPayLabel,
               statusLabel:

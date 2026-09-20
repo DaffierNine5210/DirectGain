@@ -127,12 +127,14 @@ export default function ConversationHeader({
               )}
             </View>
 
-            <Text
-              style={styles.statusText}
-              numberOfLines={1}
-            >
-              {context.title}
-            </Text>
+            {context.type !== 'general' && context.title ? (
+              <Text
+                style={styles.statusText}
+                numberOfLines={1}
+              >
+                {context.title}
+              </Text>
+            ) : null}
           </View>
         </Pressable>
 
@@ -172,6 +174,7 @@ export default function ConversationHeader({
         </View>
       </View>
 
+      {context.type === 'general' ? null : (
       <View style={styles.trustRow}>
         <View style={styles.contextBadge}>
           <Ionicons
@@ -206,6 +209,7 @@ export default function ConversationHeader({
           </View>
         )}
       </View>
+      )}
     </View>
   );
 }

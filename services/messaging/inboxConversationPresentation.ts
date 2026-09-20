@@ -69,6 +69,8 @@ export function mapConversationType(
       return 'auction';
     case 'support':
       return 'support';
+    case 'general':
+      return 'general';
     default:
       return 'market';
   }
@@ -180,11 +182,15 @@ export async function presentInboxConversations({
         : null,
     );
 
-    const title =
-      jobContext?.title ??
-      linkedListing?.title ??
-      databaseConversation.title?.trim() ??
-      'Direct Gain conversation';
+    const isGeneralConversation =
+      databaseConversation.context_type === 'general';
+
+    const title = isGeneralConversation
+      ? ''
+      : jobContext?.title ??
+        linkedListing?.title ??
+        databaseConversation.title?.trim() ??
+        'Direct Gain conversation';
 
     const latestMessage =
       latestMessages[databaseConversation.id];

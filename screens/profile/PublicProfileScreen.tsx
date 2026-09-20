@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import {
+  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -34,8 +35,10 @@ import {
   navigateToOwnMyGain,
   type PublicProfileParamList,
 } from '../../navigation/publicProfile';
+import { openMessagesConversation } from '../../navigation/messages';
 
 import { countCompletedJobsForAssignedUser } from '../../services/jobs/jobRepository';
+import { openGeneralConversation } from '../../services/messaging/openGeneralConversation';
 import { getProfileIdentityVerified } from '../../services/profile/identityVerificationRepository';
 import { resolveProfileAvatarUrl } from '../../services/profile/profileAvatarRepository';
 import { getProfilePresentation } from '../../services/profile/profilePresentationRepository';
@@ -155,6 +158,8 @@ export default function PublicProfileScreen({
     useState<number | null>(null);
   const [completedJobsError, setCompletedJobsError] =
     useState<string | null>(null);
+  const [messageOpening, setMessageOpening] =
+    useState(false);
 
   const loadIdentityVerified = useCallback(
     async (id: string) => {
@@ -475,6 +480,44 @@ export default function PublicProfileScreen({
     });
   }
 
+  async function handleVisitorMessage() {
+    if (messageOpening) {
+      return;
+    }
+
+    setMessageOpening(true);
+
+    const result = await openGeneralConversation(profileId);
+
+    if (!mountedRef.current) {
+      return;
+    }
+
+    if (result.error || !result.conversationId) {
+      setMessageOpening(false);
+      Alert.alert(
+        'Unable to open messages',
+        result.error ??
+          'A conversation could not be opened. Try again.',
+      );
+      return;
+    }
+
+    const opened = openMessagesConversation(
+      navigation,
+      result.conversationId,
+    );
+
+    setMessageOpening(false);
+
+    if (!opened) {
+      Alert.alert(
+        'Unable to open messages',
+        'A conversation could not be opened. Try again.',
+      );
+    }
+  }
+
   return (
     <SafeAreaView
       style={styles.safe}
@@ -588,6 +631,10 @@ export default function PublicProfileScreen({
               onPressReviewer={(reviewerId) => {
                 void openReviewerProfile(reviewerId);
               }}
+              onMessage={() => {
+                void handleVisitorMessage();
+              }}
+              messageLoading={messageOpening}
             />
           ) : (
             <>

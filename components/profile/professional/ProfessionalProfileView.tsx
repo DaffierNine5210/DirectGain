@@ -65,6 +65,7 @@ type ProfessionalProfileViewProps = {
   onRetryReviews: () => void;
   onPressReviewer: (profileId: string) => void;
   onMessage?: () => void;
+  messageLoading?: boolean;
   identityVerified?: boolean;
   mode?: 'ownerPreview' | 'visitor';
 };
@@ -108,6 +109,7 @@ export default function ProfessionalProfileView({
   onRetryReviews,
   onPressReviewer,
   onMessage,
+  messageLoading = false,
   identityVerified = false,
   mode = 'ownerPreview',
 }: ProfessionalProfileViewProps) {
@@ -150,8 +152,12 @@ export default function ProfessionalProfileView({
         audience={mode}
       />
 
-      {isOwnerPreview ? (
-        <ProfessionalProfileActions onMessage={onMessage} />
+      {(isOwnerPreview || onMessage) ? (
+        <ProfessionalProfileActions
+          onMessage={onMessage}
+          loading={messageLoading}
+          visitor={!isOwnerPreview}
+        />
       ) : null}
 
       <ProfessionalProfileTabs

@@ -6,6 +6,8 @@ import { layout, spacing } from '../../../theme/designSystem';
 
 type ProfessionalProfileActionsProps = {
   onMessage?: () => void;
+  loading?: boolean;
+  visitor?: boolean;
 };
 
 function showOwnerPreviewMessage() {
@@ -17,6 +19,8 @@ function showOwnerPreviewMessage() {
 
 export default function ProfessionalProfileActions({
   onMessage,
+  loading = false,
+  visitor = false,
 }: ProfessionalProfileActionsProps) {
   return (
     <View style={styles.root}>
@@ -26,9 +30,15 @@ export default function ProfessionalProfileActions({
         size="small"
         icon="chatbubble-outline"
         fullWidth
+        loading={loading}
+        disabled={loading}
         onPress={onMessage ?? showOwnerPreviewMessage}
         accessibilityLabel="Message"
-        accessibilityHint="Message will be available to visitors when your Professional profile is live."
+        accessibilityHint={
+          visitor
+            ? 'Open a conversation with this member'
+            : 'Message will be available to visitors when your Professional profile is live.'
+        }
         style={styles.button}
       />
     </View>

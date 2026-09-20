@@ -16,7 +16,8 @@ export type ConversationType =
   | 'market'
   | 'job'
   | 'auction'
-  | 'support';
+  | 'support'
+  | 'general';
 
 export type ConversationSummary = {
   id: string;
@@ -105,6 +106,12 @@ export default function ConversationCard({
   const isJobConversation =
     conversation.type === 'job';
 
+  const isGeneralConversation =
+    conversation.type === 'general';
+
+  const showContextRow =
+    !isJobConversation && !isGeneralConversation;
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -112,7 +119,8 @@ export default function ConversationCard({
       onPress={() => onPress(conversation.id)}
       style={({ pressed }) => [
         styles.container,
-        isJobConversation && styles.containerCompact,
+        (isJobConversation || isGeneralConversation) &&
+          styles.containerCompact,
         hasUnreadMessages && styles.containerUnread,
         pressed && styles.pressed,
       ]}
@@ -168,7 +176,7 @@ export default function ConversationCard({
           >
             {conversation.title}
           </Text>
-        ) : (
+        ) : showContextRow ? (
           <View style={styles.contextRow}>
             <View style={styles.typeBadge}>
               <Ionicons
@@ -199,7 +207,7 @@ export default function ConversationCard({
               </Text>
             )}
           </View>
-        )}
+        ) : null}
 
         <View style={styles.messageRow}>
           <Text
@@ -225,7 +233,7 @@ export default function ConversationCard({
           )}
         </View>
 
-        {!isJobConversation &&
+        {showContextRow &&
           conversation.gainScore !== undefined && (
           <View style={styles.trustRow}>
             <View style={styles.gainScoreBadge}>
@@ -257,7 +265,7 @@ export default function ConversationCard({
         )}
       </View>
 
-      {!isJobConversation && conversation.itemImage && (
+      {showContextRow && conversation.itemImage && (
         <Image
           source={conversation.itemImage}
           style={styles.itemImage}
