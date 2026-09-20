@@ -135,6 +135,119 @@ export async function getOwnProfilePresentation(): Promise<{
   return getProfilePresentation(userId);
 }
 
+export type ActivatableProfileTemplate =
+  | 'personal'
+  | 'professional';
+
+function formatActivationError(
+  error: {
+    message?: string;
+    code?: string;
+  } | null,
+  fallback: string,
+): string {
+  if (!error?.message) {
+    return fallback;
+  }
+
+  const message = error.message.toLowerCase();
+  const code = error.code ?? '';
+
+  if (
+    code === '42501' ||
+    message.includes('row-level security') ||
+    message.includes('permission denied')
+  ) {
+    return 'You do not have permission to change your profile style.';
+  }
+
+  if (
+    message.includes('signed in') ||
+    message.includes('not authenticated')
+  ) {
+    return 'Sign in to continue.';
+  }
+
+  if (message.includes('headline')) {
+    return 'Complete your Professional headline before making this profile live.';
+  }
+
+  if (message.includes('business')) {
+    return 'Business profile is not available yet.';
+  }
+
+  if (
+    message.includes('choose personal') ||
+    message.includes('professional.')
+  ) {
+    return 'Choose Personal or Professional.';
+  }
+
+  if (message.includes('could not be found')) {
+    return 'Your profile style could not be updated. Try again.';
+  }
+
+  return fallback;
+}
+
+export async function setOwnActiveProfileTemplate(
+  template: ActivatableProfileTemplate,
+): Promise<{
+  activeTemplate: ProfileTemplate | null;
+  error: string | null;
+}> {
+  const userId = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return {
+      activeTemplate: null,
+      error: 'Sign in to continue.',
+    };
+  }
+
+  if (
+    template !== 'personal' &&
+    template !== 'professional'
+  ) {
+    return {
+      activeTemplate: null,
+      error: 'Choose Personal or Professional.',
+    };
+  }
+
+  const rpcResult = await supabase.rpc(
+    'set_own_active_profile_template',
+    {
+      p_template: template,
+    },
+  );
+
+  if (rpcResult.error) {
+    return {
+      activeTemplate: null,
+      error: formatActivationError(
+        rpcResult.error,
+        'Your profile style could not be updated. Try again.',
+      ),
+    };
+  }
+
+  if (
+    rpcResult.data !== 'personal' &&
+    rpcResult.data !== 'professional'
+  ) {
+    return {
+      activeTemplate: null,
+      error: 'Your profile style could not be updated. Try again.',
+    };
+  }
+
+  return {
+    activeTemplate: rpcResult.data,
+    error: null,
+  };
+}
+
 export function formatProfileTemplateLabel(
   template: ProfileTemplate,
 ): string {

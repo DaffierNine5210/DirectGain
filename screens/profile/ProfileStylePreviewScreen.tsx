@@ -13,6 +13,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import DGHeader from '../../components/DGHeader';
+import DGButton from '../../components/DGButton';
 import DGSkeleton from '../../components/DGSkeleton';
 import ProfileContentArea from '../../components/profile/ProfileContentArea';
 import {
@@ -40,6 +41,10 @@ import {
   getAuthenticatedUserId,
   getOwnProfile,
 } from '../../services/profile/profileRepository';
+import {
+  getOwnProfilePresentation,
+  setOwnActiveProfileTemplate,
+} from '../../services/profile/profilePresentationRepository';
 import {
   getOwnProfessionalCredentials,
   getOwnProfessionalExperiences,
@@ -71,7 +76,11 @@ import {
   typography,
 } from '../../theme/designSystem';
 
-import type { DirectGainProfile } from '../../types/profile';
+import {
+  DEFAULT_PROFILE_TEMPLATE,
+  type DirectGainProfile,
+  type ProfileTemplate,
+} from '../../types/profile';
 import type { ProfileReviewStats } from '../../types/reviews';
 
 type Props = NativeStackScreenProps<
@@ -180,6 +189,9 @@ export default function ProfileStylePreviewScreen({
     useState<string | null>(null);
   const [identityVerified, setIdentityVerified] =
     useState(false);
+  const [savedTemplate, setSavedTemplate] =
+    useState<ProfileTemplate>(DEFAULT_PROFILE_TEMPLATE);
+  const [switching, setSwitching] = useState(false);
 
   const loadIdentityVerified = useCallback(
     async (profileId: string) => {
@@ -497,6 +509,7 @@ export default function ProfileStylePreviewScreen({
 
     const [
       identityResult,
+      presentationResult,
       professionalResult,
       experienceResult,
       credentialResult,
@@ -504,6 +517,7 @@ export default function ProfileStylePreviewScreen({
       resumeResult,
     ] = await Promise.all([
       getOwnProfile(),
+      getOwnProfilePresentation(),
       template === 'professional'
         ? getOwnProfessionalProfile()
         : Promise.resolve(null),
@@ -545,6 +559,9 @@ export default function ProfileStylePreviewScreen({
 
     setError(null);
     setProfile(identityResult.profile);
+    setSavedTemplate(
+      presentationResult.presentation.activeTemplate,
+    );
     void loadReputation(identityResult.profile.id, !quiet);
     void loadIdentityVerified(identityResult.profile.id);
 
@@ -697,12 +714,67 @@ export default function ProfileStylePreviewScreen({
     });
   }
 
+  async function applyTemplate(
+    nextTemplate: 'personal' | 'professional',
+  ) {
+    if (switching) {
+      return;
+    }
+
+    setSwitching(true);
+
+    const result = await setOwnActiveProfileTemplate(
+      nextTemplate,
+    );
+
+    if (!mountedRef.current) {
+      return;
+    }
+
+    setSwitching(false);
+
+    if (result.error || !result.activeTemplate) {
+      Alert.alert(
+        'Profile style could not be updated',
+        result.error ??
+          'Your profile style could not be updated. Try again.',
+      );
+      return;
+    }
+
+    setSavedTemplate(result.activeTemplate);
+  }
+
+  function handleMakeProfessionalLive() {
+    Alert.alert(
+      'Make Professional your public profile?',
+      'Other people will see your Professional profile. Your Personal profile is not deleted. You can switch back anytime.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Make live',
+          onPress: () => {
+            void applyTemplate('professional');
+          },
+        },
+      ],
+    );
+  }
+
+  function handleUsePersonal() {
+    void applyTemplate('personal');
+  }
+
   const unavailable = template === 'business';
-  const previewTitle =
-    template === 'professional'
-      ? 'Preview'
-      : 'Personal preview';
   const isProfessional = template === 'professional';
+  const professionalIsLive =
+    savedTemplate === 'professional';
+  const personalIsLive = savedTemplate === 'personal';
+  const previewTitle = isProfessional
+    ? professionalIsLive
+      ? 'Professional'
+      : 'Preview'
+    : 'Personal preview';
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -780,10 +852,16 @@ export default function ProfileStylePreviewScreen({
               <View
                 style={styles.professionalNotice}
                 accessibilityRole="text"
-                accessibilityLabel="Professional preview. Personal remains your live profile."
+                accessibilityLabel={
+                  professionalIsLive
+                    ? 'Professional is live publicly.'
+                    : 'Professional preview. Personal remains your live profile.'
+                }
               >
                 <Text style={styles.professionalNoticeText}>
-                  Professional preview · Personal stays live
+                  {professionalIsLive
+                    ? 'Professional is live publicly'
+                    : 'Professional preview · Personal stays live'}
                 </Text>
               </View>
 
@@ -910,15 +988,27 @@ export default function ProfileStylePreviewScreen({
               />
 
               <View style={styles.currentWrap}>
-                <View
-                  style={styles.currentButton}
-                  accessibilityRole="text"
-                  accessibilityLabel="Preview only. Professional is not your saved profile style."
-                >
-                  <Text style={styles.currentButtonText}>
-                    Preview only
-                  </Text>
-                </View>
+                {professionalIsLive ? (
+                  <View
+                    style={styles.currentButton}
+                    accessibilityRole="text"
+                    accessibilityLabel="Professional is your public profile."
+                  >
+                    <Text style={styles.currentButtonText}>
+                      Live publicly
+                    </Text>
+                  </View>
+                ) : (
+                  <DGButton
+                    title="Make Professional live"
+                    fullWidth
+                    loading={switching}
+                    disabled={switching}
+                    onPress={handleMakeProfessionalLive}
+                    accessibilityLabel="Make Professional live"
+                    accessibilityHint="Makes Professional the profile other people see"
+                  />
+                )}
               </View>
             </>
           ) : (
@@ -926,17 +1016,22 @@ export default function ProfileStylePreviewScreen({
               <View
                 style={styles.banner}
                 accessibilityRole="text"
-                accessibilityLabel="Preview. Personal style. This is what other people would see. Your saved style is not changed."
+                accessibilityLabel={
+                  personalIsLive
+                    ? 'Preview. Personal style. This is what other people see.'
+                    : 'Preview. Personal style. Professional is currently live publicly.'
+                }
               >
                 <Text style={styles.bannerKicker}>
-                  PREVIEW
+                  {personalIsLive ? 'CURRENT' : 'PREVIEW'}
                 </Text>
                 <Text style={styles.bannerTitle}>
                   Personal style
                 </Text>
                 <Text style={styles.bannerBody}>
-                  This is what other people would see. Your
-                  saved style is not changed.
+                  {personalIsLive
+                    ? 'This is what other people see. Your Personal profile is live.'
+                    : 'This is what other people would see if you switch back to Personal. Professional is currently live.'}
                 </Text>
               </View>
 
@@ -973,15 +1068,27 @@ export default function ProfileStylePreviewScreen({
               />
 
               <View style={styles.currentWrap}>
-                <View
-                  style={styles.currentButton}
-                  accessibilityRole="text"
-                  accessibilityLabel="Current style. Personal is already your saved profile style."
-                >
-                  <Text style={styles.currentButtonText}>
-                    Current style
-                  </Text>
-                </View>
+                {personalIsLive ? (
+                  <View
+                    style={styles.currentButton}
+                    accessibilityRole="text"
+                    accessibilityLabel="Personal is your public profile."
+                  >
+                    <Text style={styles.currentButtonText}>
+                      Current style
+                    </Text>
+                  </View>
+                ) : (
+                  <DGButton
+                    title="Use Personal"
+                    fullWidth
+                    loading={switching}
+                    disabled={switching}
+                    onPress={handleUsePersonal}
+                    accessibilityLabel="Use Personal"
+                    accessibilityHint="Makes Personal the profile other people see"
+                  />
+                )}
               </View>
             </>
           )}
