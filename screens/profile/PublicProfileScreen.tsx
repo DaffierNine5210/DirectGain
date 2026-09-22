@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import DGButton from '../../components/DGButton';
 import DGHeader from '../../components/DGHeader';
 import DGSkeleton from '../../components/DGSkeleton';
 import ProfileContentArea from '../../components/profile/ProfileContentArea';
@@ -644,6 +645,22 @@ export default function PublicProfileScreen({
             identityVerified={identityVerified}
             avatarUrl={avatarUrl}
             avatarUnavailable={avatarUnavailable}
+            publicActions={
+              <DGButton
+                title="Message"
+                variant="primary"
+                size="small"
+                icon="chatbubble-outline"
+                loading={messageOpening}
+                disabled={messageOpening}
+                onPress={() => {
+                  void handleVisitorMessage();
+                }}
+                accessibilityLabel="Message"
+                accessibilityHint="Open a conversation with this member"
+                style={styles.personalMessageButton}
+              />
+            }
           />
 
           <ProfileContentArea
@@ -700,6 +717,11 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: spacing.xs,
     paddingTop: 4,
+  },
+
+  personalMessageButton: {
+    minHeight: 44,
+    alignSelf: 'flex-start',
   },
 
   messageCard: {
