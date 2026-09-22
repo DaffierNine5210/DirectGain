@@ -1407,7 +1407,7 @@ useFocusEffect(
       const channel =
         supabase
           .channel(
-            `conversation-read-receipts:${conversationId}:${currentSupabaseUserId}`,
+            `conversation-read-receipts:${conversationId}:${currentSupabaseUserId}:${Date.now()}-${Math.random().toString(36).slice(2)}`,
           )
           .on(
             'postgres_changes',

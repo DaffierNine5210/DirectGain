@@ -20,6 +20,10 @@ type SubscribeToConversationMessagesInput = {
   ) => void;
 };
 
+function createRealtimeTopicSuffix(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 export function subscribeToConversationMessages({
   conversationId,
   onMessage,
@@ -27,7 +31,7 @@ export function subscribeToConversationMessages({
 }: SubscribeToConversationMessagesInput): RealtimeChannel {
   const channel =
     supabase.channel(
-      `conversation-messages:${conversationId}`,
+      `conversation-messages:${conversationId}:${createRealtimeTopicSuffix()}`,
     );
 
   channel
