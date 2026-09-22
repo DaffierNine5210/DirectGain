@@ -50,7 +50,6 @@ import {
 } from '../../theme/designSystem';
 
 import {
-  DEFAULT_PROFILE_TEMPLATE,
   PROFILE_BIO_MAX,
   PROFILE_DISPLAY_NAME_MAX,
   PROFILE_STATE_MAX,
@@ -94,7 +93,20 @@ export default function EditOwnProfileScreen({
     message: string;
   } | null>(null);
   const [activeTemplate, setActiveTemplate] =
-    useState<ProfileTemplate>(DEFAULT_PROFILE_TEMPLATE);
+    useState<ProfileTemplate | null>(null);
+
+  function applyPresentationResult(result: {
+    error: string | null;
+    presentation: {
+      activeTemplate: ProfileTemplate;
+    };
+  }) {
+    if (result.error) {
+      return;
+    }
+
+    setActiveTemplate(result.presentation.activeTemplate);
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -104,9 +116,7 @@ export default function EditOwnProfileScreen({
         const result = await getOwnProfilePresentation();
 
         if (mountedRef.current) {
-          setActiveTemplate(
-            result.presentation.activeTemplate,
-          );
+          applyPresentationResult(result);
         }
       })();
     }, [hideTabBar]),
@@ -127,9 +137,7 @@ export default function EditOwnProfileScreen({
     }
 
     setLoading(false);
-    setActiveTemplate(
-      presentationResult.presentation.activeTemplate,
-    );
+    applyPresentationResult(presentationResult);
 
     if (profileResult.error || !profileResult.profile) {
       setLoadError(
@@ -276,9 +284,11 @@ export default function EditOwnProfileScreen({
               }}
               disabled={saving}
               accessibilityRole="button"
-              accessibilityLabel={`Profile style, ${formatProfileTemplateLabel(
-                activeTemplate,
-              )}`}
+              accessibilityLabel={`Profile style, ${
+                activeTemplate
+                  ? formatProfileTemplateLabel(activeTemplate)
+                  : 'Public style unavailable'
+              }`}
               accessibilityHint="Opens profile style options"
               style={({ pressed }) => [
                 styles.styleRow,
@@ -291,9 +301,11 @@ export default function EditOwnProfileScreen({
                   Profile style
                 </Text>
                 <Text style={styles.styleValue}>
-                  {formatProfileTemplateLabel(
-                    activeTemplate,
-                  )}
+                  {activeTemplate
+                    ? formatProfileTemplateLabel(
+                        activeTemplate,
+                      )
+                    : 'Public style unavailable'}
                 </Text>
               </View>
               <Ionicons

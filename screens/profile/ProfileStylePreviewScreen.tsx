@@ -77,7 +77,6 @@ import {
 } from '../../theme/designSystem';
 
 import {
-  DEFAULT_PROFILE_TEMPLATE,
   type DirectGainProfile,
   type ProfileTemplate,
 } from '../../types/profile';
@@ -190,7 +189,7 @@ export default function ProfileStylePreviewScreen({
   const [identityVerified, setIdentityVerified] =
     useState(false);
   const [savedTemplate, setSavedTemplate] =
-    useState<ProfileTemplate>(DEFAULT_PROFILE_TEMPLATE);
+    useState<ProfileTemplate | null>(null);
   const [switching, setSwitching] = useState(false);
 
   const loadIdentityVerified = useCallback(
@@ -207,9 +206,12 @@ export default function ProfileStylePreviewScreen({
         return;
       }
 
+      if (result.error || !result.result) {
+        return;
+      }
+
       setIdentityVerified(
-        result.error == null &&
-          result.result?.verified === true,
+        result.result.verified === true,
       );
     },
     [],
@@ -559,9 +561,11 @@ export default function ProfileStylePreviewScreen({
 
     setError(null);
     setProfile(identityResult.profile);
-    setSavedTemplate(
-      presentationResult.presentation.activeTemplate,
-    );
+    if (presentationResult.error == null) {
+      setSavedTemplate(
+        presentationResult.presentation.activeTemplate,
+      );
+    }
     void loadReputation(identityResult.profile.id, !quiet);
     void loadIdentityVerified(identityResult.profile.id);
 
@@ -717,7 +721,7 @@ export default function ProfileStylePreviewScreen({
   async function applyTemplate(
     nextTemplate: 'personal' | 'professional',
   ) {
-    if (switching) {
+    if (switching || savedTemplate == null) {
       return;
     }
 
@@ -746,6 +750,10 @@ export default function ProfileStylePreviewScreen({
   }
 
   function handleMakeProfessionalLive() {
+    if (!presentationKnown || switching) {
+      return;
+    }
+
     Alert.alert(
       'Make Professional your public profile?',
       'Other people will see your Professional profile. Your Personal profile is not deleted. You can switch back anytime.',
@@ -762,11 +770,16 @@ export default function ProfileStylePreviewScreen({
   }
 
   function handleUsePersonal() {
+    if (!presentationKnown || switching) {
+      return;
+    }
+
     void applyTemplate('personal');
   }
 
   const unavailable = template === 'business';
   const isProfessional = template === 'professional';
+  const presentationKnown = savedTemplate != null;
   const professionalIsLive =
     savedTemplate === 'professional';
   const personalIsLive = savedTemplate === 'personal';
@@ -849,21 +862,48 @@ export default function ProfileStylePreviewScreen({
         >
           {isProfessional ? (
             <>
-              <View
-                style={styles.professionalNotice}
-                accessibilityRole="text"
-                accessibilityLabel={
-                  professionalIsLive
-                    ? 'Professional is live publicly.'
-                    : 'Professional preview. Personal remains your live profile.'
-                }
-              >
-                <Text style={styles.professionalNoticeText}>
-                  {professionalIsLive
-                    ? 'Professional is live publicly'
-                    : 'Professional preview · Personal stays live'}
-                </Text>
-              </View>
+              {presentationKnown ? (
+                <View
+                  style={styles.professionalNotice}
+                  accessibilityRole="text"
+                  accessibilityLabel={
+                    professionalIsLive
+                      ? 'Professional is live publicly.'
+                      : 'Professional preview. Personal remains your live profile.'
+                  }
+                >
+                  <Text style={styles.professionalNoticeText}>
+                    {professionalIsLive
+                      ? 'Professional is live publicly'
+                      : 'Professional preview · Personal stays live'}
+                  </Text>
+                </View>
+              ) : (
+                <View
+                  style={styles.professionalNotice}
+                  accessibilityRole="text"
+                  accessibilityLabel="Public style unavailable"
+                >
+                  <Text style={styles.professionalNoticeText}>
+                    Public style unavailable
+                  </Text>
+                  <Pressable
+                    onPress={() => {
+                      void loadProfile(false);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Retry loading public style"
+                    style={({ pressed }) => [
+                      styles.inlineRetry,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.inlineRetryText}>
+                      Retry
+                    </Text>
+                  </Pressable>
+                </View>
+              )}
 
               <ProfessionalProfileView
                 mode="ownerPreview"
@@ -989,7 +1029,7 @@ export default function ProfileStylePreviewScreen({
               />
 
               <View style={styles.currentWrap}>
-                {professionalIsLive ? (
+                {presentationKnown && professionalIsLive ? (
                   <View
                     style={styles.currentButton}
                     accessibilityRole="text"
@@ -1004,7 +1044,7 @@ export default function ProfileStylePreviewScreen({
                     title="Make Professional live"
                     fullWidth
                     loading={switching}
-                    disabled={switching}
+                    disabled={switching || !presentationKnown}
                     onPress={handleMakeProfessionalLive}
                     accessibilityLabel="Make Professional live"
                     accessibilityHint="Makes Professional the profile other people see"
@@ -1014,27 +1054,54 @@ export default function ProfileStylePreviewScreen({
             </>
           ) : (
             <>
-              <View
-                style={styles.banner}
-                accessibilityRole="text"
-                accessibilityLabel={
-                  personalIsLive
-                    ? 'Preview. Personal style. This is what other people see.'
-                    : 'Preview. Personal style. Professional is currently live publicly.'
-                }
-              >
-                <Text style={styles.bannerKicker}>
-                  {personalIsLive ? 'CURRENT' : 'PREVIEW'}
-                </Text>
-                <Text style={styles.bannerTitle}>
-                  Personal style
-                </Text>
-                <Text style={styles.bannerBody}>
-                  {personalIsLive
-                    ? 'This is what other people see. Your Personal profile is live.'
-                    : 'This is what other people would see if you switch back to Personal. Professional is currently live.'}
-                </Text>
-              </View>
+              {presentationKnown ? (
+                <View
+                  style={styles.banner}
+                  accessibilityRole="text"
+                  accessibilityLabel={
+                    personalIsLive
+                      ? 'Preview. Personal style. This is what other people see.'
+                      : 'Preview. Personal style. Professional is currently live publicly.'
+                  }
+                >
+                  <Text style={styles.bannerKicker}>
+                    {personalIsLive ? 'CURRENT' : 'PREVIEW'}
+                  </Text>
+                  <Text style={styles.bannerTitle}>
+                    Personal style
+                  </Text>
+                  <Text style={styles.bannerBody}>
+                    {personalIsLive
+                      ? 'This is what other people see. Your Personal profile is live.'
+                      : 'This is what other people would see if you switch back to Personal. Professional is currently live.'}
+                  </Text>
+                </View>
+              ) : (
+                <View
+                  style={styles.banner}
+                  accessibilityRole="text"
+                  accessibilityLabel="Public style unavailable"
+                >
+                  <Text style={styles.bannerTitle}>
+                    Public style unavailable
+                  </Text>
+                  <Pressable
+                    onPress={() => {
+                      void loadProfile(false);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Retry loading public style"
+                    style={({ pressed }) => [
+                      styles.inlineRetry,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.inlineRetryText}>
+                      Retry
+                    </Text>
+                  </Pressable>
+                </View>
+              )}
 
               <PersonalProfileHero
                 identity={presentProfileHeroIdentity(profile)}
@@ -1069,7 +1136,7 @@ export default function ProfileStylePreviewScreen({
               />
 
               <View style={styles.currentWrap}>
-                {personalIsLive ? (
+                {presentationKnown && personalIsLive ? (
                   <View
                     style={styles.currentButton}
                     accessibilityRole="text"
@@ -1084,7 +1151,7 @@ export default function ProfileStylePreviewScreen({
                     title="Use Personal"
                     fullWidth
                     loading={switching}
-                    disabled={switching}
+                    disabled={switching || !presentationKnown}
                     onPress={handleUsePersonal}
                     accessibilityLabel="Use Personal"
                     accessibilityHint="Makes Personal the profile other people see"
@@ -1158,6 +1225,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: alpha.green12,
     backgroundColor: alpha.green04,
+    gap: 2,
   },
 
   professionalNoticeText: {
@@ -1165,6 +1233,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '600',
+  },
+
+  inlineRetry: {
+    alignSelf: 'flex-start',
+    minHeight: 32,
+    justifyContent: 'center',
+  },
+
+  inlineRetryText: {
+    color: palette.opportunityGreen,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+
+  pressed: {
+    opacity: 0.8,
   },
 
   identitySkeleton: {

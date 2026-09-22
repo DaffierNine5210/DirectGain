@@ -130,8 +130,12 @@ export default function PublicProfileScreen({
     useState(false);
   const [identityVerified, setIdentityVerified] =
     useState(false);
-  const [showProfessional, setShowProfessional] =
-    useState(false);
+  const presentationViewRef = useRef<
+    'personal' | 'professional' | 'unavailable' | null
+  >(null);
+  const [presentationView, setPresentationView] = useState<
+    'personal' | 'professional' | 'unavailable' | null
+  >(null);
   const [professional, setProfessional] =
     useState<ProfessionalProfileCore | null>(null);
   const [professionalError, setProfessionalError] =
@@ -174,16 +178,18 @@ export default function PublicProfileScreen({
         return;
       }
 
+      if (result.error || !result.result) {
+        return;
+      }
+
       setIdentityVerified(
-        result.error == null &&
-          result.result?.verified === true,
+        result.result.verified === true,
       );
     },
     [],
   );
 
   const clearProfessionalState = useCallback(() => {
-    setShowProfessional(false);
     setProfessional(null);
     setProfessionalError(null);
     setExperiences([]);
@@ -389,15 +395,33 @@ export default function PublicProfileScreen({
     void loadReputation(result.profile.id, !quiet);
     void loadIdentityVerified(result.profile.id);
 
+    if (presentationResult.error) {
+      const currentView = presentationViewRef.current;
+
+      if (
+        quiet &&
+        (currentView === 'personal' ||
+          currentView === 'professional')
+      ) {
+        return;
+      }
+
+      presentationViewRef.current = 'unavailable';
+      setPresentationView('unavailable');
+      return;
+    }
+
     const useProfessional =
-      presentationResult.error == null &&
       presentationResult.presentation.activeTemplate ===
-        'professional';
+      'professional';
 
     if (useProfessional) {
-      setShowProfessional(true);
+      presentationViewRef.current = 'professional';
+      setPresentationView('professional');
       void loadProfessionalBundle(result.profile.id, !quiet);
     } else {
+      presentationViewRef.current = 'personal';
+      setPresentationView('personal');
       clearProfessionalState();
     }
   }, [
@@ -589,7 +613,7 @@ export default function PublicProfileScreen({
             />
           }
         >
-          {showProfessional ? (
+          {presentationView === 'professional' ? (
             <ProfessionalProfileView
               mode="visitor"
               profile={profile}
@@ -663,6 +687,28 @@ export default function PublicProfileScreen({
             }
           />
 
+          {presentationView === 'unavailable' ? (
+            <View style={styles.presentationErrorRow}>
+              <Text style={styles.presentationErrorText}>
+                Public style could not be loaded.
+              </Text>
+              <Pressable
+                onPress={() => {
+                  void loadProfile(profileId, true);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Retry loading public style"
+                style={({ pressed }) => [
+                  styles.presentationRetry,
+                  pressed && styles.presentationRetryPressed,
+                ]}
+              >
+                <Text style={styles.presentationRetryText}>
+                  Retry
+                </Text>
+              </Pressable>
+            </View>
+          ) : (
           <ProfileContentArea
             mode="public"
             selectedTab={selectedTab}
@@ -686,6 +732,7 @@ export default function PublicProfileScreen({
               />
             }
           />
+          )}
             </>
           )}
         </ScrollView>
@@ -722,6 +769,44 @@ const styles = StyleSheet.create({
   personalMessageButton: {
     minHeight: 44,
     alignSelf: 'flex-start',
+  },
+
+  presentationErrorRow: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: alpha.white08,
+    backgroundColor: surface.cardRaised,
+  },
+
+  presentationErrorText: {
+    flex: 1,
+    minWidth: 0,
+    color: textColor.secondary,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
+  },
+
+  presentationRetry: {
+    minHeight: 36,
+    justifyContent: 'center',
+  },
+
+  presentationRetryPressed: {
+    opacity: 0.8,
+  },
+
+  presentationRetryText: {
+    color: palette.opportunityGreen,
+    fontSize: 13,
+    fontWeight: '800',
   },
 
   messageCard: {

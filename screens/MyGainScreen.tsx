@@ -152,9 +152,12 @@ export default function MyGainScreen({
         return;
       }
 
+      if (result.error || !result.result) {
+        return;
+      }
+
       setIdentityVerified(
-        result.error == null &&
-          result.result?.verified === true,
+        result.result.verified === true,
       );
     },
     [],

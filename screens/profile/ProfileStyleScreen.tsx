@@ -1,5 +1,11 @@
 import { useCallback, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,13 +18,13 @@ import useTabBarVisibility from '../../hooks/useTabBarVisibility';
 
 import type { MyGainStackParamList } from '../../navigation/MyGainStack';
 
-import {
-  DEFAULT_PROFILE_TEMPLATE,
-  type ProfileTemplate,
-} from '../../types/profile';
+import { type ProfileTemplate } from '../../types/profile';
 import { getOwnProfilePresentation } from '../../services/profile/profilePresentationRepository';
 
 import {
+  alpha,
+  palette,
+  radius,
   spacing,
   surface,
   textColor,
@@ -37,8 +43,10 @@ export default function ProfileStyleScreen({
 
   const mountedRef = useRef(true);
   const [loading, setLoading] = useState(true);
+  const [presentationError, setPresentationError] =
+    useState(false);
   const [activeTemplate, setActiveTemplate] =
-    useState<ProfileTemplate>(DEFAULT_PROFILE_TEMPLATE);
+    useState<ProfileTemplate | null>(null);
   const [focusedTemplate, setFocusedTemplate] =
     useState<ProfileTemplate | null>(null);
 
@@ -49,9 +57,14 @@ export default function ProfileStyleScreen({
       return;
     }
 
-    setActiveTemplate(
-      result.presentation.activeTemplate,
-    );
+    if (result.error) {
+      setPresentationError(true);
+      setLoading(false);
+      return;
+    }
+
+    setPresentationError(false);
+    setActiveTemplate(result.presentation.activeTemplate);
     setLoading(false);
   }, []);
 
@@ -115,9 +128,33 @@ export default function ProfileStyleScreen({
             </Text>
           </View>
 
+          {presentationError ? (
+            <View style={styles.errorRow}>
+              <Text style={styles.errorText}>
+                Public style could not be loaded.
+              </Text>
+              <Pressable
+                onPress={() => {
+                  void loadPresentation();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Retry loading public style"
+                style={({ pressed }) => [
+                  styles.retry,
+                  pressed && styles.retryPressed,
+                ]}
+              >
+                <Text style={styles.retryText}>Retry</Text>
+              </Pressable>
+            </View>
+          ) : null}
+
           <ProfileStyleOptionCard
             template="personal"
-            current={activeTemplate === 'personal'}
+            current={
+              !presentationError &&
+              activeTemplate === 'personal'
+            }
             onPress={() => {
               handleSelect('personal');
             }}
@@ -125,7 +162,10 @@ export default function ProfileStyleScreen({
 
           <ProfileStyleOptionCard
             template="professional"
-            current={activeTemplate === 'professional'}
+            current={
+              !presentationError &&
+              activeTemplate === 'professional'
+            }
             onPress={() => {
               handleSelect('professional');
             }}
@@ -133,7 +173,10 @@ export default function ProfileStyleScreen({
 
           <ProfileStyleOptionCard
             template="business"
-            current={activeTemplate === 'business'}
+            current={
+              !presentationError &&
+              activeTemplate === 'business'
+            }
             comingSoon
             focused={focusedTemplate === 'business'}
             onPress={() => {
@@ -180,5 +223,43 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
     fontWeight: '500',
+  },
+
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: alpha.white08,
+    backgroundColor: surface.cardRaised,
+  },
+
+  errorText: {
+    flex: 1,
+    minWidth: 0,
+    color: textColor.secondary,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
+  },
+
+  retry: {
+    minHeight: 36,
+    paddingHorizontal: spacing.sm,
+    justifyContent: 'center',
+  },
+
+  retryPressed: {
+    opacity: 0.8,
+  },
+
+  retryText: {
+    color: palette.opportunityGreen,
+    fontSize: 13,
+    fontWeight: '800',
   },
 });

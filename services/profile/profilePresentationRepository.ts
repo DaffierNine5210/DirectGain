@@ -108,12 +108,18 @@ export async function getProfilePresentation(
     };
   }
 
+  if (!isProfileTemplate(result.data.active_template)) {
+    return {
+      presentation: personalPresentation(id),
+      error:
+        'Profile style could not be loaded. Try again.',
+    };
+  }
+
   return {
     presentation: {
       profileId: result.data.profile_id.toLowerCase(),
-      activeTemplate: resolveProfileTemplate(
-        result.data.active_template,
-      ),
+      activeTemplate: result.data.active_template,
     },
     error: null,
   };
