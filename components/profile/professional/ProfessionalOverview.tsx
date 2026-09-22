@@ -56,6 +56,7 @@ type ProfessionalOverviewProps = {
   onReplaceResume?: () => void;
   onRemoveResume?: () => void;
   mode?: 'ownerPreview' | 'visitor';
+  professionalIsLive?: boolean;
 };
 
 export default function ProfessionalOverview({
@@ -86,6 +87,7 @@ export default function ProfessionalOverview({
   onReplaceResume,
   onRemoveResume,
   mode = 'ownerPreview',
+  professionalIsLive = false,
 }: ProfessionalOverviewProps) {
   const isOwnerPreview = mode === 'ownerPreview';
   const missingFields = professionalError
@@ -241,6 +243,7 @@ export default function ProfessionalOverview({
             compact
             missingFields={missingFields}
             onEditPress={onEditProfessional}
+            professionalIsLive={professionalIsLive}
           />
         </View>
       ) : null}

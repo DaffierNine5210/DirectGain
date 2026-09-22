@@ -867,6 +867,7 @@ export default function ProfileStylePreviewScreen({
 
               <ProfessionalProfileView
                 mode="ownerPreview"
+                professionalIsLive={professionalIsLive}
                 profile={profile}
                 professional={professional}
                 professionalError={professionalError}

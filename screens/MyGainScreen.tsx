@@ -49,6 +49,7 @@ import {
   uploadOwnProfileAvatar,
 } from '../services/profile/profileAvatarRepository';
 import { getProfileIdentityVerified } from '../services/profile/identityVerificationRepository';
+import { getOwnProfilePresentation } from '../services/profile/profilePresentationRepository';
 import {
   getAuthenticatedUserId,
   getOwnProfile,
@@ -67,8 +68,16 @@ import {
   typography,
 } from '../theme/designSystem';
 
-import type { DirectGainProfile } from '../types/profile';
+import type {
+  DirectGainProfile,
+  ProfileTemplate,
+} from '../types/profile';
 import type { ProfileReviewStats } from '../types/reviews';
+
+type PublicStyleStatus =
+  | 'personal'
+  | 'professional'
+  | 'unavailable';
 
 type Props = NativeStackScreenProps<
   MyGainStackParamList,
@@ -126,6 +135,8 @@ export default function MyGainScreen({
     useState(false);
   const [identityVerified, setIdentityVerified] =
     useState(false);
+  const [publicStyleStatus, setPublicStyleStatus] =
+    useState<PublicStyleStatus | null>(null);
 
   const loadIdentityVerified = useCallback(
     async (profileId: string) => {
@@ -197,7 +208,10 @@ export default function MyGainScreen({
         setLoading(true);
       }
 
-      const result = await getOwnProfile();
+      const [result, presentationResult] = await Promise.all([
+        getOwnProfile(),
+        getOwnProfilePresentation(),
+      ]);
 
       if (
         requestId !== requestIdRef.current ||
@@ -209,6 +223,19 @@ export default function MyGainScreen({
       setLoading(false);
       setRefreshing(false);
       hasLoadedRef.current = true;
+
+      const activeTemplate =
+        presentationResult.presentation.activeTemplate;
+      const knownLiveStyle: ProfileTemplate | null =
+        presentationResult.error == null &&
+        (activeTemplate === 'personal' ||
+          activeTemplate === 'professional')
+          ? activeTemplate
+          : null;
+
+      setPublicStyleStatus(
+        knownLiveStyle ?? 'unavailable',
+      );
 
       if (result.error || !result.profile) {
         setProfile(null);
@@ -529,6 +556,56 @@ export default function MyGainScreen({
               }}
             />
 
+            {publicStyleStatus ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  publicStyleStatus === 'unavailable'
+                    ? 'Public style unavailable'
+                    : `Visitors see ${
+                        publicStyleStatus === 'professional'
+                          ? 'Professional'
+                          : 'Personal'
+                      }`
+                }
+                accessibilityHint="Opens profile style options"
+                onPress={() => {
+                  navigation.navigate('ProfileStyle');
+                }}
+                style={({ pressed }) => [
+                  styles.publicStyleRow,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <View
+                  style={[
+                    styles.publicStyleDot,
+                    publicStyleStatus !== 'unavailable' &&
+                      styles.publicStyleDotLive,
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.publicStyleLabel,
+                    publicStyleStatus === 'unavailable' &&
+                      styles.publicStyleLabelMuted,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {publicStyleStatus === 'unavailable'
+                    ? 'Public style unavailable'
+                    : publicStyleStatus === 'professional'
+                      ? 'Visitors see Professional'
+                      : 'Visitors see Personal'}
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={iconSize.sm}
+                  color={textColor.muted}
+                />
+              </Pressable>
+            ) : null}
+
             <ProfileContentArea
               mode="owner"
               selectedTab={selectedTab}
@@ -624,6 +701,44 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: spacing.xs,
     paddingTop: 4,
+  },
+
+  publicStyleRow: {
+    width: '100%',
+    maxWidth: layout.maximumContentWidth,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xxs,
+    minHeight: 36,
+  },
+
+  publicStyleDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: textColor.muted,
+  },
+
+  publicStyleDotLive: {
+    backgroundColor: palette.opportunityGreen,
+  },
+
+  publicStyleLabel: {
+    flex: 1,
+    minWidth: 0,
+    color: textColor.secondary,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+
+  publicStyleLabelMuted: {
+    color: textColor.muted,
+    fontWeight: '600',
   },
 
   workCard: {

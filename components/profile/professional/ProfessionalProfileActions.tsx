@@ -8,20 +8,24 @@ type ProfessionalProfileActionsProps = {
   onMessage?: () => void;
   loading?: boolean;
   visitor?: boolean;
+  professionalIsLive?: boolean;
 };
 
-function showOwnerPreviewMessage() {
-  Alert.alert(
-    'Message',
-    'Message will be available to visitors when your Professional profile is live.',
-  );
+function ownerPreviewMessageBody(professionalIsLive: boolean) {
+  return professionalIsLive
+    ? 'This is your owner preview. Visitors can message you from your live Professional profile.'
+    : 'Message will be available to visitors when your Professional profile is live.';
 }
 
 export default function ProfessionalProfileActions({
   onMessage,
   loading = false,
   visitor = false,
+  professionalIsLive = false,
 }: ProfessionalProfileActionsProps) {
+  const ownerMessageBody =
+    ownerPreviewMessageBody(professionalIsLive);
+
   return (
     <View style={styles.root}>
       <DGButton
@@ -32,12 +36,17 @@ export default function ProfessionalProfileActions({
         fullWidth
         loading={loading}
         disabled={loading}
-        onPress={onMessage ?? showOwnerPreviewMessage}
+        onPress={
+          onMessage ??
+          (() => {
+            Alert.alert('Message', ownerMessageBody);
+          })
+        }
         accessibilityLabel="Message"
         accessibilityHint={
           visitor
             ? 'Open a conversation with this member'
-            : 'Message will be available to visitors when your Professional profile is live.'
+            : ownerMessageBody
         }
         style={styles.button}
       />

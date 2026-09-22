@@ -228,7 +228,8 @@ export default function EditProfessionalResumeScreen({
       >
         <Text style={styles.intro}>
           Attach one PDF résumé to your Professional profile.
-          It is private while Professional is preview-only.
+          Your résumé is private and is not shown on your public
+          profile.
         </Text>
 
         <ProfessionalResumeCard

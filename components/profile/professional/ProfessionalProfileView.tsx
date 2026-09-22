@@ -68,6 +68,7 @@ type ProfessionalProfileViewProps = {
   messageLoading?: boolean;
   identityVerified?: boolean;
   mode?: 'ownerPreview' | 'visitor';
+  professionalIsLive?: boolean;
 };
 
 export default function ProfessionalProfileView({
@@ -112,6 +113,7 @@ export default function ProfessionalProfileView({
   messageLoading = false,
   identityVerified = false,
   mode = 'ownerPreview',
+  professionalIsLive = false,
 }: ProfessionalProfileViewProps) {
   const [selectedTab, setSelectedTab] =
     useState<ProfessionalProfileTabKey>(
@@ -157,6 +159,7 @@ export default function ProfessionalProfileView({
           onMessage={onMessage}
           loading={messageLoading}
           visitor={!isOwnerPreview}
+          professionalIsLive={professionalIsLive}
         />
       ) : null}
 
@@ -199,6 +202,7 @@ export default function ProfessionalProfileView({
             onReplaceResume={onReplaceResume}
             onRemoveResume={onRemoveResume}
             mode={mode}
+            professionalIsLive={professionalIsLive}
           />
         ) : null}
 

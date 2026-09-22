@@ -80,8 +80,8 @@ export default function ProfessionalResumeCard({
       return (
         <View style={styles.landingRoot}>
           <Text style={styles.body}>
-            Add a résumé when you are ready. It stays private
-            while Professional is preview-only.
+            Add a résumé when you are ready. Your résumé is
+            private and is not shown on your public profile.
           </Text>
           <Pressable
             onPress={onAdd}
@@ -114,8 +114,8 @@ export default function ProfessionalResumeCard({
         </View>
         <Text style={styles.body}>
           Add your résumé so your Professional profile is ready
-          for future work opportunities. It stays private while
-          Professional is preview-only.
+          for future work opportunities. Your résumé is private
+          and is not shown on your public profile.
         </Text>
         <Pressable
           onPress={onAdd}

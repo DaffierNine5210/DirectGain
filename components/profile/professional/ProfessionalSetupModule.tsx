@@ -12,12 +12,14 @@ type ProfessionalSetupModuleProps = {
   missingFields: string[];
   onEditPress: () => void;
   compact?: boolean;
+  professionalIsLive?: boolean;
 };
 
 export default function ProfessionalSetupModule({
   missingFields,
   onEditPress,
   compact = false,
+  professionalIsLive = false,
 }: ProfessionalSetupModuleProps) {
   const hasMissing = missingFields.length > 0;
   const missingLabel = missingFields.join(', ');
@@ -28,28 +30,43 @@ export default function ProfessionalSetupModule({
     ? 'Edit your information at any time.'
     : 'Headline, About, availability, service area, work preference, skills, experience, credentials, portfolio and résumé can be edited any time.';
 
+  const accessibilityLabel = professionalIsLive
+    ? hasMissing
+      ? `Professional is live publicly. Still to add: ${missingLabel}. Edit any time.`
+      : 'Professional is live publicly. Edit any time.'
+    : hasMissing
+      ? `Owner preview. Complete your Professional profile. Missing: ${missingLabel}. These details are not public yet.`
+      : 'Owner preview. Professional profile details are ready. Edit your information at any time. These details are not public yet.';
+
+  const title =
+    professionalIsLive && !hasMissing
+      ? 'Professional is live publicly.'
+      : hasMissing
+        ? 'Complete your Professional profile'
+        : readyTitle;
+
+  const body = professionalIsLive
+    ? hasMissing
+      ? `Still to add: ${missingLabel}.`
+      : 'Edit any time.'
+    : hasMissing
+      ? `Still to add: ${missingLabel}.`
+      : readyBody;
+
   return (
     <View
       style={[styles.card, compact && styles.cardCompact]}
       accessibilityRole="text"
-      accessibilityLabel={
-        hasMissing
-          ? `Owner preview. Complete your Professional profile. Missing: ${missingLabel}. These details are not public yet.`
-          : 'Owner preview. Professional profile details are ready. Edit your information at any time. These details are not public yet.'
-      }
+      accessibilityLabel={accessibilityLabel}
     >
       {compact ? null : (
         <Text style={styles.kicker}>OWNER PREVIEW</Text>
       )}
       <Text style={styles.title}>
-        {hasMissing
-          ? 'Complete your Professional profile'
-          : readyTitle}
+        {title}
       </Text>
       <Text style={styles.body}>
-        {hasMissing
-          ? `Still to add: ${missingLabel}.`
-          : readyBody}
+        {body}
       </Text>
 
       <Pressable
