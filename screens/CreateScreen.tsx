@@ -59,7 +59,7 @@ const OPTIONS: CreateOption[] = [
     title: 'Sell an item',
     subtitle: 'List something on the Market',
     icon: 'storefront-outline',
-    available: false,
+    available: true,
   },
   {
     key: 'auction',
@@ -127,15 +127,19 @@ export default function CreateScreen({
               accessibilityLabel={
                 option.title
               }
-              accessibilityHint="Opens Post a Job"
+              accessibilityHint={
+                option.key === 'job'
+                  ? 'Opens Post a Job'
+                  : 'Opens Create listing'
+              }
               onPress={() => {
-                if (
-                  option.key ===
-                  'job'
-                ) {
-                  navigation.navigate(
-                    'CreateJob',
-                  );
+                if (option.key === 'job') {
+                  navigation.navigate('CreateJob');
+                  return;
+                }
+
+                if (option.key === 'listing') {
+                  navigation.navigate('CreateListing');
                 }
               }}
               style={({
@@ -289,6 +293,7 @@ const styles = StyleSheet.create({
   },
 
   optionLive: {
+    marginBottom: spacing.sm,
     borderColor: alpha.green20,
     backgroundColor: surface.cardRaised,
   },
