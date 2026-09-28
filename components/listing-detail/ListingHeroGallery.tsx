@@ -20,6 +20,8 @@ type Props = {
   image?: ImageSourcePropType;
 
   favourite?: boolean;
+  showFavourite?: boolean;
+  showShare?: boolean;
 
   onBackPress: () => void;
   onFavouritePress: () => void;
@@ -31,6 +33,8 @@ export default function ListingHeroGallery({
   image,
 
   favourite = false,
+  showFavourite = true,
+  showShare = true,
 
   onBackPress,
   onFavouritePress,
@@ -186,73 +190,82 @@ export default function ListingHeroGallery({
           />
         </Pressable>
 
-        <View
-          style={
-            styles.rightActions
-          }
-        >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={
-              favourite
-                ? 'Remove from saved listings'
-                : 'Save listing'
+        {showFavourite || showShare ? (
+          <View
+            style={
+              styles.rightActions
             }
-            hitSlop={8}
-            onPress={
-              onFavouritePress
-            }
-            style={({
-              pressed,
-            }) => [
-              styles.actionButton,
-
-              pressed &&
-                styles.pressed,
-            ]}
           >
-            <Ionicons
-              name={
-                favourite
-                  ? 'heart'
-                  : 'heart-outline'
-              }
-              size={22}
-              color={
-                favourite
-                  ? colors.primary
-                  : colors.text
-              }
-            />
-          </Pressable>
+            {showFavourite ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  favourite
+                    ? 'Remove from saved listings'
+                    : 'Save listing'
+                }
+                hitSlop={8}
+                onPress={
+                  onFavouritePress
+                }
+                style={({
+                  pressed,
+                }) => [
+                  styles.actionButton,
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Share listing"
-            hitSlop={8}
-            onPress={
-              onSharePress
-            }
-            style={({
-              pressed,
-            }) => [
-              styles.actionButton,
+                  pressed &&
+                    styles.pressed,
+                ]}
+              >
+                <Ionicons
+                  name={
+                    favourite
+                      ? 'heart'
+                      : 'heart-outline'
+                  }
+                  size={22}
+                  color={
+                    favourite
+                      ? colors.primary
+                      : colors.text
+                  }
+                />
+              </Pressable>
+            ) : null}
 
-              styles.actionButtonSpacing,
+            {showShare ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Share listing"
+                hitSlop={8}
+                onPress={
+                  onSharePress
+                }
+                style={({
+                  pressed,
+                }) => [
+                  styles.actionButton,
 
-              pressed &&
-                styles.pressed,
-            ]}
-          >
-            <Ionicons
-              name="share-outline"
-              size={22}
-              color={
-                colors.text
-              }
-            />
-          </Pressable>
-        </View>
+                  showFavourite &&
+                    styles.actionButtonSpacing,
+
+                  pressed &&
+                    styles.pressed,
+                ]}
+              >
+                <Ionicons
+                  name="share-outline"
+                  size={22}
+                  color={
+                    colors.text
+                  }
+                />
+              </Pressable>
+            ) : null}
+          </View>
+        ) : (
+          <View />
+        )}
       </View>
 
       {safeImages.length > 1 ? (

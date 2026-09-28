@@ -891,6 +891,35 @@ export default function CreateListingScreen({
     );
   }
 
+  function handlePreviewPress() {
+    if (savingRef.current || uploadingRef.current || reorderingRef.current) {
+      return;
+    }
+
+    const currentId = listingIdRef.current;
+
+    if (!currentId) {
+      return;
+    }
+
+    if (
+      !snapshotsEqual(
+        formRef.current,
+        persistedRef.current,
+      )
+    ) {
+      Alert.alert(
+        'Save your changes before previewing.',
+        'Save draft first so Preview matches what you will list.',
+      );
+      return;
+    }
+
+    navigation.navigate('ListingPreview', {
+      listingId: currentId,
+    });
+  }
+
   function handleBackPress() {
     if (savingRef.current || uploadingRef.current || reorderingRef.current) {
       return;
@@ -1377,6 +1406,28 @@ export default function CreateListingScreen({
             ) : null}
 
             <DGButton
+              title="Preview listing"
+              variant="outline"
+              fullWidth
+              disabled={
+                !listingId ||
+                saving ||
+                uploading ||
+                reordering
+              }
+              onPress={handlePreviewPress}
+              style={styles.preview}
+              accessibilityLabel="Preview listing"
+              accessibilityHint={
+                !listingId
+                  ? 'Save a draft before previewing.'
+                  : formDirty
+                    ? 'Save your changes before previewing.'
+                    : 'Opens a preview of this listing.'
+              }
+            />
+
+            <DGButton
               title={saving ? 'Saving draft' : 'Save draft'}
               fullWidth
               loading={saving}
@@ -1602,8 +1653,12 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
-  submit: {
+  preview: {
     marginTop: spacing.xl,
+  },
+
+  submit: {
+    marginTop: spacing.sm,
   },
 
   choiceContent: {

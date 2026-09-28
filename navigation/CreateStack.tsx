@@ -3,11 +3,13 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import CreateListingScreen from '../screens/CreateListingScreen';
 import CreateScreen from '../screens/CreateScreen';
 import CreateJobScreen from '../screens/jobs/CreateJobScreen';
+import ListingPreviewScreen from '../screens/ListingPreviewScreen';
 
 export type CreateStackParamList = {
   CreateHome: undefined;
   CreateJob: undefined;
   CreateListing: { listingId?: string } | undefined;
+  ListingPreview: { listingId: string };
 };
 
 const Stack =
@@ -42,6 +44,15 @@ export default function CreateStack() {
       <Stack.Screen
         name="CreateListing"
         component={CreateListingScreen}
+        options={{
+          animation: 'slide_from_right',
+          gestureDirection: 'horizontal',
+        }}
+      />
+
+      <Stack.Screen
+        name="ListingPreview"
+        component={ListingPreviewScreen}
         options={{
           animation: 'slide_from_right',
           gestureDirection: 'horizontal',

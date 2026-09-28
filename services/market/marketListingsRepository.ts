@@ -181,6 +181,49 @@ function formatSafeError(
   return fallback;
 }
 
+function formatPublishError(
+  error: {
+    message?: string;
+    code?: string;
+  } | null,
+): string {
+  if (!error?.message) {
+    return 'This listing could not be listed. Try again.';
+  }
+
+  const message = error.message.trim();
+  const lowered = message.toLowerCase();
+
+  if (
+    error.code === '42501' ||
+    lowered.includes('row-level security')
+  ) {
+    return 'You do not have permission to list this item.';
+  }
+
+  if (lowered.includes('network')) {
+    return 'Check your connection and try again.';
+  }
+
+  if (
+    lowered.includes('postgres') ||
+    lowered.includes('permission denied') ||
+    lowered.includes('function') ||
+    lowered.includes('sql') ||
+    lowered.includes('schema')
+  ) {
+    return 'This listing could not be listed. Try again.';
+  }
+
+  const firstLine = message.split('\n')[0]?.trim() ?? '';
+
+  if (firstLine.length > 0 && firstLine.length <= 160) {
+    return firstLine;
+  }
+
+  return 'This listing could not be listed. Try again.';
+}
+
 type SanitisedDraftFields = {
   title: string;
   description: string;
@@ -1460,4 +1503,70 @@ export async function reorderListingMedia(
   }
 
   return { error: null };
+}
+
+export async function publishOwnListing(
+  listingId: string,
+): Promise<{
+  listingId: string | null;
+  status: 'active' | null;
+  error: string | null;
+}> {
+  const trimmed = listingId.trim().toLowerCase();
+
+  if (!isUuid(trimmed)) {
+    return {
+      listingId: null,
+      status: null,
+      error: 'This listing could not be listed.',
+    };
+  }
+
+  const auth = await requireUserId();
+
+  if (!auth.ok) {
+    return {
+      listingId: null,
+      status: null,
+      error: auth.error,
+    };
+  }
+
+  const published = await supabase.rpc(
+    'publish_own_market_listing',
+    {
+      p_listing_id: trimmed,
+    },
+  );
+
+  if (published.error) {
+    return {
+      listingId: null,
+      status: null,
+      error: formatPublishError(published.error),
+    };
+  }
+
+  const row = Array.isArray(published.data)
+    ? published.data[0]
+    : published.data;
+
+  if (
+    !row ||
+    typeof row !== 'object' ||
+    typeof (row as { id?: unknown }).id !== 'string' ||
+    (row as { status?: unknown }).status !== 'active'
+  ) {
+    return {
+      listingId: null,
+      status: null,
+      error: 'This listing could not be listed. Try again.',
+    };
+  }
+
+  return {
+    listingId: (row as { id: string }).id,
+    status: 'active',
+    error: null,
+  };
 }
