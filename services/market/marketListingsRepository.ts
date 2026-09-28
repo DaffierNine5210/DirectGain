@@ -11,7 +11,9 @@ import {
   MARKET_LISTING_MEDIA_BUCKET,
   MARKET_LISTING_MEDIA_MAX,
   MARKET_LISTING_MEDIA_MAX_BYTES,
+  type ActiveMarketListingFeedItem,
   type CreateMarketListingDraftInput,
+  type MarketListingActive,
   type MarketListingCategory,
   type MarketListingCondition,
   type MarketListingDraft,
@@ -153,6 +155,45 @@ function adaptDraftRow(
   };
 }
 
+function adaptActiveRow(
+  row: MarketListingRow,
+): MarketListingActive | null {
+  if (
+    row.status !== 'active' ||
+    row.currency !== MARKET_LISTING_CURRENCY ||
+    !isMarketListingCategory(row.category) ||
+    !isMarketListingCondition(row.condition)
+  ) {
+    return null;
+  }
+
+  const price = parsePriceValue(row.price);
+
+  if (price == null || price < 0) {
+    return null;
+  }
+
+  return {
+    id: row.id,
+    sellerProfileId: row.seller_profile_id,
+    title: row.title,
+    description: row.description,
+    price,
+    currency: MARKET_LISTING_CURRENCY,
+    category: row.category,
+    subcategory: row.subcategory,
+    condition: row.condition,
+    status: 'active',
+    allowsOffers: row.allows_offers,
+    pickupAvailable: row.pickup_available,
+    deliveryAvailable: row.delivery_available,
+    suburb: row.suburb,
+    state: row.state,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 function formatSafeError(
   error: {
     message?: string;
@@ -222,6 +263,44 @@ function formatPublishError(
   }
 
   return 'This listing could not be listed. Try again.';
+}
+
+function formatMarketReadError(
+  error: {
+    message?: string;
+    code?: string;
+  } | null,
+  fallback: string,
+): string {
+  if (!error?.message) {
+    return fallback;
+  }
+
+  const message = error.message.toLowerCase();
+  const code = error.code ?? '';
+
+  if (
+    code === '42501' ||
+    message.includes('row-level security')
+  ) {
+    return 'You do not have permission to view this listing.';
+  }
+
+  if (message.includes('network')) {
+    return 'Check your connection and try again.';
+  }
+
+  if (
+    message.includes('postgres') ||
+    message.includes('permission denied') ||
+    message.includes('function') ||
+    message.includes('sql') ||
+    message.includes('schema')
+  ) {
+    return fallback;
+  }
+
+  return fallback;
 }
 
 type SanitisedDraftFields = {
@@ -1567,6 +1646,260 @@ export async function publishOwnListing(
   return {
     listingId: (row as { id: string }).id,
     status: 'active',
+    error: null,
+  };
+}
+
+export async function listActiveMarketListings(): Promise<{
+  listings: ActiveMarketListingFeedItem[];
+  error: string | null;
+}> {
+  const auth = await requireUserId();
+
+  if (!auth.ok) {
+    return {
+      listings: [],
+      error: auth.error,
+    };
+  }
+
+  const loaded = await supabase
+    .from('market_listings')
+    .select(MARKET_LISTING_SELECT)
+    .eq('status', 'active')
+    .order('created_at', { ascending: false });
+
+  if (loaded.error) {
+    return {
+      listings: [],
+      error: formatMarketReadError(
+        loaded.error,
+        "Couldn't load listings.",
+      ),
+    };
+  }
+
+  const listings: MarketListingActive[] = [];
+
+  for (const row of loaded.data ?? []) {
+    if (!isMarketListingRow(row)) {
+      continue;
+    }
+
+    const listing = adaptActiveRow(row);
+
+    if (!listing) {
+      continue;
+    }
+
+    listings.push(listing);
+  }
+
+  if (listings.length === 0) {
+    return {
+      listings: [],
+      error: null,
+    };
+  }
+
+  const listingIds = listings.map((listing) => listing.id);
+
+  const mediaLoaded = await supabase
+    .from('market_listing_media')
+    .select(MARKET_LISTING_MEDIA_SELECT)
+    .in('listing_id', listingIds)
+    .order('listing_id', { ascending: true })
+    .order('sort_order', { ascending: true });
+
+  const mediaByListing = new Map<
+    string,
+    MarketListingMedia[]
+  >();
+
+  if (!mediaLoaded.error) {
+    for (const row of mediaLoaded.data ?? []) {
+      if (!isMarketListingMediaRow(row)) {
+        continue;
+      }
+
+      const media = adaptMediaRow(row);
+
+      if (!media) {
+        continue;
+      }
+
+      const current = mediaByListing.get(media.listingId) ?? [];
+      current.push(media);
+      mediaByListing.set(media.listingId, current);
+    }
+  }
+
+  const coverPaths: string[] = [];
+
+  for (const listing of listings) {
+    const media = mediaByListing.get(listing.id) ?? [];
+    const cover = media[0];
+
+    if (cover) {
+      coverPaths.push(cover.storagePath);
+    }
+  }
+
+  const signedCovers =
+    coverPaths.length > 0
+      ? await createListingMediaSignedUrls(coverPaths)
+      : new Map<string, string>();
+
+  return {
+    listings: listings.map((listing) => {
+      const media = mediaByListing.get(listing.id) ?? [];
+      const cover = media[0] ?? null;
+      const coverSignedUrl = cover
+        ? signedCovers.get(cover.storagePath) ?? null
+        : null;
+
+      return {
+        listing,
+        photoCount: media.length,
+        coverSignedUrl,
+      };
+    }),
+    error: null,
+  };
+}
+
+export async function getActiveMarketListing(
+  listingId: string,
+): Promise<{
+  listing: MarketListingActive | null;
+  error: string | null;
+}> {
+  const trimmed = listingId.trim().toLowerCase();
+
+  if (!isUuid(trimmed)) {
+    return {
+      listing: null,
+      error: "Couldn't load this listing.",
+    };
+  }
+
+  const auth = await requireUserId();
+
+  if (!auth.ok) {
+    return {
+      listing: null,
+      error: auth.error,
+    };
+  }
+
+  const loaded = await supabase
+    .from('market_listings')
+    .select(MARKET_LISTING_SELECT)
+    .eq('id', trimmed)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  if (loaded.error) {
+    return {
+      listing: null,
+      error: formatMarketReadError(
+        loaded.error,
+        "Couldn't load this listing.",
+      ),
+    };
+  }
+
+  if (!loaded.data || !isMarketListingRow(loaded.data)) {
+    return {
+      listing: null,
+      error: "Couldn't load this listing.",
+    };
+  }
+
+  const listing = adaptActiveRow(loaded.data);
+
+  if (!listing) {
+    return {
+      listing: null,
+      error: "Couldn't load this listing.",
+    };
+  }
+
+  return {
+    listing,
+    error: null,
+  };
+}
+
+export async function getActiveListingMedia(
+  listingId: string,
+): Promise<{
+  media: MarketListingMediaPresentation[];
+  error: string | null;
+}> {
+  const listingResult = await getActiveMarketListing(listingId);
+
+  if (listingResult.error || !listingResult.listing) {
+    return {
+      media: [],
+      error:
+        listingResult.error ??
+        "Couldn't load this listing.",
+    };
+  }
+
+  const loaded = await supabase
+    .from('market_listing_media')
+    .select(MARKET_LISTING_MEDIA_SELECT)
+    .eq('listing_id', listingResult.listing.id)
+    .order('sort_order', { ascending: true });
+
+  if (loaded.error) {
+    return {
+      media: [],
+      error: null,
+    };
+  }
+
+  const rows: MarketListingMedia[] = [];
+
+  for (const row of loaded.data ?? []) {
+    if (!isMarketListingMediaRow(row)) {
+      continue;
+    }
+
+    const media = adaptMediaRow(row);
+
+    if (!media || media.listingId !== listingResult.listing.id) {
+      continue;
+    }
+
+    rows.push(media);
+  }
+
+  rows.sort((left, right) => left.sortOrder - right.sortOrder);
+
+  const urls = await createListingMediaSignedUrls(
+    rows.map((item) => item.storagePath),
+  );
+
+  const media: MarketListingMediaPresentation[] = [];
+
+  for (const item of rows) {
+    const signedUrl = urls.get(item.storagePath);
+
+    if (!signedUrl) {
+      continue;
+    }
+
+    media.push({
+      ...item,
+      signedUrl,
+    });
+  }
+
+  return {
+    media,
     error: null,
   };
 }

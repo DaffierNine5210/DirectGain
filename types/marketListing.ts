@@ -31,7 +31,9 @@ export type MarketListingCurrency =
 
 export type MarketListingDraftStatus = 'draft';
 
-export type MarketListingDraft = {
+export type MarketListingActiveStatus = 'active';
+
+type MarketListingCore = {
   id: string;
   sellerProfileId: string;
   title: string;
@@ -41,7 +43,6 @@ export type MarketListingDraft = {
   category: MarketListingCategory;
   subcategory: string;
   condition: MarketListingCondition;
-  status: MarketListingDraftStatus;
   allowsOffers: boolean;
   pickupAvailable: boolean;
   deliveryAvailable: boolean;
@@ -49,6 +50,20 @@ export type MarketListingDraft = {
   state: string;
   createdAt: string;
   updatedAt: string;
+};
+
+export type MarketListingDraft = MarketListingCore & {
+  status: MarketListingDraftStatus;
+};
+
+export type MarketListingActive = MarketListingCore & {
+  status: MarketListingActiveStatus;
+};
+
+export type ActiveMarketListingFeedItem = {
+  listing: MarketListingActive;
+  photoCount: number;
+  coverSignedUrl: string | null;
 };
 
 export type CreateMarketListingDraftInput = {

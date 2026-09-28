@@ -3,6 +3,7 @@ import type { ImageSourcePropType } from 'react-native';
 import formatListingPrice from '../../utils/listing/formatListingPrice';
 
 import type {
+  MarketListingActive,
   MarketListingDraft,
   MarketListingMediaPresentation,
 } from '../../types/marketListing';
@@ -48,7 +49,7 @@ export function formatListingCreatedOn(iso: string): string {
 }
 
 export function toListingPreviewPresentation(input: {
-  listing: MarketListingDraft;
+  listing: MarketListingDraft | MarketListingActive;
   media: MarketListingMediaPresentation[];
   seller: ListingPreviewSellerPresentation;
 }): ListingPreviewPresentation {

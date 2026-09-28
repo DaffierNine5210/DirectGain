@@ -21,6 +21,7 @@ type ListingPreviewSellerRowProps = {
   displayName: string;
   avatarUrl: string | null;
   identityVerified: boolean;
+  accessibilityHint?: string;
   onViewProfile: () => void;
 };
 
@@ -28,6 +29,7 @@ export default function ListingPreviewSellerRow({
   displayName,
   avatarUrl,
   identityVerified,
+  accessibilityHint = 'Opens this Gain Profile.',
   onViewProfile,
 }: ListingPreviewSellerRowProps) {
   const initials = getInitials(displayName);
@@ -36,7 +38,7 @@ export default function ListingPreviewSellerRow({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`View ${displayName}'s Gain Profile`}
-      accessibilityHint="Opens your Direct Gain profile."
+      accessibilityHint={accessibilityHint}
       onPress={onViewProfile}
       style={({ pressed }) => [
         styles.card,

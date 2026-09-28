@@ -2,10 +2,13 @@ import type {
   NativeStackScreenProps,
 } from '@react-navigation/native-stack';
 import {
-  useMemo,
+  useCallback,
+  useEffect,
+  useRef,
   useState,
 } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   SafeAreaView,
   ScrollView,
@@ -18,33 +21,37 @@ import {
 import ListingActionBar from '../components/listing-detail/ListingActionBar';
 import ListingHeader from '../components/listing-detail/ListingHeader';
 import ListingHeroGallery from '../components/listing-detail/ListingHeroGallery';
+import ListingPhotoViewer from '../components/listing-detail/ListingPhotoViewer';
 import ListingSafetyCard from '../components/listing-detail/ListingSafetyCard';
-import SellerTrustCard from '../components/listing-detail/SellerTrustCard';
-
 import GeneralDetailsTab from '../components/listing-detail/details/GeneralDetailsTab';
-import VehicleDetailsTab from '../components/listing-detail/details/VehicleDetailsTab';
-import VehicleModificationsTab from '../components/listing-detail/details/VehicleModificationsTab';
-
-import {
-  getListingById,
-  listings,
-} from '../data/listings';
+import ListingPreviewSellerRow from '../components/market/ListingPreviewSellerRow';
+import DGButton from '../components/DGButton';
 
 import type {
   MarketStackParamList,
 } from '../navigation/MarketStack';
+import { navigateToOwnMyGain } from '../navigation/publicProfile';
+
+import useTabBarVisibility from '../hooks/useTabBarVisibility';
 
 import {
-  resolveMarketConversation,
-} from '../services/messaging/conversationResolver';
-
+  toListingPreviewPresentation,
+  type ListingPreviewPresentation,
+} from '../services/market/listingPreviewPresentation';
 import {
-  openMarketConversation,
-} from '../services/messaging/openMarketConversation';
+  getActiveListingMedia,
+  getActiveMarketListing,
+} from '../services/market/marketListingsRepository';
+import { openMarketConversation } from '../services/messaging/openMarketConversation';
+import { getProfileIdentityVerified } from '../services/profile/identityVerificationRepository';
+import { resolveProfileAvatarUrl } from '../services/profile/profileAvatarRepository';
+import {
+  getAuthenticatedUserId,
+  getProfileById,
+} from '../services/profile/profileRepository';
 
 import { colors } from '../theme/colors';
-
-import formatListingPrice from '../utils/listing/formatListingPrice';
+import { palette } from '../theme/designSystem';
 
 type Props =
   NativeStackScreenProps<
@@ -52,45 +59,139 @@ type Props =
     'ListingDetail'
   >;
 
+type LoadState =
+  | { kind: 'loading' }
+  | { kind: 'error'; message: string }
+  | {
+      kind: 'ready';
+      detail: ListingPreviewPresentation;
+      sellerProfileId: string;
+      allowsOffers: boolean;
+      isOwner: boolean;
+    };
+
 export default function ListingDetailScreen({
   navigation,
   route,
 }: Props) {
-  const listing = useMemo(
-    () =>
-      getListingById(
-        route.params.listingId,
-      ) ?? listings[0],
-    [route.params.listingId],
-  );
+  const listingId = route.params.listingId;
+  const { hideTabBar, showTabBar } = useTabBarVisibility();
+  const [loadState, setLoadState] = useState<LoadState>({
+    kind: 'loading',
+  });
+  const [isFavourite, setIsFavourite] = useState(false);
+  const [photoViewer, setPhotoViewer] = useState<{
+    visible: boolean;
+    index: number;
+  }>({
+    visible: false,
+    index: 0,
+  });
+  const mountedRef = useRef(true);
 
-  const [
-    isFavourite,
-    setIsFavourite,
-  ] = useState(
-    listing.isFavourite,
-  );
+  useEffect(() => {
+    mountedRef.current = true;
 
-  const formattedPrice =
-    formatListingPrice(
-      listing.price,
-      listing.currency,
+    return () => {
+      mountedRef.current = false;
+      showTabBar();
+    };
+  }, [showTabBar]);
+
+  useEffect(() => {
+    if (photoViewer.visible) {
+      hideTabBar();
+      return;
+    }
+
+    showTabBar();
+  }, [hideTabBar, photoViewer.visible, showTabBar]);
+
+  const loadDetail = useCallback(async () => {
+    setLoadState({ kind: 'loading' });
+
+    const listingResult = await getActiveMarketListing(listingId);
+
+    if (listingResult.error || !listingResult.listing) {
+      if (!mountedRef.current) {
+        return;
+      }
+
+      setLoadState({
+        kind: 'error',
+        message:
+          listingResult.error ??
+          "Couldn't load this listing.",
+      });
+      return;
+    }
+
+    const listing = listingResult.listing;
+
+    const [
+      mediaResult,
+      profileResult,
+      identityResult,
+      viewerId,
+    ] = await Promise.all([
+      getActiveListingMedia(listing.id),
+      getProfileById(listing.sellerProfileId),
+      getProfileIdentityVerified(listing.sellerProfileId),
+      getAuthenticatedUserId(),
+    ]);
+
+    if (!mountedRef.current) {
+      return;
+    }
+
+    const displayName =
+      profileResult.profile?.displayName.trim() ||
+      'Direct Gain member';
+
+    const avatarUrl = await resolveProfileAvatarUrl(
+      profileResult.profile?.avatarPath ?? null,
     );
 
-  const vehicleDetails =
-    listing.vehicleDetails;
+    if (!mountedRef.current) {
+      return;
+    }
+
+    setLoadState({
+      kind: 'ready',
+      sellerProfileId: listing.sellerProfileId,
+      allowsOffers: listing.allowsOffers,
+      isOwner:
+        viewerId !== null &&
+        viewerId === listing.sellerProfileId,
+      detail: toListingPreviewPresentation({
+        listing,
+        media: mediaResult.media,
+        seller: {
+          displayName,
+          avatarUrl,
+          identityVerified:
+            identityResult.result?.verified === true,
+        },
+      }),
+    });
+  }, [listingId]);
+
+  useEffect(() => {
+    void loadDetail();
+  }, [loadDetail]);
 
   function handleFavouritePress() {
-    setIsFavourite(
-      current => !current,
-    );
+    setIsFavourite((current) => !current);
   }
 
   async function handleSharePress() {
+    if (loadState.kind !== 'ready') {
+      return;
+    }
+
     try {
       await Share.share({
-        message:
-          `${listing.title} — ${formattedPrice}`,
+        message: `${loadState.detail.title} — ${loadState.detail.formattedPrice}`,
       });
     } catch {
       Alert.alert(
@@ -101,199 +202,150 @@ export default function ListingDetailScreen({
   }
 
   function handleSellerPress() {
-    navigation.navigate(
-      'SellerProfile',
-      {
-        sellerId:
-          listing.seller.id,
-      },
-    );
+    if (loadState.kind !== 'ready') {
+      return;
+    }
+
+    if (loadState.isOwner) {
+      navigateToOwnMyGain(navigation);
+      return;
+    }
+
+    navigation.navigate('PublicProfile', {
+      profileId: loadState.sellerProfileId,
+    });
   }
 
   async function handleMessagePress() {
-    const conversationId =
-      await resolveConversationId();
+    if (loadState.kind !== 'ready') {
+      return;
+    }
 
-    if (!conversationId) {
+    if (loadState.isOwner) {
+      Alert.alert(
+        'Your listing',
+        "You can't message yourself on your own listing.",
+      );
+      return;
+    }
+
+    try {
+      const result = await openMarketConversation({
+        listingId: loadState.detail.listingId,
+        listingTitle: loadState.detail.title,
+        sellerId: loadState.sellerProfileId,
+      });
+
+      if (!result?.conversationId) {
+        Alert.alert(
+          'Unable to open messages',
+          'A conversation could not be created or found for this listing.',
+        );
+        return;
+      }
+
+      navigation.navigate('Conversation', {
+        conversationId: result.conversationId,
+        listingId: loadState.detail.listingId,
+        intent: 'message',
+      });
+    } catch {
       Alert.alert(
         'Unable to open messages',
         'A conversation could not be created or found for this listing.',
       );
-
-      return;
     }
+  }
 
-    navigation.navigate(
-      'Conversation',
-      {
-        conversationId,
-
-        listingId:
-          listing.id,
-
-        intent:
-          'message',
-      },
+  function handleOfferPress() {
+    Alert.alert(
+      'Offers',
+      'Offers will be connected in a later Market step.',
     );
   }
 
-  async function handleOfferPress() {
-    const conversationId =
-      await resolveConversationId();
-
-    if (!conversationId) {
-      Alert.alert(
-        'Unable to make offer',
-        'A conversation could not be created or found for this listing.',
-      );
-
-      return;
-    }
-
-    navigation.navigate(
-      'Conversation',
-      {
-        conversationId,
-
-        listingId:
-          listing.id,
-
-        intent:
-          'offer',
-      },
+  if (loadState.kind === 'loading') {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.centered}>
+          <ActivityIndicator color={palette.opportunityGreen} />
+          <Text style={styles.loadingCopy}>Loading listing</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
-  async function resolveConversationId():
-    Promise<string | null> {
-    /*
-     * During development our Market listings still
-     * contain mock seller IDs.
-     *
-     * Real Supabase Auth user IDs are UUIDs.
-     *
-     * Once Market listings themselves are stored in
-     * Supabase this fallback can be removed.
-     */
-
-    if (
-      !isUuid(
-        listing.seller.id,
-      )
-    ) {
-      const localConversation =
-        resolveMarketConversation({
-          listingId:
-            listing.id,
-
-          sellerId:
-            listing.seller.id,
-        });
-
-      return (
-        localConversation?.id ??
-        null
-      );
-    }
-
-    try {
-      const result =
-        await openMarketConversation({
-          listingId:
-            listing.id,
-
-          listingTitle:
-            listing.title,
-
-          sellerId:
-            listing.seller.id,
-        });
-
-      return (
-        result?.conversationId ??
-        null
-      );
-    } catch (error) {
-      console.warn(
-        '[Direct Gain] Unable to resolve Supabase market conversation:',
-        error,
-      );
-
-      return null;
-    }
+  if (loadState.kind === 'error') {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.centered}>
+          <Text style={styles.errorTitle}>
+            Couldn't load listing
+          </Text>
+          <Text style={styles.errorBody}>{loadState.message}</Text>
+          <DGButton
+            title="Retry"
+            onPress={() => {
+              void loadDetail();
+            }}
+          />
+          <DGButton
+            title="Back"
+            variant="ghost"
+            onPress={() => {
+              navigation.goBack();
+            }}
+          />
+        </View>
+      </SafeAreaView>
+    );
   }
+
+  const { detail } = loadState;
 
   return (
-    <SafeAreaView
-      style={styles.safeArea}
-    >
+    <SafeAreaView style={styles.safeArea}>
       <ScrollView
-        showsVerticalScrollIndicator={
-          false
-        }
-        contentContainerStyle={
-          styles.scrollContent
-        }
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
       >
         <ListingHeroGallery
-          images={
-            listing.images
-          }
-          favourite={
-            isFavourite
-          }
-          onBackPress={() =>
-            navigation.goBack()
-          }
-          onFavouritePress={
-            handleFavouritePress
-          }
-          onSharePress={
-            handleSharePress
-          }
+          images={detail.images}
+          favourite={isFavourite}
+          onBackPress={() => navigation.goBack()}
+          onFavouritePress={handleFavouritePress}
+          onSharePress={() => {
+            void handleSharePress();
+          }}
+          onPhotoPress={(index) => {
+            if (detail.images.length === 0) {
+              return;
+            }
+
+            setPhotoViewer({
+              visible: true,
+              index,
+            });
+          }}
         />
 
         <View style={styles.content}>
           <ListingHeader
-            title={
-              listing.title
-            }
-            price={
-              formattedPrice
-            }
-            suburb={
-              listing.location
-                .suburb
-            }
-            state={
-              listing.location
-                .state
-            }
-            distanceKm={
-              listing.location
-                .distanceKm
-            }
-            createdAt={
-              listing.createdAt
-            }
+            title={detail.title}
+            price={detail.formattedPrice}
+            suburb={detail.suburb}
+            state={detail.state}
+            createdAt={detail.listedOn}
           />
 
           <ListingActionBar
-            sellerName={
-              listing.seller.name
-            }
-            listingTitle={
-              listing.title
-            }
-            allowsOffers={
-              listing.allowsOffers
-            }
-            onMessagePress={
-              handleMessagePress
-            }
-            onOfferPress={
-              handleOfferPress
-            }
+            sellerName={detail.seller.displayName}
+            listingTitle={detail.title}
+            allowsOffers={loadState.allowsOffers}
+            onMessagePress={() => {
+              void handleMessagePress();
+            }}
+            onOfferPress={handleOfferPress}
           />
 
           <SectionDivider />
@@ -303,12 +355,8 @@ export default function ListingDetailScreen({
             title="Description"
           />
 
-          <Text
-            style={
-              styles.description
-            }
-          >
-            {listing.description}
+          <Text style={styles.description}>
+            {detail.description}
           </Text>
 
           <SectionDivider />
@@ -318,85 +366,51 @@ export default function ListingDetailScreen({
             title="Who's selling it"
           />
 
-          <SellerTrustCard
-            seller={
-              listing.seller
+          <ListingPreviewSellerRow
+            displayName={detail.seller.displayName}
+            avatarUrl={detail.seller.avatarUrl}
+            identityVerified={detail.seller.identityVerified}
+            accessibilityHint={
+              loadState.isOwner
+                ? 'Opens your Direct Gain profile.'
+                : 'Opens this seller’s Gain Profile.'
             }
-            onPress={
-              handleSellerPress
-            }
+            onViewProfile={handleSellerPress}
           />
 
           <SectionDivider />
 
-          {vehicleDetails ? (
-            <VehicleDetailsTab
-              details={
-                vehicleDetails
-              }
-            />
-          ) : (
-            <GeneralDetailsTab
-              category={
-                listing.category
-              }
-              subcategory={
-                listing.subcategory
-              }
-              condition={
-                listing.condition
-              }
-              pickupAvailable={
-                listing.pickupAvailable
-              }
-              deliveryAvailable={
-                listing.deliveryAvailable
-              }
-            />
-          )}
-
-          {vehicleDetails
-            ?.modifications
-            ?.length ? (
-            <>
-              <View
-                style={
-                  styles.compactSpacing
-                }
-              />
-
-              <VehicleModificationsTab
-                modifications={
-                  vehicleDetails.modifications
-                }
-              />
-            </>
-          ) : null}
+          <GeneralDetailsTab
+            category={detail.category}
+            subcategory={detail.subcategory}
+            condition={detail.condition}
+            pickupAvailable={detail.pickupAvailable}
+            deliveryAvailable={detail.deliveryAvailable}
+          />
 
           <ListingSafetyCard />
 
-          <View
-            style={
-              styles.bottomSpacer
-            }
-          />
+          <View style={styles.bottomSpacer} />
         </View>
       </ScrollView>
-    </SafeAreaView>
-  );
-}
 
-function isUuid(
-  value: string,
-): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    value,
+      <ListingPhotoViewer
+        visible={photoViewer.visible}
+        photos={detail.images}
+        initialIndex={photoViewer.index}
+        onClose={() => {
+          setPhotoViewer({
+            visible: false,
+            index: 0,
+          });
+        }}
+      />
+    </SafeAreaView>
   );
 }
 
 type SectionHeaderProps = {
   eyebrow: string;
-
   title: string;
 };
 
@@ -406,107 +420,92 @@ function SectionHeader({
 }: SectionHeaderProps) {
   return (
     <View>
-      <Text
-        style={
-          styles.sectionEyebrow
-        }
-      >
-        {eyebrow}
-      </Text>
-
-      <Text
-        style={
-          styles.sectionTitle
-        }
-      >
-        {title}
-      </Text>
+      <Text style={styles.sectionEyebrow}>{eyebrow}</Text>
+      <Text style={styles.sectionTitle}>{title}</Text>
     </View>
   );
 }
 
 function SectionDivider() {
-  return (
-    <View
-      style={
-        styles.sectionDivider
-      }
-    />
-  );
+  return <View style={styles.sectionDivider} />;
 }
 
-const styles =
-  StyleSheet.create({
-    safeArea: {
-      flex: 1,
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#080B09',
+  },
 
-      backgroundColor:
-        '#080B09',
-    },
+  scrollContent: {
+    paddingBottom: 40,
+  },
 
-    scrollContent: {
-      paddingBottom: 40,
-    },
+  content: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
 
-    content: {
-      paddingHorizontal: 20,
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+    gap: 14,
+  },
 
-      paddingTop: 20,
-    },
+  loadingCopy: {
+    color: colors.textSecondary,
+    fontSize: 15,
+    fontWeight: '600',
+  },
 
-    sectionDivider: {
-      height: 1,
+  errorTitle: {
+    color: colors.text,
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
 
-      marginVertical: 22,
+  errorBody: {
+    color: colors.textSecondary,
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
 
-      backgroundColor:
-        'rgba(255, 255, 255, 0.07)',
-    },
+  sectionDivider: {
+    height: 1,
+    marginVertical: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+  },
 
-    compactSpacing: {
-      height: 10,
-    },
+  sectionEyebrow: {
+    color: colors.primary,
+    fontSize: 9,
+    lineHeight: 12,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+  },
 
-    sectionEyebrow: {
-      color:
-        colors.primary,
+  sectionTitle: {
+    marginTop: 5,
+    color: colors.text,
+    fontSize: 20,
+    lineHeight: 25,
+    fontWeight: '900',
+  },
 
-      fontSize: 9,
+  description: {
+    marginTop: 11,
+    color: colors.textMuted,
+    fontSize: 13,
+    lineHeight: 21,
+    fontWeight: '600',
+  },
 
-      lineHeight: 12,
-
-      fontWeight: '900',
-
-      letterSpacing: 1.5,
-    },
-
-    sectionTitle: {
-      marginTop: 5,
-
-      color:
-        colors.text,
-
-      fontSize: 20,
-
-      lineHeight: 25,
-
-      fontWeight: '900',
-    },
-
-    description: {
-      marginTop: 11,
-
-      color:
-        colors.textMuted,
-
-      fontSize: 13,
-
-      lineHeight: 21,
-
-      fontWeight: '600',
-    },
-
-    bottomSpacer: {
-      height: 28,
-    },
-  });
+  bottomSpacer: {
+    height: 28,
+  },
+});

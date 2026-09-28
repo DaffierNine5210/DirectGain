@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import {
@@ -25,17 +26,24 @@ import DGListingSkeleton from '../components/DGListingSkeleton';
 import DGSearchBar from '../components/DGSearchBar';
 import MarketListingCard from '../components/MarketListingCard';
 
-import {
-  MarketListing,
-  marketListings,
-} from '../data/marketMockData';
-
 import useFocusedUnreadTotal from '../hooks/useFocusedUnreadTotal';
 import useTabBarVisibility from '../hooks/useTabBarVisibility';
 import type { MarketStackParamList } from '../navigation/MarketStack';
 import {
   openMessagesInbox,
 } from '../navigation/messages';
+
+import {
+  formatViewerRegionLabel,
+  listingMatchesMarketSearch,
+  toMarketFeedCard,
+  type MarketFeedCardPresentation,
+} from '../services/market/marketFeedPresentation';
+import {
+  getViewerListingRegion,
+  listActiveMarketListings,
+} from '../services/market/marketListingsRepository';
+import type { ActiveMarketListingFeedItem } from '../types/marketListing';
 
 import {
   alpha,
@@ -71,7 +79,7 @@ type SkeletonItem = {
 };
 
 type MarketListItem =
-  | MarketListing
+  | MarketFeedCardPresentation
   | SkeletonItem;
 
 const categories: CategoryItem[] = [
@@ -171,11 +179,24 @@ export default function MarketScreen({
     setFavouriteIds,
   ] = useState<string[]>([]);
 
+  const [feedItems, setFeedItems] =
+    useState<ActiveMarketListingFeedItem[]>(
+      [],
+    );
+
+  const [regionLabel, setRegionLabel] =
+    useState('Your area');
+
+  const [loadError, setLoadError] =
+    useState<string | null>(null);
+
   const [loading, setLoading] =
     useState(true);
 
   const [refreshing, setRefreshing] =
     useState(false);
+
+  const mountedRef = useRef(true);
 
   useFocusEffect(
     useCallback(() => {
@@ -184,26 +205,59 @@ export default function MarketScreen({
   );
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 1500);
+    mountedRef.current = true;
 
     return () => {
-      clearTimeout(timer);
+      mountedRef.current = false;
     };
   }, []);
 
+  const loadFeed = useCallback(
+    async (mode: 'initial' | 'refresh') => {
+      if (mode === 'initial') {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
+
+      const [feedResult, region] =
+        await Promise.all([
+          listActiveMarketListings(),
+          getViewerListingRegion(),
+        ]);
+
+      if (!mountedRef.current) {
+        return;
+      }
+
+      setRegionLabel(
+        formatViewerRegionLabel(region),
+      );
+
+      if (feedResult.error) {
+        setLoadError(feedResult.error);
+        setFeedItems([]);
+      } else {
+        setLoadError(null);
+        setFeedItems(feedResult.listings);
+      }
+
+      setLoading(false);
+      setRefreshing(false);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    void loadFeed('initial');
+  }, [loadFeed]);
+
   const filteredListings =
     useMemo(() => {
-      const normalizedSearch =
-        searchQuery
-          .trim()
-          .toLowerCase();
-
-      return marketListings.filter(
-        listing => {
+      return feedItems
+        .filter(item => {
           const listingCategory =
-            listing.category
+            item.listing.category
               .trim()
               .toLowerCase();
 
@@ -217,37 +271,20 @@ export default function MarketScreen({
             listingCategory ===
               selectedCategoryValue;
 
-          const matchesSearch =
-            normalizedSearch.length ===
-              0 ||
-            listing.title
-              .toLowerCase()
-              .includes(
-                normalizedSearch,
-              ) ||
-            listing.description
-              .toLowerCase()
-              .includes(
-                normalizedSearch,
-              ) ||
-            listing.category
-              .toLowerCase()
-              .includes(
-                normalizedSearch,
-              ) ||
-            listing.location
-              .toLowerCase()
-              .includes(
-                normalizedSearch,
-              );
+          const card = toMarketFeedCard(item);
 
           return (
             matchesCategory &&
-            matchesSearch
+            listingMatchesMarketSearch(
+              card,
+              searchQuery,
+              item,
+            )
           );
-        },
-      );
+        })
+        .map(item => toMarketFeedCard(item));
     }, [
+      feedItems,
       searchQuery,
       selectedCategory,
     ]);
@@ -282,15 +319,11 @@ export default function MarketScreen({
   }
 
   function handleRefresh() {
-    if (refreshing) {
+    if (refreshing || loading) {
       return;
     }
 
-    setRefreshing(true);
-
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
+    void loadFeed('refresh');
   }
 
   function openMessages() {
@@ -309,12 +342,12 @@ export default function MarketScreen({
   }
 
   function renderListing(
-    item: MarketListing,
+    item: MarketFeedCardPresentation,
   ) {
     const isFavourite =
       favouriteIds.includes(
         item.id,
-      ) || item.favourite;
+      );
 
     return (
       <View
@@ -327,28 +360,11 @@ export default function MarketScreen({
         <MarketListingCard
           id={item.id}
           title={item.title}
-          price={formatPrice(
-            item.price,
-            item.currency,
-          )}
+          price={item.price}
           image={item.image}
-          sellerName={
-            item.sellerName
-          }
           location={item.location}
-          distance={item.distance}
           listedTime={
             item.listedTime
-          }
-          rating={item.rating}
-          reviewCount={
-            item.reviewCount
-          }
-          gainScore={
-            item.sellerGainScore
-          }
-          verified={
-            item.sellerVerified
           }
           favourite={
             isFavourite
@@ -357,9 +373,6 @@ export default function MarketScreen({
             item.imageCount
           }
           category={item.category}
-          auctionLabel={
-            item.auctionLabel
-          }
           layout={layoutMode}
           onPress={() => {
             navigation.navigate(
@@ -378,13 +391,13 @@ export default function MarketScreen({
           onMessagePress={() => {
             Alert.alert(
               'Message seller',
-              `Starting a conversation with ${item.sellerName}.`,
+              'Open this listing to message the seller.',
             );
           }}
           onOfferPress={() => {
             Alert.alert(
-              'Make an offer',
-              `Offer tools for ${item.title} will be connected later.`,
+              'Offers',
+              'Offers will be connected in a later Market step.',
             );
           }}
         />
@@ -477,11 +490,11 @@ export default function MarketScreen({
           <View>
             <DGHeader
               title="Market"
-              location="Mackay, QLD · Within 25 km"
+              location={regionLabel}
               onLocationPress={() => {
                 Alert.alert(
                   'Market location',
-                  'Location selection will be connected in a later release.',
+                  'Location is based on your profile suburb and state. Distance filters will be connected later.',
                 );
               }}
               secondaryAction={{
@@ -503,8 +516,6 @@ export default function MarketScreen({
 
                 accessibilityLabel:
                   'Open notifications',
-
-                badgeCount: 3,
 
                 onPress: () => {
                   Alert.alert(
@@ -575,9 +586,9 @@ export default function MarketScreen({
                   filterActive
                 }
                 onFilterPress={() => {
-                  setFilterActive(
-                    current =>
-                      !current,
+                  Alert.alert(
+                    'Filters',
+                    'Search and category filters are available on this screen. More filters will be connected later.',
                   );
                 }}
                 onSubmit={() => {
@@ -618,7 +629,7 @@ export default function MarketScreen({
                         styles.filterNoticeTitle
                       }
                     >
-                      Local results active
+                      Local filters
                     </Text>
 
                     <Text
@@ -626,7 +637,7 @@ export default function MarketScreen({
                         styles.filterNoticeDescription
                       }
                     >
-                      Showing listings within 25 km.
+                      Search and category are available now. More filters will be connected later.
                     </Text>
                   </View>
 
@@ -835,10 +846,7 @@ export default function MarketScreen({
                         styles.resultsTitle
                       }
                     >
-                      {selectedTab ===
-                      'nearby'
-                        ? 'Nearby listings'
-                        : 'Recommended for you'}
+                      Latest listings
                     </Text>
 
                     <Text
@@ -895,7 +903,100 @@ export default function MarketScreen({
           </View>
         }
         ListEmptyComponent={
-          loading ? null : (
+          loading ? null : loadError ? (
+            <View
+              style={
+                styles.emptyState
+              }
+            >
+              <View
+                style={
+                  styles.emptyGlow
+                }
+              />
+
+              <View
+                style={
+                  styles.emptyIcon
+                }
+              >
+                <Ionicons
+                  name="alert-circle-outline"
+                  size={32}
+                  color={
+                    palette.opportunityGreen
+                  }
+                />
+              </View>
+
+              <Text
+                style={
+                  styles.emptyTitle
+                }
+              >
+                Couldn't load listings
+              </Text>
+
+              <Text
+                style={
+                  styles.emptyDescription
+                }
+              >
+                {loadError}
+              </Text>
+
+              <DGButton
+                title="Retry"
+                icon="refresh-outline"
+                variant="outline"
+                onPress={() => {
+                  void loadFeed('initial');
+                }}
+              />
+            </View>
+          ) : feedItems.length === 0 ? (
+            <View
+              style={
+                styles.emptyState
+              }
+            >
+              <View
+                style={
+                  styles.emptyGlow
+                }
+              />
+
+              <View
+                style={
+                  styles.emptyIcon
+                }
+              >
+                <Ionicons
+                  name="storefront-outline"
+                  size={32}
+                  color={
+                    palette.opportunityGreen
+                  }
+                />
+              </View>
+
+              <Text
+                style={
+                  styles.emptyTitle
+                }
+              >
+                No listings yet
+              </Text>
+
+              <Text
+                style={
+                  styles.emptyDescription
+                }
+              >
+                There aren’t any active listings to show right now.
+              </Text>
+            </View>
+          ) : (
             <View
               style={
                 styles.emptyState
@@ -1006,20 +1107,6 @@ function LayoutButton({
       />
     </Pressable>
   );
-}
-
-function formatPrice(
-  price: number,
-  currency: string,
-) {
-  return new Intl.NumberFormat(
-    'en-AU',
-    {
-      style: 'currency',
-      currency,
-      maximumFractionDigits: 0,
-    },
-  ).format(price);
 }
 
 const styles = StyleSheet.create({

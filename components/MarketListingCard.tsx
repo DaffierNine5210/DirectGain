@@ -30,9 +30,9 @@ export type MarketListingCardProps = {
   id: string;
   title: string;
   price: string;
-  image: ImageSourcePropType;
+  image?: ImageSourcePropType;
 
-  sellerName: string;
+  sellerName?: string;
   location: string;
   distance?: string;
   listedTime?: string;
@@ -96,6 +96,38 @@ export default function MarketListingCard({
 
   const isListLayout =
     layout === 'list';
+
+  const cover = image ? (
+    <DGImage
+      source={image}
+      aspectRatio="portrait"
+      cornerRadius="large"
+      favourite={favourite}
+      onFavouritePress={onFavouritePress}
+      imageCount={imageCount}
+      auctionLabel={auctionLabel}
+      accessibilityLabel={title}
+      style={
+        isListLayout
+          ? styles.listImage
+          : styles.gridImage
+      }
+    />
+  ) : (
+    <View
+      style={
+        isListLayout
+          ? styles.listEmptyCover
+          : styles.gridEmptyCover
+      }
+    >
+      <Ionicons
+        name="image-outline"
+        size={27}
+        color={textColor.muted}
+      />
+    </View>
+  );
 
   function handlePressIn() {
     Animated.parallel([
@@ -187,29 +219,7 @@ export default function MarketListingCard({
               styles.listImageArea
             }
           >
-            <DGImage
-              source={image}
-              aspectRatio="portrait"
-              cornerRadius="large"
-              favourite={
-                favourite
-              }
-              onFavouritePress={
-                onFavouritePress
-              }
-              imageCount={
-                imageCount
-              }
-              auctionLabel={
-                auctionLabel
-              }
-              accessibilityLabel={
-                title
-              }
-              style={
-                styles.listImage
-              }
-            />
+            {cover}
 
             {category &&
             !auctionLabel ? (
@@ -317,6 +327,7 @@ export default function MarketListingCard({
               ) : null}
             </View>
 
+            {sellerName ? (
             <View
               style={
                 styles.sellerRow
@@ -428,6 +439,7 @@ export default function MarketListingCard({
                 </View>
               ) : null}
             </View>
+            ) : null}
 
             <View
               style={
@@ -436,7 +448,7 @@ export default function MarketListingCard({
             >
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`Message ${sellerName}`}
+                accessibilityLabel="Message seller"
                 onPress={event => {
                   event.stopPropagation();
 
@@ -545,29 +557,7 @@ export default function MarketListingCard({
             styles.gridImageArea
           }
         >
-          <DGImage
-            source={image}
-            aspectRatio="portrait"
-            cornerRadius="large"
-            favourite={
-              favourite
-            }
-            onFavouritePress={
-              onFavouritePress
-            }
-            imageCount={
-              imageCount
-            }
-            auctionLabel={
-              auctionLabel
-            }
-            accessibilityLabel={
-              title
-            }
-            style={
-              styles.gridImage
-            }
-          />
+          {cover}
 
           {category &&
           !auctionLabel ? (
@@ -767,6 +757,23 @@ const styles = StyleSheet.create({
     width: '100%',
 
     borderRadius: 0,
+  },
+
+  gridEmptyCover: {
+    width: '100%',
+    aspectRatio: 4 / 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: alpha.white08,
+  },
+
+  listEmptyCover: {
+    width: '100%',
+    height: '100%',
+    minHeight: 182,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: alpha.white08,
   },
 
   categoryBadge: {

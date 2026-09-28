@@ -4,6 +4,9 @@ import ConversationScreen from '../screens/ConversationScreen';
 import ListingDetailScreen from '../screens/ListingDetailScreen';
 import MarketScreen from '../screens/MarketScreen';
 import SellerProfileScreen from '../screens/SellerProfileScreen';
+import PublicProfileScreen from '../screens/profile/PublicProfileScreen';
+
+import type { PublicProfileParamList } from './publicProfile';
 
 export type MarketStackParamList = {
   MarketHome: undefined;
@@ -25,7 +28,7 @@ export type MarketStackParamList = {
       | 'message'
       | 'offer';
   };
-};
+} & PublicProfileParamList;
 
 const Stack =
   createNativeStackNavigator<MarketStackParamList>();
@@ -73,6 +76,20 @@ export default function MarketStack() {
         name="SellerProfile"
         component={
           SellerProfileScreen
+        }
+        options={{
+          animation:
+            'slide_from_right',
+
+          gestureDirection:
+            'horizontal',
+        }}
+      />
+
+      <Stack.Screen
+        name="PublicProfile"
+        component={
+          PublicProfileScreen
         }
         options={{
           animation:

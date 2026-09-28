@@ -26,6 +26,7 @@ type Props = {
   onBackPress: () => void;
   onFavouritePress: () => void;
   onSharePress: () => void;
+  onPhotoPress?: (index: number) => void;
 };
 
 export default function ListingHeroGallery({
@@ -39,6 +40,7 @@ export default function ListingHeroGallery({
   onBackPress,
   onFavouritePress,
   onSharePress,
+  onPhotoPress,
 }: Props) {
   const { width } =
     useWindowDimensions();
@@ -115,8 +117,20 @@ export default function ListingHeroGallery({
           }
           renderItem={({
             item,
+            index,
           }) => (
-            <View
+            <Pressable
+              accessibilityRole="imagebutton"
+              accessibilityLabel={`Listing photo ${index + 1} of ${safeImages.length}`}
+              accessibilityHint={
+                onPhotoPress
+                  ? 'Opens the photo full screen'
+                  : undefined
+              }
+              disabled={!onPhotoPress}
+              onPress={() => {
+                onPhotoPress?.(index);
+              }}
               style={{
                 width,
               }}
@@ -128,7 +142,7 @@ export default function ListingHeroGallery({
                   styles.image
                 }
               />
-            </View>
+            </Pressable>
           )}
         />
       ) : (
