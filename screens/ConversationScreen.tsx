@@ -59,11 +59,9 @@ import DealAgreementForm, {
 
 import DealAgreementReview from '../components/messaging/deals/DealAgreementReview';
 
-import OfferCard from '../components/messaging/offers/OfferCard';
-
-import OfferComposer, {
-  type OfferComposerValues,
-} from '../components/messaging/offers/OfferComposer';
+import OfferCard, {
+  formatMarketOfferAmount,
+} from '../components/messaging/offers/OfferCard';
 
 import {
   conversations,
@@ -88,6 +86,16 @@ import {
   supabase,
 } from '../lib/supabase';
 
+import {
+  getActiveListingMedia,
+  getActiveMarketListing,
+} from '../services/market/marketListingsRepository';
+import {
+  acceptMarketOffer,
+  declineMarketOffer,
+  listOffersForConversation,
+  withdrawMarketOffer,
+} from '../services/market/marketOffersRepository';
 import { formatJobStatus } from '../services/jobs/jobAdapter';
 import { getJobById } from '../services/jobs/jobRepository';
 import {
@@ -185,7 +193,6 @@ import type {
 
 import {
   createMessageTimelineItem,
-  createOfferTimelineItem,
 } from '../types/ConversationTimeline';
 
 import type {
@@ -193,7 +200,7 @@ import type {
 } from '../types/DealAgreement';
 
 import type {
-  MarketOffer,
+  MarketOfferRecord,
 } from '../types/MarketOffer';
 
 import type {
@@ -318,10 +325,6 @@ export default function ConversationScreen({
       250,
     );
 
-  const entryIntent =
-    route?.params?.intent ??
-    'message';
-
   const conversationId =
     route?.params?.conversationId ??
     conversations[0].id;
@@ -414,8 +417,10 @@ export default function ConversationScreen({
     useState<
       DealAgreement | null
     >(
-      initialSession
-        .dealAgreement,
+      isSupabaseConversation
+        ? null
+        : initialSession
+            .dealAgreement,
     );
 
   const [
@@ -473,14 +478,6 @@ export default function ConversationScreen({
   const [
     showCompletedDeal,
     setShowCompletedDeal,
-  ] =
-    useState(
-      false,
-    );
-
-  const [
-    showOfferComposer,
-    setShowOfferComposer,
   ] =
     useState(
       false,
@@ -569,11 +566,53 @@ export default function ConversationScreen({
     );
 
   const [
-    counteringOffer,
-    setCounteringOffer,
+    marketOffers,
+    setMarketOffers,
   ] =
     useState<
-      MarketOffer | null
+      | { kind: 'idle' }
+      | { kind: 'loading' }
+      | {
+          kind: 'ready';
+          offers: MarketOfferRecord[];
+        }
+      | { kind: 'error' }
+    >({
+      kind: 'idle',
+    });
+
+  const [
+    marketListingChrome,
+    setMarketListingChrome,
+  ] =
+    useState<
+      | { kind: 'idle' }
+      | { kind: 'loading' }
+      | {
+          kind: 'ready';
+          title: string;
+          location: string;
+          price: number;
+          imageUri: string | null;
+        }
+      | { kind: 'unavailable' }
+    >({
+      kind: 'idle',
+    });
+
+  const [
+    actingOfferId,
+    setActingOfferId,
+  ] =
+    useState<
+      string | null
+    >(
+      null,
+    );
+
+  const lastKnownMarketOffersRef =
+    useRef<
+      MarketOfferRecord[] | null
     >(
       null,
     );
@@ -592,9 +631,27 @@ export default function ConversationScreen({
       .type ===
     'job';
 
-  const linkedListing =
+  const isAuthoritativeMarket =
+    isSupabaseConversation &&
+    isMarketConversation;
+
+  const isAuthoritativeMarketRef =
+    useRef(
+      false,
+    );
+
+  isAuthoritativeMarketRef.current =
+    isAuthoritativeMarket;
+
+  const mockLinkedListing =
     useMemo(
       () => {
+        if (
+          isSupabaseConversation
+        ) {
+          return null;
+        }
+
         const requestedListingId =
           route?.params
             ?.listingId ??
@@ -635,14 +692,179 @@ export default function ConversationScreen({
           .participant
           .id,
 
+        isSupabaseConversation,
+
         route?.params
           ?.listingId,
       ],
     );
 
   const listingImage =
-    linkedListing
-      ?.images?.[0];
+    marketListingChrome.kind ===
+    'ready' &&
+    marketListingChrome.imageUri
+      ? {
+          uri:
+            marketListingChrome.imageUri,
+        }
+      : mockLinkedListing
+          ?.images?.[0];
+
+  const loadMarketOffers = useCallback(
+    async (input: {
+      preserveKnown: boolean;
+    }) => {
+      if (!isAuthoritativeMarket) {
+        return;
+      }
+
+      if (
+        !input.preserveKnown ||
+        lastKnownMarketOffersRef.current === null
+      ) {
+        setMarketOffers({ kind: 'loading' });
+      }
+
+      const result = await listOffersForConversation(
+        conversationId,
+      );
+
+      if (result.error) {
+        if (
+          input.preserveKnown &&
+          lastKnownMarketOffersRef.current
+        ) {
+          setMarketOffers({
+            kind: 'ready',
+            offers: lastKnownMarketOffersRef.current,
+          });
+          return;
+        }
+
+        setMarketOffers({ kind: 'error' });
+        return;
+      }
+
+      lastKnownMarketOffersRef.current = result.offers;
+      setMarketOffers({
+        kind: 'ready',
+        offers: result.offers,
+      });
+    },
+    [
+      conversationId,
+      isAuthoritativeMarket,
+    ],
+  );
+
+  useEffect(
+    () => {
+      lastKnownMarketOffersRef.current = null;
+      setMarketOffers({ kind: 'idle' });
+      setMarketListingChrome({ kind: 'idle' });
+      setActingOfferId(null);
+    },
+
+    [
+      conversationId,
+    ],
+  );
+
+  useEffect(
+    () => {
+      if (!isAuthoritativeMarket) {
+        return;
+      }
+
+      void loadMarketOffers({
+        preserveKnown: false,
+      });
+    },
+
+    [
+      isAuthoritativeMarket,
+      loadMarketOffers,
+    ],
+  );
+
+  useEffect(
+    () => {
+      if (!isAuthoritativeMarket) {
+        return;
+      }
+
+      const listingId =
+        route?.params?.listingId ??
+        conversation.context.itemId;
+
+      let active = true;
+
+      async function loadListingChrome() {
+        if (!listingId || !isUuid(listingId)) {
+          if (active) {
+            setMarketListingChrome({
+              kind: 'unavailable',
+            });
+          }
+
+          return;
+        }
+
+        setMarketListingChrome({ kind: 'loading' });
+
+        const listingResult = await getActiveMarketListing(
+          listingId,
+        );
+
+        if (!active) {
+          return;
+        }
+
+        if (listingResult.error || !listingResult.listing) {
+          setMarketListingChrome({
+            kind: 'unavailable',
+          });
+          return;
+        }
+
+        const listing = listingResult.listing;
+        const mediaResult = await getActiveListingMedia(
+          listing.id,
+        );
+
+        if (!active) {
+          return;
+        }
+
+        const cover =
+          [...mediaResult.media]
+            .sort(
+              (left, right) =>
+                left.sortOrder - right.sortOrder,
+            )[0];
+
+        setMarketListingChrome({
+          kind: 'ready',
+          title: listing.title,
+          location: `${listing.suburb}, ${listing.state}`,
+          price: listing.price,
+          imageUri: cover?.signedUrl ?? null,
+        });
+      }
+
+      void loadListingChrome();
+
+      return () => {
+        active = false;
+      };
+    },
+
+    [
+      conversation.context.itemId,
+      isAuthoritativeMarket,
+      route?.params?.listingId,
+    ],
+  );
 
   /*
    * Check the other participant's
@@ -816,6 +1038,12 @@ useFocusEffect(
             otherParticipantUserId,
           );
         }
+
+        if (isAuthoritativeMarketRef.current) {
+          void loadMarketOffers({
+            preserveKnown: true,
+          });
+        }
       }
 
       return () => {
@@ -846,6 +1074,7 @@ useFocusEffect(
       currentSupabaseUserId,
       hideTabBar,
       isSupabaseConversation,
+      loadMarketOffers,
       otherParticipantUserId,
       showTabBar,
     ],
@@ -1740,6 +1969,12 @@ useFocusEffect(
 
   useEffect(
     () => {
+      if (
+        isSupabaseConversation
+      ) {
+        return;
+      }
+
       saveConversationDealAgreement(
         conversationId,
         dealAgreement,
@@ -1749,29 +1984,7 @@ useFocusEffect(
     [
       conversationId,
       dealAgreement,
-    ],
-  );
-
-  /*
-   * Opening from Make Offer
-   * launches the offer composer.
-   */
-  useEffect(
-    () => {
-      if (
-        entryIntent ===
-          'offer' &&
-        isMarketConversation
-      ) {
-        setShowOfferComposer(
-          true,
-        );
-      }
-    },
-
-    [
-      entryIntent,
-      isMarketConversation,
+      isSupabaseConversation,
     ],
   );
 
@@ -4172,273 +4385,137 @@ useFocusEffect(
     }
   }
 
-  function handleOfferSubmit(
-    values:
-      OfferComposerValues,
+  function confirmAcceptOffer(
+    offer: MarketOfferRecord,
   ) {
-    const now =
-      new Date()
-        .toISOString();
-
-    const listingId =
-      linkedListing?.id ??
-      route?.params
-        ?.listingId ??
-      conversation
-        .context
-        .itemId ??
-      conversation
-        .context
-        .title;
-
-    const newOffer:
-      MarketOffer = {
-      id:
-        `offer-${Date.now()}`,
-
-      conversationId:
-        conversation.id,
-
-      listingId,
-
-      buyerId:
-        currentRole ===
-        'buyer'
-          ? (
-              currentSupabaseUserId ??
-              'current-user'
-            )
-          : conversation
-              .participant
-              .id,
-
-      sellerId:
-        currentRole ===
-        'seller'
-          ? (
-              currentSupabaseUserId ??
-              conversation
-                .participant
-                .id
-            )
-          : conversation
-              .participant
-              .id,
-
-      amount:
-        values.amount,
-
-      currency:
-        'AUD',
-
-      status:
-        'pending',
-
-      createdBy:
-        counteringOffer
-          ? currentRole
-          : 'buyer',
-
-      message:
-        values.message,
-
-      parentOfferId:
-        counteringOffer?.id,
-
-      createdAt:
-        now,
-
-      updatedAt:
-        now,
-    };
-
-    if (
-      counteringOffer
-    ) {
-      updateOfferStatus(
-        counteringOffer.id,
-        'countered',
-      );
-    }
-
-    setTimeline(
-      current => [
-        ...current,
-
-        createOfferTimelineItem(
-          newOffer,
-        ),
+    Alert.alert(
+      'Accept offer?',
+      `Accept the buyer's proposed price of ${formatMarketOfferAmount(offer.amount)}?\n\nThis records that you accepted the proposed price. It does not process payment or complete the sale.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Accept offer',
+          onPress: () => {
+            void mutateMarketOffer(
+              offer.id,
+              'accept',
+            );
+          },
+        },
       ],
     );
-
-    setCounteringOffer(
-      null,
-    );
-
-    setShowOfferComposer(
-      false,
-    );
-
-    scrollToBottom();
   }
 
-  function updateOfferStatus(
-    offerId:
-      string,
-
-    status:
-      MarketOffer['status'],
+  function confirmDeclineOffer(
+    offer: MarketOfferRecord,
   ) {
-    const now =
-      new Date()
-        .toISOString();
-
-    setTimeline(
-      current =>
-        current.map(
-          item => {
-            if (
-              item.type !==
-                'offer' ||
-              item.offer.id !==
-                offerId
-            ) {
-              return item;
-            }
-
-            return {
-              ...item,
-
-              offer: {
-                ...item.offer,
-
-                status,
-
-                updatedAt:
-                  now,
-
-                respondedAt:
-                  now,
-              },
-            };
+    Alert.alert(
+      'Decline offer?',
+      'This will decline the proposed price. It does not change the listing.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Decline',
+          style: 'destructive',
+          onPress: () => {
+            void mutateMarketOffer(
+              offer.id,
+              'decline',
+            );
           },
+        },
+      ],
+    );
+  }
+
+  function confirmWithdrawOffer(
+    offer: MarketOfferRecord,
+  ) {
+    Alert.alert(
+      'Withdraw offer?',
+      'This will withdraw your proposed price.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Withdraw',
+          onPress: () => {
+            void mutateMarketOffer(
+              offer.id,
+              'withdraw',
+            );
+          },
+        },
+      ],
+    );
+  }
+
+  async function mutateMarketOffer(
+    offerId: string,
+    action: 'accept' | 'decline' | 'withdraw',
+  ) {
+    if (actingOfferId) {
+      return;
+    }
+
+    setActingOfferId(offerId);
+
+    const result =
+      action === 'accept'
+        ? await acceptMarketOffer(offerId)
+        : action === 'decline'
+          ? await declineMarketOffer(offerId)
+          : await withdrawMarketOffer(offerId);
+
+    if (result.error || !result.offer) {
+      setActingOfferId(null);
+      Alert.alert(
+        'Unable to update offer',
+        toMarketOfferActionError(
+          result.error ??
+            'This offer could not be updated.',
         ),
-    );
-  }
+      );
+      return;
+    }
 
-  function handleOfferAccept(
-    offer:
-      MarketOffer,
-  ) {
-    const now =
-      new Date()
-        .toISOString();
+    const previous =
+      lastKnownMarketOffersRef.current ?? [];
+    const merged = [
+      ...previous.filter(
+        (item) => item.id !== result.offer?.id,
+      ),
+      result.offer,
+    ].sort((left, right) => {
+      const created = left.createdAt.localeCompare(
+        right.createdAt,
+      );
 
-    updateOfferStatus(
-      offer.id,
-      'accepted',
-    );
+      if (created !== 0) {
+        return created;
+      }
 
-    const draftAgreement:
-      DealAgreement = {
-      id:
-        `deal-${Date.now()}`,
+      return left.id.localeCompare(right.id);
+    });
 
-      conversationId:
-        conversation.id,
+    lastKnownMarketOffersRef.current = merged;
+    setMarketOffers({
+      kind: 'ready',
+      offers: merged,
+    });
 
-      listingId:
-        offer.listingId,
-
-      buyerId:
-        offer.buyerId,
-
-      sellerId:
-        offer.sellerId,
-
-      agreedPrice:
-        offer.amount,
-
-      currency:
-        offer.currency,
-
-      transactionMethod:
-        'meetup',
-
-      locationName:
-        '',
-
-      scheduledAt:
-        '',
-
-      status:
-        'draft',
-
-      buyerConfirmation: {
-        userId:
-          offer.buyerId,
-
-        confirmed:
-          false,
-      },
-
-      sellerConfirmation: {
-        userId:
-          offer.sellerId,
-
-        confirmed:
-          false,
-      },
-
-      createdAt:
-        now,
-
-      updatedAt:
-        now,
-    };
-
-    setDealAgreement(
-      draftAgreement,
-    );
-
-    setCounteringOffer(
-      null,
-    );
-
-    scrollToBottom();
-  }
-
-  function handleOfferDecline(
-    offerId:
-      string,
-  ) {
-    updateOfferStatus(
-      offerId,
-      'declined',
-    );
-  }
-
-  function handleOfferWithdraw(
-    offerId:
-      string,
-  ) {
-    updateOfferStatus(
-      offerId,
-      'withdrawn',
-    );
-  }
-
-  function handleOfferCounter(
-    offer:
-      MarketOffer,
-  ) {
-    setCounteringOffer(
-      offer,
-    );
-
-    setShowOfferComposer(
-      true,
-    );
+    await loadMarketOffers({
+      preserveKnown: true,
+    });
+    setActingOfferId(null);
   }
 
   function handleCompleteDealDetails() {
@@ -4480,7 +4557,7 @@ useFocusEffect(
       listingId:
         dealAgreement
           ?.listingId ??
-        linkedListing?.id ??
+        mockLinkedListing?.id ??
         conversation
           .context
           .itemId ??
@@ -4826,11 +4903,13 @@ useFocusEffect(
                   styles.contextTitle
                 }
               >
-                {linkedListing
-                  ?.title ??
-                  conversation
-                    .context
-                    .title}
+                {marketListingChrome.kind === 'ready'
+                  ? marketListingChrome.title
+                  : marketListingChrome.kind === 'unavailable'
+                    ? conversation.context.title.trim() ||
+                      'Listing unavailable'
+                    : mockLinkedListing?.title ??
+                      conversation.context.title}
               </Text>
 
               <Text
@@ -4841,28 +4920,44 @@ useFocusEffect(
                   styles.contextLocation
                 }
               >
-                {linkedListing
-                  ? `${linkedListing.location.suburb}, ${linkedListing.location.state}`
-                  : conversation
-                      .context
-                      .location}
+                {marketListingChrome.kind === 'ready'
+                  ? marketListingChrome.location
+                  : marketListingChrome.kind === 'unavailable'
+                    ? 'Listing details are unavailable'
+                    : mockLinkedListing
+                      ? `${mockLinkedListing.location.suburb}, ${mockLinkedListing.location.state}`
+                      : conversation.context.location}
               </Text>
             </View>
 
-            <Text
-              style={
-                styles.contextPrice
-              }
-            >
-              {formatCurrency(
-                linkedListing
-                  ?.price ??
-                  conversation
-                    .context
-                    .itemPrice ??
-                  0,
-              )}
-            </Text>
+            {marketListingChrome.kind === 'ready' ? (
+              <Text
+                style={
+                  styles.contextPrice
+                }
+              >
+                {formatMarketOfferAmount(
+                  marketListingChrome.price,
+                )}
+              </Text>
+            ) : marketListingChrome.kind === 'unavailable' ? (
+              null
+            ) : (
+              <Text
+                style={
+                  styles.contextPrice
+                }
+              >
+                {formatCurrency(
+                  mockLinkedListing
+                    ?.price ??
+                    conversation
+                      .context
+                      .itemPrice ??
+                    0,
+                )}
+              </Text>
+            )}
           </View>
         ) : null}
 
@@ -4931,94 +5026,93 @@ useFocusEffect(
             />
           </View>
 
+          {isAuthoritativeMarket ? (
+            <View style={styles.marketOffersSection}>
+              {marketOffers.kind === 'loading' ||
+              marketOffers.kind === 'idle' ? (
+                <Text style={styles.offerStateCopy}>
+                  Loading offers…
+                </Text>
+              ) : null}
+
+              {marketOffers.kind === 'error' ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Retry loading offers"
+                  onPress={() => {
+                    void loadMarketOffers({
+                      preserveKnown: false,
+                    });
+                  }}
+                >
+                  <Text style={styles.offerStateCopy}>
+                    Offers could not be loaded. Tap to retry.
+                  </Text>
+                </Pressable>
+              ) : null}
+
+              {marketOffers.kind === 'ready'
+                ? marketOffers.offers.map((offer) => (
+                    <View
+                      key={offer.id}
+                      style={styles.offerTimelineItem}
+                    >
+                      <OfferCard
+                        offer={offer}
+                        viewerId={currentSupabaseUserId}
+                        busy={actingOfferId === offer.id}
+                        onAccept={() => {
+                          confirmAcceptOffer(offer);
+                        }}
+                        onDecline={() => {
+                          confirmDeclineOffer(offer);
+                        }}
+                        onWithdraw={() => {
+                          confirmWithdrawOffer(offer);
+                        }}
+                      />
+
+                      <Text style={styles.offerTime}>
+                        {formatTimelineTime(offer.createdAt)}
+                      </Text>
+                    </View>
+                  ))
+                : null}
+            </View>
+          ) : null}
+
           {timeline.map(
             item => {
-              if (
-                item.type ===
-                'message'
-              ) {
-                return (
-                  <MessageBubble
-                    key={
-                      item.id
-                    }
-                    message={
-                      item.message
-                    }
-                    onPress={
-                      handleMessagePress
-                    }
-                    onVoiceToggle={
-                      toggleVoicePlayback
-                    }
-                    isVoicePlaying={
-                      playingVoiceMessageId ===
-                      item.message.id
-                    }
-                    voiceProgress={
-                      playingVoiceMessageId ===
-                      item.message.id
-                        ? voicePlaybackProgress
-                        : 0
-                    }
-                  />
-                );
-              }
-
               return (
-                <View
+                <MessageBubble
                   key={
                     item.id
                   }
-                  style={
-                    styles.offerTimelineItem
+                  message={
+                    item.message
                   }
-                >
-                  <OfferCard
-                    offer={
-                      item.offer
-                    }
-                    currentUserRole={
-                      currentRole
-                    }
-                    onAccept={() =>
-                      handleOfferAccept(
-                        item.offer,
-                      )
-                    }
-                    onCounter={() =>
-                      handleOfferCounter(
-                        item.offer,
-                      )
-                    }
-                    onDecline={() =>
-                      handleOfferDecline(
-                        item.offer.id,
-                      )
-                    }
-                    onWithdraw={() =>
-                      handleOfferWithdraw(
-                        item.offer.id,
-                      )
-                    }
-                  />
-
-                  <Text
-                    style={
-                      styles.offerTime
-                    }
-                  >
-                    {formatTimelineTime(
-                      item.offer
-                        .createdAt,
-                    )}
-                  </Text>
-                </View>
+                  onPress={
+                    handleMessagePress
+                  }
+                  onVoiceToggle={
+                    toggleVoicePlayback
+                  }
+                  isVoicePlaying={
+                    playingVoiceMessageId ===
+                    item.message.id
+                  }
+                  voiceProgress={
+                    playingVoiceMessageId ===
+                    item.message.id
+                      ? voicePlaybackProgress
+                      : 0
+                  }
+                />
               );
             },
           )}
 
-          {dealAgreement
+          {!isSupabaseConversation && dealAgreement
             ?.status ===
             'draft' ? (
             <View
@@ -5154,7 +5248,7 @@ useFocusEffect(
             </View>
           ) : null}
 
-          {dealAgreement
+          {!isSupabaseConversation && dealAgreement
             ?.status ===
             'pending' ? (
             <View
@@ -5173,7 +5267,7 @@ useFocusEffect(
             </View>
           ) : null}
 
-          {dealAgreement
+          {!isSupabaseConversation && dealAgreement
             ?.status ===
             'confirmed' ? (
             <View
@@ -5278,64 +5372,6 @@ useFocusEffect(
 
         <Modal
           visible={
-            showOfferComposer
-          }
-          animationType="slide"
-          presentationStyle="pageSheet"
-          onRequestClose={() => {
-            setShowOfferComposer(
-              false,
-            );
-
-            setCounteringOffer(
-              null,
-            );
-          }}
-        >
-          <SafeAreaView
-            style={
-              styles.modalSafeArea
-            }
-          >
-            <ScrollView
-              contentContainerStyle={
-                styles.modalContent
-              }
-              showsVerticalScrollIndicator={
-                false
-              }
-              keyboardShouldPersistTaps="handled"
-            >
-              <OfferComposer
-                listingPrice={
-                  counteringOffer
-                    ? counteringOffer
-                        .amount
-                    : linkedListing
-                        ?.price ??
-                      conversation
-                        .context
-                        .itemPrice
-                }
-                onCancel={() => {
-                  setShowOfferComposer(
-                    false,
-                  );
-
-                  setCounteringOffer(
-                    null,
-                  );
-                }}
-                onSubmit={
-                  handleOfferSubmit
-                }
-              />
-            </ScrollView>
-          </SafeAreaView>
-        </Modal>
-
-        <Modal
-          visible={
             showDealForm
           }
           animationType="slide"
@@ -5364,7 +5400,7 @@ useFocusEffect(
                 initialPrice={
                   dealAgreement
                     ?.agreedPrice ??
-                  linkedListing
+                  mockLinkedListing
                     ?.price ??
                   conversation
                     .context
@@ -5408,7 +5444,7 @@ useFocusEffect(
                 false
               }
             >
-              {dealAgreement ? (
+              {!isSupabaseConversation && dealAgreement ? (
                 <DealAgreementReview
                   agreement={
                     dealAgreement
@@ -5455,7 +5491,7 @@ useFocusEffect(
                 false
               }
             >
-              {dealAgreement ? (
+              {!isSupabaseConversation && dealAgreement ? (
                 <DealAgreementReview
                   agreement={
                     dealAgreement
@@ -5474,6 +5510,47 @@ useFocusEffect(
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
+}
+
+function toMarketOfferActionError(
+  message: string,
+): string {
+  const lowered = message.toLowerCase();
+
+  if (
+    lowered.includes('p0001') ||
+    lowered.includes('42501') ||
+    lowered.includes('postgres') ||
+    lowered.includes('row-level') ||
+    lowered.includes('rls') ||
+    lowered.includes('policy') ||
+    lowered.includes('jwt') ||
+    lowered.includes('sql')
+  ) {
+    return 'This offer could not be updated. Please try again.';
+  }
+
+  if (lowered.includes('no longer pending')) {
+    return 'This offer is no longer pending.';
+  }
+
+  if (lowered.includes('could not be updated')) {
+    return 'This offer could not be updated.';
+  }
+
+  if (lowered.includes('signed in')) {
+    return 'Sign in to continue.';
+  }
+
+  if (lowered.includes('connection')) {
+    return 'Check your connection and try again.';
+  }
+
+  if (lowered.includes('permission')) {
+    return 'You do not have permission to do that.';
+  }
+
+  return 'This offer could not be updated. Please try again.';
 }
 
 function isUuid(
@@ -5770,6 +5847,21 @@ const styles =
 
       fontWeight:
         '800',
+    },
+
+    marketOffersSection: {
+      width: '100%',
+      marginTop: 8,
+      marginBottom: 8,
+    },
+
+    offerStateCopy: {
+      marginTop: 10,
+      marginBottom: 6,
+      color: colors.textMuted,
+      fontSize: 12,
+      lineHeight: 17,
+      fontWeight: '600',
     },
 
     offerTimelineItem: {

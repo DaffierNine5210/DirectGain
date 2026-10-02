@@ -3,6 +3,11 @@ import { supabase } from '../../lib/supabase';
 import {
   getCurrentMessagingUser,
 } from './currentMessagingUser';
+import {
+  countUnreadOfferActivity,
+  getLatestActivityCreatedAt,
+} from './conversationActivityRepository';
+import { laterTimestamp } from './conversationActivityPreview';
 import { unreadIncomingOrFilter } from './messageKind';
 
 export type MessageReadState = {
@@ -126,35 +131,18 @@ export async function markConversationRead(
 async function resolveConversationReadAt(
   conversationId: string,
 ): Promise<string> {
-  const clientNow =
-    new Date();
+  const clientNow = new Date().toISOString();
 
   const {
     data,
     error,
   } = await supabase
     .from('messages')
-    .select(
-      'created_at',
-    )
-    .eq(
-      'conversation_id',
-      conversationId,
-    )
-    .is(
-      'deleted_at',
-      null,
-    )
-    .order(
-      'created_at',
-      {
-        ascending:
-          false,
-      },
-    )
-    .limit(
-      1,
-    )
+    .select('created_at')
+    .eq('conversation_id', conversationId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   if (error) {
@@ -162,36 +150,28 @@ async function resolveConversationReadAt(
       '[Direct Gain] Unable to load latest message time for read state:',
       error.message,
     );
-
-    return clientNow.toISOString();
   }
 
-  const latestCreatedAt =
-    typeof data?.created_at ===
-    'string'
-      ? data.created_at
-      : null;
+  const latestMessageCreatedAt =
+    typeof data?.created_at === 'string' ? data.created_at : null;
+  const latestActivityCreatedAt =
+    await getLatestActivityCreatedAt(conversationId);
+  const latestAuthoritative = laterTimestamp(
+    latestMessageCreatedAt,
+    latestActivityCreatedAt,
+  );
 
-  if (!latestCreatedAt) {
-    return clientNow.toISOString();
+  if (!latestAuthoritative) {
+    return clientNow;
   }
 
-  const latestTime =
-    new Date(
-      latestCreatedAt,
-    ).getTime();
+  const latestTime = Date.parse(latestAuthoritative);
 
-  if (
-    Number.isNaN(
-      latestTime,
-    ) ||
-    clientNow.getTime() >=
-      latestTime
-  ) {
-    return clientNow.toISOString();
+  if (!Number.isFinite(latestTime)) {
+    return clientNow;
   }
 
-  return latestCreatedAt;
+  return latestAuthoritative;
 }
 
 /*
@@ -421,10 +401,17 @@ export async function getUnreadMessageCount(
     return 0;
   }
 
-  return (
-    count ??
-    0
-  );
+  const activityCounts = await countUnreadOfferActivity({
+    conversationIds: [conversationId],
+    viewerId: currentUser.userId,
+    lastReadByConversation: new Map(
+      readState?.last_read_at
+        ? [[conversationId, readState.last_read_at]]
+        : [],
+    ),
+  });
+
+  return (count ?? 0) + (activityCounts[conversationId] ?? 0);
 }
 
 /*
@@ -671,6 +658,18 @@ export async function getUnreadMessageCounts(
         0
       ) +
       1;
+  }
+
+  const activityCounts = await countUnreadOfferActivity({
+    conversationIds: uniqueConversationIds,
+    viewerId: currentUser.userId,
+    lastReadByConversation,
+  });
+
+  for (const conversationId of uniqueConversationIds) {
+    unreadCounts[conversationId] =
+      (unreadCounts[conversationId] ?? 0) +
+      (activityCounts[conversationId] ?? 0);
   }
 
   return unreadCounts;

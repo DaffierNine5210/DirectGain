@@ -47,6 +47,8 @@ import {
 import {
   getInboxMessagePreview,
 } from '../services/messaging/messageAdapter';
+import { laterTimestamp } from '../services/messaging/conversationActivityPreview';
+import { listLatestActivityForConversations } from '../services/messaging/conversationActivityRepository';
 
 import {
   isDatabaseSystemMessage,
@@ -120,6 +122,9 @@ type ConversationRow = {
 
   created_at:
     string;
+
+  last_activity_at:
+    string | null;
 };
 
 type ParticipantRow = {
@@ -443,6 +448,10 @@ export default function MessagesInboxScreen({
         ),
 
       lastMessageAt:
+        laterTimestamp(
+          existing.lastMessageAt,
+          message.created_at,
+        ) ??
         message.created_at,
 
       unreadCount:
@@ -591,7 +600,8 @@ export default function MessagesInboxScreen({
               context_type,
               context_id,
               title,
-              created_at
+              created_at,
+              last_activity_at
             `,
           )
           .in(
@@ -599,7 +609,7 @@ export default function MessagesInboxScreen({
             conversationIds,
           )
           .order(
-            'created_at',
+            'last_activity_at',
             {
               ascending:
                 false,
@@ -690,6 +700,11 @@ export default function MessagesInboxScreen({
           conversationIds,
         );
 
+      const activityResult =
+        await listLatestActivityForConversations(
+          conversationIds,
+        );
+
       const unreadCounts =
         await getUnreadMessageCounts(
           conversationIds,
@@ -713,6 +728,9 @@ export default function MessagesInboxScreen({
             allParticipants,
 
           latestMessages,
+
+          latestActivity:
+            activityResult.latestByConversation,
 
           unreadCounts,
         });

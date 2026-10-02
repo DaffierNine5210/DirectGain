@@ -8,10 +8,16 @@ import {
 
 import { colors } from '../../theme/colors';
 
+export type ListingOfferAction = {
+  label: string;
+  accessibilityLabel: string;
+  disabled?: boolean;
+};
+
 type Props = {
   sellerName: string;
-  listingTitle: string;
-  allowsOffers: boolean;
+  showOfferAction: boolean;
+  offerAction?: ListingOfferAction;
 
   onMessagePress: () => void;
   onOfferPress: () => void;
@@ -19,11 +25,13 @@ type Props = {
 
 export default function ListingActionBar({
   sellerName,
-  listingTitle,
-  allowsOffers,
+  showOfferAction,
+  offerAction,
   onMessagePress,
   onOfferPress,
 }: Props) {
+  const offerDisabled = offerAction?.disabled === true;
+
   return (
     <View style={styles.container}>
       <Pressable
@@ -46,14 +54,19 @@ export default function ListingActionBar({
         </Text>
       </Pressable>
 
-      {allowsOffers ? (
+      {showOfferAction && offerAction ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Make an offer for ${listingTitle}`}
+          accessibilityLabel={offerAction.accessibilityLabel}
+          accessibilityState={{
+            disabled: offerDisabled,
+          }}
+          disabled={offerDisabled}
           onPress={onOfferPress}
           style={({ pressed }) => [
             styles.offerButton,
-            pressed && styles.pressed,
+            offerDisabled && styles.offerButtonDisabled,
+            pressed && !offerDisabled && styles.pressed,
           ]}
         >
           <Ionicons
@@ -63,7 +76,7 @@ export default function ListingActionBar({
           />
 
           <Text style={styles.offerButtonText}>
-            Make offer
+            {offerAction.label}
           </Text>
         </Pressable>
       ) : null}
@@ -130,6 +143,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
 
     justifyContent: 'center',
+  },
+
+  offerButtonDisabled: {
+    opacity: 0.45,
   },
 
   offerButtonText: {

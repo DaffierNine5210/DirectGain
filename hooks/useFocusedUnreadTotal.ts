@@ -29,7 +29,9 @@ import {
  * the screen is focused and
  * refreshes when a new message
  * arrives or the current user's
- * read state changes.
+ * read state changes. Offer activity
+ * unread is included via the same
+ * last_read_at cursor.
  */
 export default function useFocusedUnreadTotal(): number {
   const [

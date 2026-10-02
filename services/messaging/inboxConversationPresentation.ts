@@ -13,6 +13,12 @@ import { listJobsByIds } from '../jobs/jobRepository';
 import { getProfilesByIds } from '../profile/profileRepository';
 
 import { getInboxMessagePreview } from './messageAdapter';
+import {
+  getInboxActivityPreview,
+  laterTimestamp,
+} from './conversationActivityPreview';
+
+import type { ConversationActivityRecord } from '../../types/ConversationActivity';
 
 import type { InboxLatestMessage } from './messageRepository';
 
@@ -49,6 +55,7 @@ type ConversationRow = {
   context_id: string | null;
   title: string | null;
   created_at: string;
+  last_activity_at?: string | null;
 };
 
 type ParticipantRow = {
@@ -81,12 +88,14 @@ export async function presentInboxConversations({
   conversations,
   participants,
   latestMessages,
+  latestActivity,
   unreadCounts,
 }: {
   currentUserId: string;
   conversations: ConversationRow[];
   participants: ParticipantRow[];
   latestMessages: Record<string, InboxLatestMessage | undefined>;
+  latestActivity: Record<string, ConversationActivityRecord | undefined>;
   unreadCounts: Record<string, number>;
 }): Promise<InboxConversationRow[]> {
   const otherParticipantIds = conversations.flatMap(
@@ -194,6 +203,25 @@ export async function presentInboxConversations({
 
     const latestMessage =
       latestMessages[databaseConversation.id];
+    const latestVisibleActivity =
+      latestActivity[databaseConversation.id];
+    const activityIsLatest = isActivityPreviewLatest(
+      latestMessage?.created_at,
+      latestVisibleActivity?.createdAt,
+    );
+    const lastMessage = activityIsLatest && latestVisibleActivity
+      ? getInboxActivityPreview(
+          latestVisibleActivity,
+          currentUserId,
+        )
+      : getInboxMessagePreview(latestMessage);
+    const lastMessageAt =
+      databaseConversation.last_activity_at ??
+      laterTimestamp(
+        latestMessage?.created_at,
+        latestVisibleActivity?.createdAt,
+      ) ??
+      databaseConversation.created_at;
 
     const sellerFromListing =
       otherParticipant?.role === 'seller' && linkedListing
@@ -207,10 +235,8 @@ export async function presentInboxConversations({
       ),
       contextId: databaseConversation.context_id ?? undefined,
       title,
-      lastMessage: getInboxMessagePreview(latestMessage),
-      lastMessageAt:
-        latestMessage?.created_at ??
-        databaseConversation.created_at,
+      lastMessage,
+      lastMessageAt,
       unreadCount:
         unreadCounts[databaseConversation.id] ?? 0,
       otherParticipantId: otherParticipant?.user_id ?? null,
@@ -225,6 +251,32 @@ export async function presentInboxConversations({
       itemImage: linkedListing?.images?.[0],
     };
   });
+}
+
+function isActivityPreviewLatest(
+  messageCreatedAt: string | undefined,
+  activityCreatedAt: string | undefined,
+): boolean {
+  if (!activityCreatedAt) {
+    return false;
+  }
+
+  if (!messageCreatedAt) {
+    return true;
+  }
+
+  const activityTime = Date.parse(activityCreatedAt);
+  const messageTime = Date.parse(messageCreatedAt);
+
+  if (!Number.isFinite(activityTime)) {
+    return false;
+  }
+
+  if (!Number.isFinite(messageTime)) {
+    return true;
+  }
+
+  return activityTime >= messageTime;
 }
 
 function findOtherParticipant(
