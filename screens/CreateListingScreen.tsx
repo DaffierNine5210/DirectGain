@@ -66,138 +66,45 @@ import {
   type MarketListingMediaPresentation,
 } from '../types/marketListing';
 
+import {
+  emptyListingFormSnapshot,
+  listingFormSnapshotFromValues,
+  listingFormSnapshotsEqual,
+  LISTING_FORM_MAX_DESCRIPTION,
+  LISTING_FORM_MAX_STATE,
+  LISTING_FORM_MAX_SUBCATEGORY,
+  LISTING_FORM_MAX_SUBURB,
+  LISTING_FORM_MAX_TITLE,
+  parseListingPrice,
+  sanitizeListingPriceInput,
+  validateListingForm,
+  type ListingFormErrors,
+  type ListingFormSnapshot,
+} from '../utils/market/listingFormValidation';
+
 type Props = NativeStackScreenProps<
   CreateStackParamList,
   'CreateListing'
 >;
 
-type FormErrors = {
-  title?: string;
-  description?: string;
-  category?: string;
-  subcategory?: string;
-  condition?: string;
-  price?: string;
-  suburb?: string;
-  state?: string;
-  fulfilment?: string;
-  form?: string;
-};
-
-type FormSnapshot = {
-  title: string;
-  description: string;
-  category: MarketListingCategory | null;
-  subcategory: string;
-  condition: MarketListingCondition | null;
-  priceText: string;
-  suburb: string;
-  state: string;
-  pickupAvailable: boolean;
-  deliveryAvailable: boolean;
-  allowsOffers: boolean;
-};
-
-const MAX_TITLE = 120;
-const MAX_DESCRIPTION = 4000;
-const MAX_SUBCATEGORY = 80;
-const MAX_SUBURB = 60;
-const MAX_STATE = 40;
-const MAX_PRICE = 9_999_999_999.99;
+type FormErrors = ListingFormErrors;
+type FormSnapshot = ListingFormSnapshot;
 
 function emptySnapshot(): FormSnapshot {
-  return {
-    title: '',
-    description: '',
-    category: null,
-    subcategory: '',
-    condition: null,
-    priceText: '',
-    suburb: '',
-    state: '',
-    pickupAvailable: true,
-    deliveryAvailable: false,
-    allowsOffers: true,
-  };
+  return emptyListingFormSnapshot();
 }
 
 function snapshotFromDraft(
   listing: MarketListingDraft,
 ): FormSnapshot {
-  return {
-    title: listing.title,
-    description: listing.description,
-    category: listing.category,
-    subcategory: listing.subcategory,
-    condition: listing.condition,
-    priceText: formatPriceText(listing.price),
-    suburb: listing.suburb,
-    state: listing.state,
-    pickupAvailable: listing.pickupAvailable,
-    deliveryAvailable: listing.deliveryAvailable,
-    allowsOffers: listing.allowsOffers,
-  };
+  return listingFormSnapshotFromValues(listing);
 }
 
 function snapshotsEqual(
   left: FormSnapshot,
   right: FormSnapshot,
 ): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function formatPriceText(price: number): string {
-  return price.toFixed(2).replace(/\.00$/, '');
-}
-
-function sanitizePriceInput(value: string): string {
-  const stripped = value.replace(/[$,\s]/g, '');
-  const match = stripped.match(/^\d*(?:\.\d{0,2})?/);
-  return match?.[0] ?? '';
-}
-
-function parsePrice(
-  value: string,
-):
-  | { ok: true; amount: number }
-  | { ok: false; error: string } {
-  const trimmed = value.trim();
-
-  if (!trimmed) {
-    return {
-      ok: false,
-      error: 'Enter a price.',
-    };
-  }
-
-  if (!/^\d+(\.\d{1,2})?$/.test(trimmed)) {
-    return {
-      ok: false,
-      error:
-        'Enter a valid price with up to two decimal places.',
-    };
-  }
-
-  const amount = Number(trimmed);
-
-  if (!Number.isFinite(amount) || amount <= 0) {
-    return {
-      ok: false,
-      error: 'Price must be greater than 0.',
-    };
-  }
-
-  if (amount > MAX_PRICE) {
-    return {
-      ok: false,
-      error: 'That price is too large.',
-    };
-  }
-
-  return {
-    ok: true,
-    amount: Number(amount.toFixed(2)),
-  };
+  return listingFormSnapshotsEqual(left, right);
 }
 
 export default function CreateListingScreen({
@@ -514,52 +421,7 @@ export default function CreateListingScreen({
   }, [navigation]);
 
   function validate(): FormErrors | null {
-    const next: FormErrors = {};
-    const snapshot = formRef.current;
-
-    if (!snapshot.title.trim()) {
-      next.title = 'Enter a title.';
-    }
-
-    if (!snapshot.description.trim()) {
-      next.description = 'Enter a description.';
-    }
-
-    if (!snapshot.category) {
-      next.category = 'Choose a category.';
-    }
-
-    if (!snapshot.subcategory.trim()) {
-      next.subcategory = 'Enter the item type.';
-    }
-
-    if (!snapshot.condition) {
-      next.condition = 'Choose a condition.';
-    }
-
-    const parsed = parsePrice(snapshot.priceText);
-
-    if (!parsed.ok) {
-      next.price = parsed.error;
-    }
-
-    if (!snapshot.suburb.trim()) {
-      next.suburb = 'Enter a suburb.';
-    }
-
-    if (!snapshot.state.trim()) {
-      next.state = 'Enter a state.';
-    }
-
-    if (
-      !snapshot.pickupAvailable &&
-      !snapshot.deliveryAvailable
-    ) {
-      next.fulfilment =
-        'Choose pickup, delivery, or both.';
-    }
-
-    return Object.keys(next).length > 0 ? next : null;
+    return validateListingForm(formRef.current);
   }
 
   async function handleSaveDraft() {
@@ -582,7 +444,7 @@ export default function CreateListingScreen({
     }
 
     const snapshot = formRef.current;
-    const parsed = parsePrice(snapshot.priceText);
+    const parsed = parseListingPrice(snapshot.priceText);
 
     if (
       !snapshot.category ||
@@ -1182,7 +1044,7 @@ export default function CreateListingScreen({
               value={title}
               onChangeText={setTitle}
               placeholder="What are you selling?"
-              maxLength={MAX_TITLE}
+              maxLength={LISTING_FORM_MAX_TITLE}
               editable={!saving}
               errorMessage={errors.title}
               autoCapitalize="sentences"
@@ -1193,7 +1055,7 @@ export default function CreateListingScreen({
               value={description}
               onChangeText={setDescription}
               placeholder="Condition, inclusions, and anything a buyer should know"
-              maxLength={MAX_DESCRIPTION}
+              maxLength={LISTING_FORM_MAX_DESCRIPTION}
               multiline
               numberOfLines={6}
               textAlignVertical="top"
@@ -1202,7 +1064,7 @@ export default function CreateListingScreen({
               helperText={
                 errors.description
                   ? undefined
-                  : `${description.trim().length}/${MAX_DESCRIPTION}`
+                  : `${description.trim().length}/${LISTING_FORM_MAX_DESCRIPTION}`
               }
               autoCapitalize="sentences"
               inputContainerStyle={styles.descriptionInput}
@@ -1234,7 +1096,7 @@ export default function CreateListingScreen({
               value={subcategory}
               onChangeText={setSubcategory}
               placeholder="e.g. Mountain bike, sofa, iPhone"
-              maxLength={MAX_SUBCATEGORY}
+              maxLength={LISTING_FORM_MAX_SUBCATEGORY}
               editable={!saving}
               errorMessage={errors.subcategory}
               helperText={
@@ -1293,7 +1155,7 @@ export default function CreateListingScreen({
                 <DGInput
                   value={priceText}
                   onChangeText={(value) => {
-                    setPriceText(sanitizePriceInput(value));
+                    setPriceText(sanitizeListingPriceInput(value));
                   }}
                   placeholder="0.00"
                   keyboardType="decimal-pad"
@@ -1314,7 +1176,7 @@ export default function CreateListingScreen({
               value={suburb}
               onChangeText={setSuburb}
               placeholder="Suburb"
-              maxLength={MAX_SUBURB}
+              maxLength={LISTING_FORM_MAX_SUBURB}
               editable={!saving}
               errorMessage={errors.suburb}
               autoCapitalize="words"
@@ -1324,7 +1186,7 @@ export default function CreateListingScreen({
               value={state}
               onChangeText={setState}
               placeholder="State"
-              maxLength={MAX_STATE}
+              maxLength={LISTING_FORM_MAX_STATE}
               editable={!saving}
               errorMessage={errors.state}
               autoCapitalize="characters"

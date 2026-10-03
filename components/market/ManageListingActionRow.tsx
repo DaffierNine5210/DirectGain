@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
   alpha,
@@ -13,24 +13,22 @@ type ManageListingActionRowProps = {
   icon: React.ComponentProps<typeof Ionicons>['name'];
   title: string;
   unavailable?: boolean;
+  onPress?: () => void;
 };
 
 export default function ManageListingActionRow({
   icon,
   title,
   unavailable = false,
+  onPress,
 }: ManageListingActionRowProps) {
-  return (
-    <View
-      accessibilityRole="text"
-      accessibilityState={{
-        disabled: unavailable,
-      }}
-      accessibilityLabel={
-        unavailable ? `${title}, unavailable` : title
-      }
-      style={styles.row}
-    >
+  const tappable = Boolean(onPress) && !unavailable;
+  const accessibilityLabel = unavailable
+    ? `${title}, unavailable`
+    : title;
+
+  const body = (
+    <>
       <View
         style={[
           styles.iconWrap,
@@ -56,6 +54,43 @@ export default function ManageListingActionRow({
       >
         {title}
       </Text>
+
+      {tappable ? (
+        <Ionicons
+          name="chevron-forward"
+          size={iconSize.sm}
+          color={textColor.muted}
+        />
+      ) : null}
+    </>
+  );
+
+  if (tappable) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.row,
+          pressed && styles.pressed,
+        ]}
+      >
+        {body}
+      </Pressable>
+    );
+  }
+
+  return (
+    <View
+      accessibilityRole="text"
+      accessibilityState={{
+        disabled: unavailable,
+      }}
+      accessibilityLabel={accessibilityLabel}
+      style={styles.row}
+    >
+      {body}
     </View>
   );
 }
@@ -68,6 +103,10 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: 8,
+  },
+
+  pressed: {
+    opacity: 0.86,
   },
 
   iconWrap: {

@@ -1062,6 +1062,85 @@ export async function updateOwnDraft(
   };
 }
 
+export async function updateOwnMarketListingDetails(
+  listingId: string,
+  fields: UpdateMarketListingDraftInput,
+): Promise<{
+  listing: OwnMarketListingDetail | null;
+  error: string | null;
+}> {
+  const current = await getOwnMarketListing(listingId);
+
+  if (current.error || !current.listing) {
+    return {
+      listing: null,
+      error:
+        current.error ??
+        "Couldn't load this listing.",
+    };
+  }
+
+  if (current.listing.listing.status !== 'active') {
+    return {
+      listing: null,
+      error: 'This listing cannot be edited.',
+    };
+  }
+
+  const sanitised = sanitiseDraftInput(fields);
+
+  if (!sanitised.ok) {
+    return {
+      listing: null,
+      error: sanitised.error,
+    };
+  }
+
+  const updated = await supabase
+    .from('market_listings')
+    .update({
+      title: sanitised.fields.title,
+      description: sanitised.fields.description,
+      price: sanitised.fields.price,
+      currency: MARKET_LISTING_CURRENCY,
+      category: sanitised.fields.category,
+      subcategory: sanitised.fields.subcategory,
+      condition: sanitised.fields.condition,
+      allows_offers: sanitised.fields.allowsOffers,
+      pickup_available: sanitised.fields.pickupAvailable,
+      delivery_available: sanitised.fields.deliveryAvailable,
+      suburb: sanitised.fields.suburb,
+      state: sanitised.fields.state,
+    })
+    .eq('id', current.listing.listing.id)
+    .eq(
+      'seller_profile_id',
+      current.listing.listing.sellerProfileId,
+    )
+    .eq('status', 'active')
+    .select(MARKET_LISTING_SELECT)
+    .maybeSingle();
+
+  if (updated.error) {
+    return {
+      listing: null,
+      error: formatSafeError(
+        updated.error,
+        'This listing could not be saved. Try again.',
+      ),
+    };
+  }
+
+  if (!updated.data) {
+    return {
+      listing: null,
+      error: 'This listing could not be saved. Try again.',
+    };
+  }
+
+  return getOwnMarketListing(current.listing.listing.id);
+}
+
 const MARKET_LISTING_MEDIA_SELECT =
   'id, listing_id, storage_path, sort_order, created_at';
 

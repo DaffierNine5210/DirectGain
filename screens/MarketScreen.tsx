@@ -197,10 +197,20 @@ export default function MarketScreen({
     useState(false);
 
   const mountedRef = useRef(true);
+  const hasLoadedRef = useRef(false);
+  const feedRequestIdRef = useRef(0);
+  const feedInFlightRef = useRef(false);
+  const loadFeedRef = useRef<
+    (mode: 'initial' | 'refresh' | 'silent') => Promise<void>
+  >(async () => {});
 
   useFocusEffect(
     useCallback(() => {
       showTabBar();
+
+      if (hasLoadedRef.current) {
+        void loadFeedRef.current('silent');
+      }
     }, [showTabBar]),
   );
 
@@ -213,10 +223,17 @@ export default function MarketScreen({
   }, []);
 
   const loadFeed = useCallback(
-    async (mode: 'initial' | 'refresh') => {
+    async (mode: 'initial' | 'refresh' | 'silent') => {
+      if (mode === 'silent' && feedInFlightRef.current) {
+        return;
+      }
+
+      const requestId = ++feedRequestIdRef.current;
+      feedInFlightRef.current = true;
+
       if (mode === 'initial') {
         setLoading(true);
-      } else {
+      } else if (mode === 'refresh') {
         setRefreshing(true);
       }
 
@@ -226,7 +243,13 @@ export default function MarketScreen({
           getViewerListingRegion(),
         ]);
 
-      if (!mountedRef.current) {
+      if (
+        requestId !== feedRequestIdRef.current ||
+        !mountedRef.current
+      ) {
+        if (requestId === feedRequestIdRef.current) {
+          feedInFlightRef.current = false;
+        }
         return;
       }
 
@@ -235,18 +258,24 @@ export default function MarketScreen({
       );
 
       if (feedResult.error) {
-        setLoadError(feedResult.error);
-        setFeedItems([]);
+        if (mode !== 'silent') {
+          setLoadError(feedResult.error);
+          setFeedItems([]);
+        }
       } else {
         setLoadError(null);
         setFeedItems(feedResult.listings);
       }
 
+      hasLoadedRef.current = true;
+      feedInFlightRef.current = false;
       setLoading(false);
       setRefreshing(false);
     },
     [],
   );
+
+  loadFeedRef.current = loadFeed;
 
   useEffect(() => {
     void loadFeed('initial');

@@ -131,7 +131,6 @@ const FUTURE_ACTIONS: {
   icon: React.ComponentProps<typeof Ionicons>['name'];
   title: string;
 }[] = [
-  { icon: 'create-outline', title: 'Edit Details' },
   { icon: 'images-outline', title: 'Manage Photos' },
   { icon: 'pricetag-outline', title: 'View Offers' },
   { icon: 'pause-circle-outline', title: 'Pause listing' },
@@ -188,6 +187,10 @@ export default function ManageListingScreen({
 
   const mountedRef = useRef(true);
   const requestIdRef = useRef(0);
+  const hasLoadedRef = useRef(false);
+  const loadRef = useRef<(showSpinner: boolean) => Promise<void>>(
+    async () => {},
+  );
 
   const [detail, setDetail] = useState<OwnMarketListingDetail | null>(
     null,
@@ -196,9 +199,12 @@ export default function ManageListingScreen({
   const [error, setError] = useState<string | null>(null);
   const [photoIndex, setPhotoIndex] = useState(0);
 
-  const loadListing = useCallback(async () => {
+  const loadListing = useCallback(async (showSpinner: boolean) => {
     const requestId = ++requestIdRef.current;
-    setLoading(true);
+
+    if (showSpinner) {
+      setLoading(true);
+    }
 
     const result = await getOwnMarketListing(listingId);
 
@@ -210,6 +216,7 @@ export default function ManageListingScreen({
     }
 
     setLoading(false);
+    hasLoadedRef.current = true;
 
     if (result.error || !result.listing) {
       setError(result.error ?? "Couldn't load this listing.");
@@ -219,18 +226,23 @@ export default function ManageListingScreen({
 
     setError(null);
     setDetail(result.listing);
-    setPhotoIndex(0);
   }, [listingId]);
+
+  loadRef.current = loadListing;
 
   useFocusEffect(
     useCallback(() => {
       showTabBar();
+
+      if (hasLoadedRef.current) {
+        void loadRef.current(false);
+      }
     }, [showTabBar]),
   );
 
   useEffect(() => {
     mountedRef.current = true;
-    void loadListing();
+    void loadListing(true);
 
     return () => {
       mountedRef.current = false;
@@ -286,7 +298,7 @@ export default function ManageListingScreen({
             </Text>
             <Pressable
               onPress={() => {
-                void loadListing();
+                void loadListing(true);
               }}
               style={styles.retry}
               accessibilityRole="button"
@@ -418,9 +430,24 @@ export default function ManageListingScreen({
             <View style={styles.manageCard}>
               <Text style={styles.manageLabel}>Manage</Text>
 
-              {FUTURE_ACTIONS.map((action, index) => (
+              <ManageListingActionRow
+                icon="create-outline"
+                title="Edit Details"
+                unavailable={listing.status !== 'active'}
+                onPress={
+                  listing.status === 'active'
+                    ? () => {
+                        navigation.navigate('EditListingDetails', {
+                          listingId: listing.id,
+                        });
+                      }
+                    : undefined
+                }
+              />
+
+              {FUTURE_ACTIONS.map((action) => (
                 <View key={action.title}>
-                  {index > 0 ? <View style={styles.divider} /> : null}
+                  <View style={styles.divider} />
                   <ManageListingActionRow
                     icon={action.icon}
                     title={action.title}
