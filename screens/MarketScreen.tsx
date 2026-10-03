@@ -491,6 +491,13 @@ export default function MarketScreen({
             <DGHeader
               title="Market"
               location={regionLabel}
+              style={styles.marketHeader}
+              topRowStyle={
+                styles.marketTitleRow
+              }
+              locationStyle={
+                styles.marketLocation
+              }
               onLocationPress={() => {
                 Alert.alert(
                   'Market location',
@@ -1155,6 +1162,20 @@ const styles = StyleSheet.create({
       spacing.xl,
   },
 
+  marketHeader: {
+    paddingTop: spacing.xxs,
+    paddingBottom: spacing.xxs,
+  },
+
+  marketTitleRow: {
+    minHeight: 46,
+  },
+
+  marketLocation: {
+    minHeight: 36,
+    marginTop: 6,
+  },
+
   headerContent: {
     width: '100%',
     paddingHorizontal:
@@ -1162,8 +1183,6 @@ const styles = StyleSheet.create({
   },
 
   compactMarketHeader: {
-    marginTop: spacing.xs,
-
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent:
@@ -1178,12 +1197,10 @@ const styles = StyleSheet.create({
   },
 
   compactTitle: {
-    marginTop: 3,
-
     color: textColor.primary,
 
     fontSize: 19,
-    lineHeight: 24,
+    lineHeight: 22,
 
     fontWeight: '900',
 
@@ -1236,7 +1253,7 @@ const styles = StyleSheet.create({
   },
 
   searchBar: {
-    marginTop: spacing.md,
+    marginTop: spacing.xxs,
   },
 
   filterNotice: {
@@ -1322,7 +1339,7 @@ const styles = StyleSheet.create({
   },
 
   marketTabs: {
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
 
     padding: spacing.xxs,
 
@@ -1372,10 +1389,9 @@ const styles = StyleSheet.create({
   },
 
   categoryList: {
-    paddingTop: spacing.sm,
+    paddingTop: spacing.xs,
 
-    paddingBottom:
-      spacing.xxs,
+    paddingBottom: 0,
 
     paddingRight:
       spacing.md,
@@ -1386,10 +1402,9 @@ const styles = StyleSheet.create({
   },
 
   resultsHeader: {
-    marginTop: spacing.md,
+    marginTop: spacing.xs,
 
-    marginBottom:
-      spacing.sm,
+    marginBottom: spacing.xs,
 
     flexDirection: 'row',
 

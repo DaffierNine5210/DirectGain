@@ -50,6 +50,8 @@ type DGHeaderProps = {
   secondaryAction?: DGHeaderAction;
 
   style?: StyleProp<ViewStyle>;
+  locationStyle?: StyleProp<ViewStyle>;
+  topRowStyle?: StyleProp<ViewStyle>;
 };
 
 export default function DGHeader({
@@ -68,6 +70,8 @@ export default function DGHeader({
   secondaryAction,
 
   style,
+  locationStyle,
+  topRowStyle,
 }: DGHeaderProps) {
   const displayedTitle =
     showBrand
@@ -86,7 +90,12 @@ export default function DGHeader({
         style,
       ]}
     >
-      <View style={styles.topRow}>
+      <View
+        style={[
+          styles.topRow,
+          topRowStyle,
+        ]}
+      >
         <View style={styles.leftSection}>
           {showBackButton ? (
             <Pressable
@@ -212,6 +221,7 @@ export default function DGHeader({
           }
           style={({ pressed }) => [
             styles.locationRow,
+            locationStyle,
 
             pressed &&
               onLocationPress &&
