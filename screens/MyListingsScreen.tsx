@@ -334,16 +334,14 @@ export default function MyListingsScreen({
   }
 
   function onPressItem(item: OwnMarketListingFeedItem) {
-    if (item.listing.status === 'active') {
-      navigation.navigate('ListingDetail', {
-        listingId: item.listing.id,
-      });
+    if (item.listing.status === 'draft') {
+      openCreateListing(item.listing.id);
       return;
     }
 
-    if (item.listing.status === 'draft') {
-      openCreateListing(item.listing.id);
-    }
+    navigation.navigate('ManageListing', {
+      listingId: item.listing.id,
+    });
   }
 
   const empty = emptyCopyForFilter(filter);
@@ -448,9 +446,6 @@ export default function MyListingsScreen({
                 suburb: item.listing.suburb,
                 state: item.listing.state,
               });
-              const canOpen =
-                item.listing.status === 'active' ||
-                item.listing.status === 'draft';
 
               return (
                 <OwnMarketListingRow
@@ -470,13 +465,9 @@ export default function MyListingsScreen({
                       : locationLabel
                   }
                   dateLabel={dateLabelForListing(item)}
-                  onPress={
-                    canOpen
-                      ? () => {
-                          onPressItem(item);
-                        }
-                      : undefined
-                  }
+                  onPress={() => {
+                    onPressItem(item);
+                  }}
                 />
               );
             })}

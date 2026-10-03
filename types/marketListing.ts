@@ -87,6 +87,11 @@ export type OwnMarketListingFeedItem = {
   coverSignedUrl: string | null;
 };
 
+export type OwnMarketListingDetail = {
+  listing: OwnMarketListing;
+  media: MarketListingMediaPresentation[];
+};
+
 export type CreateMarketListingDraftInput = {
   title: string;
   description: string;

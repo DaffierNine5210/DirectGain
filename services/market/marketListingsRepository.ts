@@ -23,6 +23,7 @@ import {
   type MarketListingPendingPhoto,
   type MarketListingStatus,
   type OwnMarketListing,
+  type OwnMarketListingDetail,
   type OwnMarketListingFeedItem,
   type UpdateMarketListingDraftInput,
   type ViewerListingRegion,
@@ -853,6 +854,129 @@ export async function listOwnMarketListings(): Promise<{
         coverSignedUrl,
       };
     }),
+    error: null,
+  };
+}
+
+const OWN_LISTING_INACCESSIBLE =
+  "Couldn't load this listing.";
+
+export async function getOwnMarketListing(
+  listingId: string,
+): Promise<{
+  listing: OwnMarketListingDetail | null;
+  error: string | null;
+}> {
+  const trimmed = listingId.trim().toLowerCase();
+
+  if (!isUuid(trimmed)) {
+    return {
+      listing: null,
+      error: OWN_LISTING_INACCESSIBLE,
+    };
+  }
+
+  const auth = await requireUserId();
+
+  if (!auth.ok) {
+    return {
+      listing: null,
+      error: auth.error,
+    };
+  }
+
+  const loaded = await supabase
+    .from('market_listings')
+    .select(MARKET_LISTING_SELECT)
+    .eq('id', trimmed)
+    .eq('seller_profile_id', auth.userId)
+    .maybeSingle();
+
+  if (loaded.error) {
+    return {
+      listing: null,
+      error: formatSafeError(
+        loaded.error,
+        OWN_LISTING_INACCESSIBLE,
+      ),
+    };
+  }
+
+  if (!loaded.data || !isMarketListingRow(loaded.data)) {
+    return {
+      listing: null,
+      error: OWN_LISTING_INACCESSIBLE,
+    };
+  }
+
+  if (loaded.data.seller_profile_id !== auth.userId) {
+    return {
+      listing: null,
+      error: OWN_LISTING_INACCESSIBLE,
+    };
+  }
+
+  const listing = adaptOwnRow(loaded.data);
+
+  if (!listing) {
+    return {
+      listing: null,
+      error: OWN_LISTING_INACCESSIBLE,
+    };
+  }
+
+  const mediaLoaded = await supabase
+    .from('market_listing_media')
+    .select(MARKET_LISTING_MEDIA_SELECT)
+    .eq('listing_id', listing.id)
+    .order('sort_order', { ascending: true })
+    .limit(MARKET_LISTING_MEDIA_MAX);
+
+  const rows: MarketListingMedia[] = [];
+
+  if (!mediaLoaded.error) {
+    for (const row of mediaLoaded.data ?? []) {
+      if (!isMarketListingMediaRow(row)) {
+        continue;
+      }
+
+      const media = adaptMediaRow(row);
+
+      if (media && media.listingId === listing.id) {
+        rows.push(media);
+      }
+    }
+  }
+
+  rows.sort((left, right) => left.sortOrder - right.sortOrder);
+
+  const urls =
+    rows.length > 0
+      ? await createListingMediaSignedUrls(
+          rows.map((item) => item.storagePath),
+        )
+      : new Map<string, string>();
+
+  const media: MarketListingMediaPresentation[] = [];
+
+  for (const item of rows) {
+    const signedUrl = urls.get(item.storagePath);
+
+    if (!signedUrl) {
+      continue;
+    }
+
+    media.push({
+      ...item,
+      signedUrl,
+    });
+  }
+
+  return {
+    listing: {
+      listing,
+      media,
+    },
     error: null,
   };
 }
