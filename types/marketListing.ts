@@ -33,6 +33,17 @@ export type MarketListingDraftStatus = 'draft';
 
 export type MarketListingActiveStatus = 'active';
 
+export const MARKET_LISTING_STATUSES = [
+  'draft',
+  'active',
+  'reserved',
+  'sold',
+  'removed',
+] as const;
+
+export type MarketListingStatus =
+  (typeof MARKET_LISTING_STATUSES)[number];
+
 type MarketListingCore = {
   id: string;
   sellerProfileId: string;
@@ -60,8 +71,18 @@ export type MarketListingActive = MarketListingCore & {
   status: MarketListingActiveStatus;
 };
 
+export type OwnMarketListing = MarketListingCore & {
+  status: MarketListingStatus;
+};
+
 export type ActiveMarketListingFeedItem = {
   listing: MarketListingActive;
+  photoCount: number;
+  coverSignedUrl: string | null;
+};
+
+export type OwnMarketListingFeedItem = {
+  listing: OwnMarketListing;
   photoCount: number;
   coverSignedUrl: string | null;
 };

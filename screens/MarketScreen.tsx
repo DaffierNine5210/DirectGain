@@ -512,15 +512,14 @@ export default function MarketScreen({
               }}
               primaryAction={{
                 icon:
-                  'notifications-outline',
+                  'albums-outline',
 
                 accessibilityLabel:
-                  'Open notifications',
+                  'My Listings',
 
                 onPress: () => {
-                  Alert.alert(
-                    'Notifications',
-                    'Market notifications will be connected later.',
+                  navigation.navigate(
+                    'MyListings',
                   );
                 },
               }}

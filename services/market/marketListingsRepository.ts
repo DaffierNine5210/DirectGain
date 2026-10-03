@@ -11,6 +11,7 @@ import {
   MARKET_LISTING_MEDIA_BUCKET,
   MARKET_LISTING_MEDIA_MAX,
   MARKET_LISTING_MEDIA_MAX_BYTES,
+  MARKET_LISTING_STATUSES,
   type ActiveMarketListingFeedItem,
   type CreateMarketListingDraftInput,
   type MarketListingActive,
@@ -20,6 +21,9 @@ import {
   type MarketListingMedia,
   type MarketListingMediaPresentation,
   type MarketListingPendingPhoto,
+  type MarketListingStatus,
+  type OwnMarketListing,
+  type OwnMarketListingFeedItem,
   type UpdateMarketListingDraftInput,
   type ViewerListingRegion,
 } from '../../types/marketListing';
@@ -69,6 +73,14 @@ function isMarketListingCondition(
 ): value is MarketListingCondition {
   return (
     MARKET_LISTING_CONDITIONS as readonly string[]
+  ).includes(value);
+}
+
+function isMarketListingStatus(
+  value: string,
+): value is MarketListingStatus {
+  return (
+    MARKET_LISTING_STATUSES as readonly string[]
   ).includes(value);
 }
 
@@ -184,6 +196,45 @@ function adaptActiveRow(
     subcategory: row.subcategory,
     condition: row.condition,
     status: 'active',
+    allowsOffers: row.allows_offers,
+    pickupAvailable: row.pickup_available,
+    deliveryAvailable: row.delivery_available,
+    suburb: row.suburb,
+    state: row.state,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function adaptOwnRow(
+  row: MarketListingRow,
+): OwnMarketListing | null {
+  if (
+    !isMarketListingStatus(row.status) ||
+    row.currency !== MARKET_LISTING_CURRENCY ||
+    !isMarketListingCategory(row.category) ||
+    !isMarketListingCondition(row.condition)
+  ) {
+    return null;
+  }
+
+  const price = parsePriceValue(row.price);
+
+  if (price == null || price < 0) {
+    return null;
+  }
+
+  return {
+    id: row.id,
+    sellerProfileId: row.seller_profile_id,
+    title: row.title,
+    description: row.description,
+    price,
+    currency: MARKET_LISTING_CURRENCY,
+    category: row.category,
+    subcategory: row.subcategory,
+    condition: row.condition,
+    status: row.status,
     allowsOffers: row.allows_offers,
     pickupAvailable: row.pickup_available,
     deliveryAvailable: row.delivery_available,
@@ -684,6 +735,124 @@ export async function listOwnDrafts(): Promise<{
 
   return {
     listings,
+    error: null,
+  };
+}
+
+export async function listOwnMarketListings(): Promise<{
+  listings: OwnMarketListingFeedItem[];
+  error: string | null;
+}> {
+  const auth = await requireUserId();
+
+  if (!auth.ok) {
+    return {
+      listings: [],
+      error: auth.error,
+    };
+  }
+
+  const loaded = await supabase
+    .from('market_listings')
+    .select(MARKET_LISTING_SELECT)
+    .eq('seller_profile_id', auth.userId)
+    .order('updated_at', { ascending: false })
+    .order('id', { ascending: false });
+
+  if (loaded.error) {
+    return {
+      listings: [],
+      error: formatSafeError(
+        loaded.error,
+        "Couldn't load your listings.",
+      ),
+    };
+  }
+
+  const listings: OwnMarketListing[] = [];
+
+  for (const row of loaded.data ?? []) {
+    if (!isMarketListingRow(row)) {
+      continue;
+    }
+
+    if (row.seller_profile_id !== auth.userId) {
+      continue;
+    }
+
+    const listing = adaptOwnRow(row);
+
+    if (listing) {
+      listings.push(listing);
+    }
+  }
+
+  if (listings.length === 0) {
+    return {
+      listings: [],
+      error: null,
+    };
+  }
+
+  const listingIds = listings.map((listing) => listing.id);
+
+  const mediaLoaded = await supabase
+    .from('market_listing_media')
+    .select(MARKET_LISTING_MEDIA_SELECT)
+    .in('listing_id', listingIds)
+    .order('listing_id', { ascending: true })
+    .order('sort_order', { ascending: true });
+
+  const mediaByListing = new Map<string, MarketListingMedia[]>();
+
+  if (!mediaLoaded.error) {
+    for (const row of mediaLoaded.data ?? []) {
+      if (!isMarketListingMediaRow(row)) {
+        continue;
+      }
+
+      const media = adaptMediaRow(row);
+
+      if (!media) {
+        continue;
+      }
+
+      const current = mediaByListing.get(media.listingId) ?? [];
+      current.push(media);
+      mediaByListing.set(media.listingId, current);
+    }
+  }
+
+  const coverPaths: string[] = [];
+
+  for (const listing of listings) {
+    const media = mediaByListing.get(listing.id) ?? [];
+    const cover = media[0];
+
+    if (cover) {
+      coverPaths.push(cover.storagePath);
+    }
+  }
+
+  const signedCovers =
+    coverPaths.length > 0
+      ? await createListingMediaSignedUrls(coverPaths)
+      : new Map<string, string>();
+
+  return {
+    listings: listings.map((listing) => {
+      const media = mediaByListing.get(listing.id) ?? [];
+      const cover = media[0] ?? null;
+      const coverSignedUrl = cover
+        ? signedCovers.get(cover.storagePath) ?? null
+        : null;
+
+      return {
+        listing,
+        photoCount: media.length,
+        coverSignedUrl,
+      };
+    }),
     error: null,
   };
 }
