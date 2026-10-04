@@ -14,6 +14,7 @@ import {
   MARKET_LISTING_STATUSES,
   type ActiveMarketListingFeedItem,
   type CreateMarketListingDraftInput,
+  type DeleteOwnActiveListingPhotoResult,
   type MarketListingActive,
   type MarketListingCategory,
   type MarketListingCondition,
@@ -315,6 +316,71 @@ function formatPublishError(
   }
 
   return 'This listing could not be listed. Try again.';
+}
+
+const LAST_PHOTO_PROTECTED_MESSAGE =
+  'An active listing must keep at least one photo.';
+
+const ACTIVE_LISTING_PHOTOS_ONLY =
+  'Photos can only be managed on an active listing.';
+
+const ACTIVE_PHOTO_STORAGE_CLEANUP_WARNING =
+  'The photo was removed. Storage cleanup may still be pending.';
+
+function isLastPhotoProtectedError(error: {
+  message?: string;
+} | null): boolean {
+  return (error?.message ?? '')
+    .toLowerCase()
+    .includes('must keep at least one photo');
+}
+
+function formatActivePhotoRpcError(
+  error: {
+    message?: string;
+    code?: string;
+  } | null,
+  fallback: string,
+): string {
+  if (isLastPhotoProtectedError(error)) {
+    return LAST_PHOTO_PROTECTED_MESSAGE;
+  }
+
+  if (!error?.message) {
+    return fallback;
+  }
+
+  const message = error.message.trim();
+  const lowered = message.toLowerCase();
+
+  if (
+    error.code === '42501' ||
+    lowered.includes('row-level security')
+  ) {
+    return 'You do not have permission to manage these photos.';
+  }
+
+  if (lowered.includes('network')) {
+    return 'Check your connection and try again.';
+  }
+
+  if (
+    lowered.includes('postgres') ||
+    lowered.includes('permission denied') ||
+    lowered.includes('function') ||
+    lowered.includes('sql') ||
+    lowered.includes('schema')
+  ) {
+    return fallback;
+  }
+
+  const firstLine = message.split('\n')[0]?.trim() ?? '';
+
+  if (firstLine.length > 0 && firstLine.length <= 160) {
+    return firstLine;
+  }
+
+  return fallback;
 }
 
 function formatMarketReadError(
@@ -1497,6 +1563,51 @@ async function listOwnListingMediaRows(
   };
 }
 
+async function listListingMediaRows(
+  listingId: string,
+): Promise<{
+  media: MarketListingMedia[];
+  error: string | null;
+}> {
+  const loaded = await supabase
+    .from('market_listing_media')
+    .select(MARKET_LISTING_MEDIA_SELECT)
+    .eq('listing_id', listingId)
+    .order('sort_order', { ascending: true })
+    .limit(MARKET_LISTING_MEDIA_MAX);
+
+  if (loaded.error) {
+    return {
+      media: [],
+      error: formatSafeError(
+        loaded.error,
+        "Couldn't load photos.",
+      ),
+    };
+  }
+
+  const media: MarketListingMedia[] = [];
+
+  for (const row of loaded.data ?? []) {
+    if (!isMarketListingMediaRow(row)) {
+      continue;
+    }
+
+    const adapted = adaptMediaRow(row);
+
+    if (adapted && adapted.listingId === listingId) {
+      media.push(adapted);
+    }
+  }
+
+  media.sort((left, right) => left.sortOrder - right.sortOrder);
+
+  return {
+    media,
+    error: null,
+  };
+}
+
 export async function getOwnListingMedia(
   listingId: string,
 ): Promise<{
@@ -1600,24 +1711,16 @@ async function compactListingMediaSortOrder(
   return null;
 }
 
-export async function uploadListingPhoto(
+async function persistNormalizedListingPhoto(
   listingId: string,
+  sellerProfileId: string,
+  existingMedia: readonly MarketListingMedia[],
   normalizedPhoto: MarketListingPendingPhoto,
+  signedUrlRetryMessage: string,
 ): Promise<{
   media: MarketListingMediaPresentation | null;
   error: string | null;
 }> {
-  const listing = await getOwnListing(listingId);
-
-  if (listing.error || !listing.listing) {
-    return {
-      media: null,
-      error:
-        listing.error ??
-        'Photos can only be added to a saved draft.',
-    };
-  }
-
   if (
     normalizedPhoto.byteSize <= 0 ||
     normalizedPhoto.byteSize > MARKET_LISTING_MEDIA_MAX_BYTES
@@ -1628,16 +1731,7 @@ export async function uploadListingPhoto(
     };
   }
 
-  const existing = await listOwnListingMediaRows(listing.listing.id);
-
-  if (existing.error) {
-    return {
-      media: null,
-      error: existing.error,
-    };
-  }
-
-  if (existing.media.length >= MARKET_LISTING_MEDIA_MAX) {
+  if (existingMedia.length >= MARKET_LISTING_MEDIA_MAX) {
     return {
       media: null,
       error: 'A listing can have at most 20 photos.',
@@ -1645,16 +1739,16 @@ export async function uploadListingPhoto(
   }
 
   const nextSortOrder =
-    existing.media.length === 0
+    existingMedia.length === 0
       ? 0
       : Math.max(
-          ...existing.media.map((item) => item.sortOrder),
+          ...existingMedia.map((item) => item.sortOrder),
         ) + 1;
 
   const objectId = createMarketListingMediaObjectId();
   const storagePath = createMarketListingMediaStoragePath(
-    listing.listing.sellerProfileId,
-    listing.listing.id,
+    sellerProfileId,
+    listingId,
     objectId,
   );
 
@@ -1699,7 +1793,7 @@ export async function uploadListingPhoto(
   const inserted = await supabase
     .from('market_listing_media')
     .insert({
-      listing_id: listing.listing.id,
+      listing_id: listingId,
       storage_path: storagePath,
       sort_order: nextSortOrder,
     })
@@ -1746,8 +1840,7 @@ export async function uploadListingPhoto(
   if (!signedUrl) {
     return {
       media: null,
-      error:
-        'The photo uploaded, but it could not be displayed yet. Reopen this draft to try again.',
+      error: signedUrlRetryMessage,
     };
   }
 
@@ -1758,6 +1851,42 @@ export async function uploadListingPhoto(
     },
     error: null,
   };
+}
+
+export async function uploadListingPhoto(
+  listingId: string,
+  normalizedPhoto: MarketListingPendingPhoto,
+): Promise<{
+  media: MarketListingMediaPresentation | null;
+  error: string | null;
+}> {
+  const listing = await getOwnListing(listingId);
+
+  if (listing.error || !listing.listing) {
+    return {
+      media: null,
+      error:
+        listing.error ??
+        'Photos can only be added to a saved draft.',
+    };
+  }
+
+  const existing = await listOwnListingMediaRows(listing.listing.id);
+
+  if (existing.error) {
+    return {
+      media: null,
+      error: existing.error,
+    };
+  }
+
+  return persistNormalizedListingPhoto(
+    listing.listing.id,
+    listing.listing.sellerProfileId,
+    existing.media,
+    normalizedPhoto,
+    'The photo uploaded, but it could not be displayed yet. Reopen this draft to try again.',
+  );
 }
 
 export async function deleteListingPhoto(
@@ -1954,6 +2083,273 @@ export async function reorderListingMedia(
   }
 
   return { error: null };
+}
+
+async function loadOwnActiveListing(
+  listingId: string,
+): Promise<{
+  detail: OwnMarketListingDetail | null;
+  error: string | null;
+}> {
+  const loaded = await getOwnMarketListing(listingId);
+
+  if (loaded.error || !loaded.listing) {
+    return {
+      detail: null,
+      error: loaded.error ?? OWN_LISTING_INACCESSIBLE,
+    };
+  }
+
+  if (loaded.listing.listing.status !== 'active') {
+    return {
+      detail: null,
+      error: ACTIVE_LISTING_PHOTOS_ONLY,
+    };
+  }
+
+  return {
+    detail: loaded.listing,
+    error: null,
+  };
+}
+
+function parseDeletedActiveMediaRow(value: unknown): {
+  id: string;
+  listingId: string;
+  storagePath: string;
+} | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const row = value as {
+    id?: unknown;
+    listing_id?: unknown;
+    storage_path?: unknown;
+  };
+
+  if (
+    typeof row.id !== 'string' ||
+    typeof row.listing_id !== 'string' ||
+    typeof row.storage_path !== 'string' ||
+    !isUuid(row.id) ||
+    !isUuid(row.listing_id) ||
+    !MARKET_LISTING_MEDIA_PATH.test(row.storage_path)
+  ) {
+    return null;
+  }
+
+  return {
+    id: row.id.toLowerCase(),
+    listingId: row.listing_id.toLowerCase(),
+    storagePath: row.storage_path,
+  };
+}
+
+export async function getOwnActiveListingForPhotos(
+  listingId: string,
+): Promise<{
+  listing: OwnMarketListingDetail | null;
+  error: string | null;
+}> {
+  const loaded = await loadOwnActiveListing(listingId);
+
+  return {
+    listing: loaded.detail,
+    error: loaded.error,
+  };
+}
+
+export async function uploadOwnActiveListingPhoto(
+  listingId: string,
+  normalizedPhoto: MarketListingPendingPhoto,
+): Promise<{
+  media: MarketListingMediaPresentation | null;
+  error: string | null;
+}> {
+  const owned = await loadOwnActiveListing(listingId);
+
+  if (owned.error || !owned.detail) {
+    return {
+      media: null,
+      error: owned.error ?? ACTIVE_LISTING_PHOTOS_ONLY,
+    };
+  }
+
+  const existing = await listListingMediaRows(owned.detail.listing.id);
+
+  if (existing.error) {
+    return {
+      media: null,
+      error: existing.error,
+    };
+  }
+
+  return persistNormalizedListingPhoto(
+    owned.detail.listing.id,
+    owned.detail.listing.sellerProfileId,
+    existing.media,
+    normalizedPhoto,
+    'The photo uploaded, but it could not be displayed yet. Reopen this listing to try again.',
+  );
+}
+
+export async function deleteOwnActiveListingPhoto(
+  listingId: string,
+  mediaId: string,
+): Promise<DeleteOwnActiveListingPhotoResult> {
+  const trimmedListingId = listingId.trim().toLowerCase();
+  const trimmedMediaId = mediaId.trim().toLowerCase();
+
+  if (!isUuid(trimmedListingId) || !isUuid(trimmedMediaId)) {
+    return {
+      error: 'That photo could not be removed. Try again.',
+      lastPhotoProtected: false,
+      cleanupWarning: null,
+    };
+  }
+
+  const owned = await loadOwnActiveListing(trimmedListingId);
+
+  if (owned.error || !owned.detail) {
+    return {
+      error: owned.error ?? ACTIVE_LISTING_PHOTOS_ONLY,
+      lastPhotoProtected: false,
+      cleanupWarning: null,
+    };
+  }
+
+  const deleted = await supabase.rpc(
+    'delete_own_market_listing_media',
+    {
+      p_listing_id: owned.detail.listing.id,
+      p_media_id: trimmedMediaId,
+    },
+  );
+
+  if (deleted.error) {
+    return {
+      error: formatActivePhotoRpcError(
+        deleted.error,
+        'That photo could not be removed. Try again.',
+      ),
+      lastPhotoProtected: isLastPhotoProtectedError(deleted.error),
+      cleanupWarning: null,
+    };
+  }
+
+  const row = Array.isArray(deleted.data)
+    ? parseDeletedActiveMediaRow(deleted.data[0])
+    : parseDeletedActiveMediaRow(deleted.data);
+
+  if (!row || row.listingId !== owned.detail.listing.id) {
+    return {
+      error: 'That photo could not be removed. Try again.',
+      lastPhotoProtected: false,
+      cleanupWarning: null,
+    };
+  }
+
+  signedUrlCache.delete(row.storagePath);
+
+  const objectRemoved = await deleteMarketListingMediaObject(
+    row.storagePath,
+  );
+
+  if (!objectRemoved) {
+    return {
+      error: null,
+      lastPhotoProtected: false,
+      cleanupWarning: ACTIVE_PHOTO_STORAGE_CLEANUP_WARNING,
+    };
+  }
+
+  return {
+    error: null,
+    lastPhotoProtected: false,
+    cleanupWarning: null,
+  };
+}
+
+export async function reorderOwnActiveListingMedia(
+  listingId: string,
+  orderedMediaIds: readonly string[],
+): Promise<{
+  listing: OwnMarketListingDetail | null;
+  error: string | null;
+}> {
+  const requested = orderedMediaIds.map((id) =>
+    id.trim().toLowerCase(),
+  );
+
+  if (
+    requested.length === 0 ||
+    requested.length > MARKET_LISTING_MEDIA_MAX ||
+    requested.some((id) => !isUuid(id))
+  ) {
+    return {
+      listing: null,
+      error: 'Photo order is not valid.',
+    };
+  }
+
+  const uniqueRequested = new Set(requested);
+
+  if (uniqueRequested.size !== requested.length) {
+    return {
+      listing: null,
+      error: 'Photo order is not valid.',
+    };
+  }
+
+  const owned = await loadOwnActiveListing(listingId);
+
+  if (owned.error || !owned.detail) {
+    return {
+      listing: null,
+      error: owned.error ?? ACTIVE_LISTING_PHOTOS_ONLY,
+    };
+  }
+
+  const reordered = await supabase.rpc(
+    'reorder_own_market_listing_media',
+    {
+      p_listing_id: owned.detail.listing.id,
+      p_media_ids: requested,
+    },
+  );
+
+  if (reordered.error) {
+    return {
+      listing: null,
+      error: formatActivePhotoRpcError(
+        reordered.error,
+        "Couldn't save photo order. Please try again.",
+      ),
+    };
+  }
+
+  const refreshed = await getOwnMarketListing(owned.detail.listing.id);
+
+  if (refreshed.error || !refreshed.listing) {
+    return {
+      listing: null,
+      error:
+        'Photo order was saved, but photos could not be reloaded. Close and reopen this listing.',
+    };
+  }
+
+  if (refreshed.listing.listing.status !== 'active') {
+    return {
+      listing: null,
+      error: ACTIVE_LISTING_PHOTOS_ONLY,
+    };
+  }
+
+  return {
+    listing: refreshed.listing,
+    error: null,
+  };
 }
 
 export async function publishOwnListing(

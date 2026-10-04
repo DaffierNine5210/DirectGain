@@ -92,6 +92,12 @@ export type OwnMarketListingDetail = {
   media: MarketListingMediaPresentation[];
 };
 
+export type DeleteOwnActiveListingPhotoResult = {
+  error: string | null;
+  lastPhotoProtected: boolean;
+  cleanupWarning: string | null;
+};
+
 export type CreateMarketListingDraftInput = {
   title: string;
   description: string;

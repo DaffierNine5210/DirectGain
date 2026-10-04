@@ -131,7 +131,6 @@ const FUTURE_ACTIONS: {
   icon: React.ComponentProps<typeof Ionicons>['name'];
   title: string;
 }[] = [
-  { icon: 'images-outline', title: 'Manage Photos' },
   { icon: 'pricetag-outline', title: 'View Offers' },
   { icon: 'pause-circle-outline', title: 'Pause listing' },
   { icon: 'checkmark-circle-outline', title: 'Mark as Sold' },
@@ -444,6 +443,24 @@ export default function ManageListingScreen({
                     : undefined
                 }
               />
+
+              <View>
+                <View style={styles.divider} />
+                <ManageListingActionRow
+                  icon="images-outline"
+                  title="Manage Photos"
+                  unavailable={listing.status !== 'active'}
+                  onPress={
+                    listing.status === 'active'
+                      ? () => {
+                          navigation.navigate('ManageListingPhotos', {
+                            listingId: listing.id,
+                          });
+                        }
+                      : undefined
+                  }
+                />
+              </View>
 
               {FUTURE_ACTIONS.map((action) => (
                 <View key={action.title}>
