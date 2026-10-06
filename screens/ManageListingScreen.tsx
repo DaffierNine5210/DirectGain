@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import {
+  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -23,7 +24,12 @@ import type { MarketStackParamList } from '../navigation/MarketStack';
 
 import { formatListingCreatedOn } from '../services/market/listingPreviewPresentation';
 import { formatViewerRegionLabel } from '../services/market/marketFeedPresentation';
-import { getOwnMarketListing } from '../services/market/marketListingsRepository';
+import {
+  getOwnMarketListing,
+  markOwnMarketListingSold,
+  pauseOwnMarketListing,
+  reactivateOwnMarketListing,
+} from '../services/market/marketListingsRepository';
 import formatListingPrice from '../utils/listing/formatListingPrice';
 
 import type {
@@ -55,6 +61,8 @@ function formatOwnListingStatus(
       return 'Draft';
     case 'active':
       return 'Active';
+    case 'paused':
+      return 'Paused';
     case 'reserved':
       return 'Reserved';
     case 'sold':
@@ -74,6 +82,14 @@ function statusTone(status: MarketListingStatus): {
       color: palette.opportunityGreen,
       backgroundColor: alpha.green08,
       borderColor: alpha.green20,
+    };
+  }
+
+  if (status === 'paused') {
+    return {
+      color: textColor.muted,
+      backgroundColor: alpha.white05,
+      borderColor: alpha.white10,
     };
   }
 
@@ -127,16 +143,6 @@ function dateLabelForListing(
   return `Listed ${created}`;
 }
 
-const FUTURE_ACTIONS: {
-  icon: React.ComponentProps<typeof Ionicons>['name'];
-  title: string;
-}[] = [
-  { icon: 'pricetag-outline', title: 'View Offers' },
-  { icon: 'pause-circle-outline', title: 'Pause listing' },
-  { icon: 'checkmark-circle-outline', title: 'Mark as Sold' },
-  { icon: 'archive-outline', title: 'Archive Listing' },
-];
-
 function OwnerPhoto({
   uri,
   accessibilityLabel,
@@ -187,6 +193,7 @@ export default function ManageListingScreen({
   const mountedRef = useRef(true);
   const requestIdRef = useRef(0);
   const hasLoadedRef = useRef(false);
+  const lifecycleBusyRef = useRef(false);
   const loadRef = useRef<(showSpinner: boolean) => Promise<void>>(
     async () => {},
   );
@@ -197,6 +204,7 @@ export default function ManageListingScreen({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [lifecycleBusy, setLifecycleBusy] = useState(false);
 
   const loadListing = useCallback(async (showSpinner: boolean) => {
     const requestId = ++requestIdRef.current;
@@ -233,7 +241,7 @@ export default function ManageListingScreen({
     useCallback(() => {
       showTabBar();
 
-      if (hasLoadedRef.current) {
+      if (hasLoadedRef.current && !lifecycleBusyRef.current) {
         void loadRef.current(false);
       }
     }, [showTabBar]),
@@ -248,9 +256,121 @@ export default function ManageListingScreen({
     };
   }, [loadListing]);
 
+  async function runLifecycleAction(
+    action: () => Promise<{ error: string | null }>,
+    failureTitle: string,
+  ) {
+    if (lifecycleBusyRef.current) {
+      return;
+    }
+
+    lifecycleBusyRef.current = true;
+    setLifecycleBusy(true);
+    requestIdRef.current += 1;
+
+    const result = await action();
+
+    if (!mountedRef.current) {
+      return;
+    }
+
+    if (result.error) {
+      lifecycleBusyRef.current = false;
+      setLifecycleBusy(false);
+      Alert.alert(failureTitle, result.error);
+      return;
+    }
+
+    await loadListing(false);
+
+    if (!mountedRef.current) {
+      return;
+    }
+
+    lifecycleBusyRef.current = false;
+    setLifecycleBusy(false);
+  }
+
+  function confirmPause() {
+    if (lifecycleBusyRef.current) {
+      return;
+    }
+
+    Alert.alert(
+      'Pause listing?',
+      'This listing will leave Market. New offers and new Market chats will stop. Existing chats stay open. Pending offers stay pending; you cannot accept or decline them until you list again. A buyer can still withdraw.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Pause listing',
+          onPress: () => {
+            void runLifecycleAction(
+              () => pauseOwnMarketListing(listingId),
+              'This listing could not be paused',
+            );
+          },
+        },
+      ],
+    );
+  }
+
+  function confirmListAgain() {
+    if (lifecycleBusyRef.current) {
+      return;
+    }
+
+    Alert.alert(
+      'List again?',
+      'This listing will return to Market. New offers can start again if offers are enabled.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'List again',
+          onPress: () => {
+            void runLifecycleAction(
+              () => reactivateOwnMarketListing(listingId),
+              'This listing could not be listed again',
+            );
+          },
+        },
+      ],
+    );
+  }
+
+  function confirmMarkSold() {
+    if (lifecycleBusyRef.current) {
+      return;
+    }
+
+    Alert.alert(
+      'Mark as Sold?',
+      'This listing will leave Market. Pending offers will be declined. Sold cannot be reversed by pause or list-again. This does not record payment or a completed transaction.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Mark as Sold',
+          style: 'destructive',
+          onPress: () => {
+            void runLifecycleAction(
+              () => markOwnMarketListingSold(listingId),
+              'This listing could not be marked as sold',
+            );
+          },
+        },
+      ],
+    );
+  }
+
   const listing = detail?.listing ?? null;
   const media = detail?.media ?? [];
   const canViewPublic = listing?.status === 'active';
+  const canEditDetails =
+    listing?.status === 'active' || listing?.status === 'paused';
+  const canManagePhotos = canEditDetails;
+  const canPause = listing?.status === 'active';
+  const canListAgain = listing?.status === 'paused';
+  const canMarkSold =
+    listing?.status === 'active' || listing?.status === 'paused';
   const locationLabel = listing
     ? formatViewerRegionLabel({
         suburb: listing.suburb,
@@ -432,9 +552,9 @@ export default function ManageListingScreen({
               <ManageListingActionRow
                 icon="create-outline"
                 title="Edit Details"
-                unavailable={listing.status !== 'active'}
+                unavailable={!canEditDetails}
                 onPress={
-                  listing.status === 'active'
+                  canEditDetails
                     ? () => {
                         navigation.navigate('EditListingDetails', {
                           listingId: listing.id,
@@ -449,9 +569,9 @@ export default function ManageListingScreen({
                 <ManageListingActionRow
                   icon="images-outline"
                   title="Manage Photos"
-                  unavailable={listing.status !== 'active'}
+                  unavailable={!canManagePhotos}
                   onPress={
-                    listing.status === 'active'
+                    canManagePhotos
                       ? () => {
                           navigation.navigate('ManageListingPhotos', {
                             listingId: listing.id,
@@ -462,16 +582,65 @@ export default function ManageListingScreen({
                 />
               </View>
 
-              {FUTURE_ACTIONS.map((action) => (
-                <View key={action.title}>
+              <View>
+                <View style={styles.divider} />
+                <ManageListingActionRow
+                  icon="pricetag-outline"
+                  title="View Offers"
+                  unavailable
+                />
+              </View>
+
+              {canPause ? (
+                <View>
                   <View style={styles.divider} />
                   <ManageListingActionRow
-                    icon={action.icon}
-                    title={action.title}
-                    unavailable
+                    icon="pause-circle-outline"
+                    title="Pause listing"
+                    unavailable={lifecycleBusy}
+                    onPress={
+                      lifecycleBusy ? undefined : confirmPause
+                    }
                   />
                 </View>
-              ))}
+              ) : null}
+
+              {canListAgain ? (
+                <View>
+                  <View style={styles.divider} />
+                  <ManageListingActionRow
+                    icon="play-circle-outline"
+                    title="List again"
+                    unavailable={lifecycleBusy}
+                    onPress={
+                      lifecycleBusy ? undefined : confirmListAgain
+                    }
+                  />
+                </View>
+              ) : null}
+
+              {canMarkSold ? (
+                <View>
+                  <View style={styles.divider} />
+                  <ManageListingActionRow
+                    icon="checkmark-circle-outline"
+                    title="Mark as Sold"
+                    unavailable={lifecycleBusy}
+                    onPress={
+                      lifecycleBusy ? undefined : confirmMarkSold
+                    }
+                  />
+                </View>
+              ) : null}
+
+              <View>
+                <View style={styles.divider} />
+                <ManageListingActionRow
+                  icon="archive-outline"
+                  title="Archive Listing"
+                  unavailable
+                />
+              </View>
             </View>
           </>
         )}

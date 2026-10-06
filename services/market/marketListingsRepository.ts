@@ -318,11 +318,55 @@ function formatPublishError(
   return 'This listing could not be listed. Try again.';
 }
 
+function formatLifecycleError(
+  error: {
+    message?: string;
+    code?: string;
+  } | null,
+  fallback: string,
+): string {
+  if (!error?.message) {
+    return fallback;
+  }
+
+  const message = error.message.trim();
+  const lowered = message.toLowerCase();
+
+  if (
+    error.code === '42501' ||
+    lowered.includes('row-level security')
+  ) {
+    return 'You do not have permission to update this listing.';
+  }
+
+  if (lowered.includes('network')) {
+    return 'Check your connection and try again.';
+  }
+
+  if (
+    lowered.includes('postgres') ||
+    lowered.includes('permission denied') ||
+    lowered.includes('function') ||
+    lowered.includes('sql') ||
+    lowered.includes('schema')
+  ) {
+    return fallback;
+  }
+
+  const firstLine = message.split('\n')[0]?.trim() ?? '';
+
+  if (firstLine.length > 0 && firstLine.length <= 160) {
+    return firstLine;
+  }
+
+  return fallback;
+}
+
 const LAST_PHOTO_PROTECTED_MESSAGE =
-  'An active listing must keep at least one photo.';
+  'This listing must keep at least one photo.';
 
 const ACTIVE_LISTING_PHOTOS_ONLY =
-  'Photos can only be managed on an active listing.';
+  'Photos can only be managed on an active or paused listing.';
 
 const ACTIVE_PHOTO_STORAGE_CLEANUP_WARNING =
   'The photo was removed. Storage cleanup may still be pending.';
@@ -333,6 +377,10 @@ function isLastPhotoProtectedError(error: {
   return (error?.message ?? '')
     .toLowerCase()
     .includes('must keep at least one photo');
+}
+
+function canManageOwnListingPhotos(status: string): boolean {
+  return status === 'active' || status === 'paused';
 }
 
 function formatActivePhotoRpcError(
@@ -1146,7 +1194,10 @@ export async function updateOwnMarketListingDetails(
     };
   }
 
-  if (current.listing.listing.status !== 'active') {
+  if (
+    current.listing.listing.status !== 'active' &&
+    current.listing.listing.status !== 'paused'
+  ) {
     return {
       listing: null,
       error: 'This listing cannot be edited.',
@@ -1183,7 +1234,7 @@ export async function updateOwnMarketListingDetails(
       'seller_profile_id',
       current.listing.listing.sellerProfileId,
     )
-    .eq('status', 'active')
+    .in('status', ['active', 'paused'])
     .select(MARKET_LISTING_SELECT)
     .maybeSingle();
 
@@ -1200,7 +1251,18 @@ export async function updateOwnMarketListingDetails(
   if (!updated.data) {
     return {
       listing: null,
-      error: 'This listing could not be saved. Try again.',
+      error: 'This listing cannot be edited.',
+    };
+  }
+
+  if (
+    !isMarketListingRow(updated.data) ||
+    (updated.data.status !== 'active' &&
+      updated.data.status !== 'paused')
+  ) {
+    return {
+      listing: null,
+      error: 'This listing cannot be edited.',
     };
   }
 
@@ -1407,20 +1469,67 @@ async function readJpegBytes(
 
 async function deleteMarketListingMediaObject(
   storagePath: string,
-): Promise<boolean> {
-  const { error } = await supabase.storage
-    .from(MARKET_LISTING_MEDIA_BUCKET)
-    .remove([storagePath]);
+): Promise<{ confirmed: boolean }> {
+  try {
+    const removed = await supabase.storage
+      .from(MARKET_LISTING_MEDIA_BUCKET)
+      .remove([storagePath]);
 
-  if (error) {
+    if (removed.error) {
+      console.warn(
+        '[Direct Gain] Market listing media object cleanup failed.',
+        removed.error.message,
+      );
+      return { confirmed: false };
+    }
+
+    if (
+      !marketListingMediaRemoveConfirmed(removed.data, storagePath)
+    ) {
+      console.warn(
+        '[Direct Gain] Market listing media object cleanup was not confirmed.',
+        storagePath,
+      );
+      return { confirmed: false };
+    }
+
+    return { confirmed: true };
+  } catch (error) {
     console.warn(
-      '[Direct Gain] Market listing media object cleanup failed.',
-      error.message,
+      '[Direct Gain] Market listing media object cleanup threw.',
+      error instanceof Error ? error.message : error,
     );
+    return { confirmed: false };
+  }
+}
+
+function marketListingMediaRemoveConfirmed(
+  data: unknown,
+  storagePath: string,
+): boolean {
+  if (!Array.isArray(data) || data.length === 0) {
     return false;
   }
 
-  return true;
+  const fileName = storagePath.split('/').pop() ?? '';
+
+  if (!fileName) {
+    return false;
+  }
+
+  return data.some((entry) => {
+    if (!entry || typeof entry !== 'object') {
+      return false;
+    }
+
+    const name = (entry as { name?: unknown }).name;
+
+    if (typeof name !== 'string' || name.length === 0) {
+      return false;
+    }
+
+    return name === storagePath || name === fileName;
+  });
 }
 
 function cachedSignedUrl(storagePath: string): string | null {
@@ -1808,7 +1917,7 @@ async function persistNormalizedListingPhoto(
 
     const cleaned = await deleteMarketListingMediaObject(storagePath);
 
-    if (!cleaned) {
+    if (!cleaned.confirmed) {
       console.warn(
         '[Direct Gain] Orphan market-listing-media object may remain after metadata failure.',
         storagePath,
@@ -1827,7 +1936,15 @@ async function persistNormalizedListingPhoto(
   const adapted = adaptMediaRow(inserted.data);
 
   if (!adapted) {
-    await deleteMarketListingMediaObject(storagePath);
+    const cleaned = await deleteMarketListingMediaObject(storagePath);
+
+    if (!cleaned.confirmed) {
+      console.warn(
+        '[Direct Gain] Orphan market-listing-media object may remain after metadata failure.',
+        storagePath,
+      );
+    }
+
     return {
       media: null,
       error: 'That photo could not be saved. Try again.',
@@ -1939,7 +2056,7 @@ export async function deleteListingPhoto(
     );
   }
 
-  if (!objectRemoved) {
+  if (!objectRemoved.confirmed) {
     return {
       error: null,
       cleanupWarning:
@@ -2100,7 +2217,7 @@ async function loadOwnActiveListing(
     };
   }
 
-  if (loaded.listing.listing.status !== 'active') {
+  if (!canManageOwnListingPhotos(loaded.listing.listing.status)) {
     return {
       detail: null,
       error: ACTIVE_LISTING_PHOTOS_ONLY,
@@ -2256,7 +2373,7 @@ export async function deleteOwnActiveListingPhoto(
     row.storagePath,
   );
 
-  if (!objectRemoved) {
+  if (!objectRemoved.confirmed) {
     return {
       error: null,
       lastPhotoProtected: false,
@@ -2339,7 +2456,7 @@ export async function reorderOwnActiveListingMedia(
     };
   }
 
-  if (refreshed.listing.listing.status !== 'active') {
+  if (!canManageOwnListingPhotos(refreshed.listing.listing.status)) {
     return {
       listing: null,
       error: ACTIVE_LISTING_PHOTOS_ONLY,
@@ -2416,6 +2533,151 @@ export async function publishOwnListing(
     status: 'active',
     error: null,
   };
+}
+
+function parseLifecycleRpcStatus(
+  data: unknown,
+): { id: string; status: string } | null {
+  const row = Array.isArray(data) ? data[0] : data;
+
+  if (!row || typeof row !== 'object') {
+    return null;
+  }
+
+  const parsed = row as {
+    id?: unknown;
+    status?: unknown;
+  };
+
+  if (
+    typeof parsed.id !== 'string' ||
+    typeof parsed.status !== 'string'
+  ) {
+    return null;
+  }
+
+  return {
+    id: parsed.id,
+    status: parsed.status,
+  };
+}
+
+export async function pauseOwnMarketListing(
+  listingId: string,
+): Promise<{ error: string | null }> {
+  const trimmed = listingId.trim().toLowerCase();
+
+  if (!isUuid(trimmed)) {
+    return { error: 'This listing could not be paused.' };
+  }
+
+  const auth = await requireUserId();
+
+  if (!auth.ok) {
+    return { error: auth.error };
+  }
+
+  const paused = await supabase.rpc('pause_own_market_listing', {
+    p_listing_id: trimmed,
+  });
+
+  if (paused.error) {
+    return {
+      error: formatLifecycleError(
+        paused.error,
+        'This listing could not be paused.',
+      ),
+    };
+  }
+
+  const row = parseLifecycleRpcStatus(paused.data);
+
+  if (!row || row.status !== 'paused') {
+    return { error: 'This listing could not be paused. Try again.' };
+  }
+
+  return { error: null };
+}
+
+export async function reactivateOwnMarketListing(
+  listingId: string,
+): Promise<{ error: string | null }> {
+  const trimmed = listingId.trim().toLowerCase();
+
+  if (!isUuid(trimmed)) {
+    return { error: 'This listing could not be listed again.' };
+  }
+
+  const auth = await requireUserId();
+
+  if (!auth.ok) {
+    return { error: auth.error };
+  }
+
+  const reactivated = await supabase.rpc(
+    'reactivate_own_market_listing',
+    {
+      p_listing_id: trimmed,
+    },
+  );
+
+  if (reactivated.error) {
+    return {
+      error: formatLifecycleError(
+        reactivated.error,
+        'This listing could not be listed again.',
+      ),
+    };
+  }
+
+  const row = parseLifecycleRpcStatus(reactivated.data);
+
+  if (!row || row.status !== 'active') {
+    return {
+      error: 'This listing could not be listed again. Try again.',
+    };
+  }
+
+  return { error: null };
+}
+
+export async function markOwnMarketListingSold(
+  listingId: string,
+): Promise<{ error: string | null }> {
+  const trimmed = listingId.trim().toLowerCase();
+
+  if (!isUuid(trimmed)) {
+    return { error: 'This listing could not be marked as sold.' };
+  }
+
+  const auth = await requireUserId();
+
+  if (!auth.ok) {
+    return { error: auth.error };
+  }
+
+  const sold = await supabase.rpc('mark_own_market_listing_sold', {
+    p_listing_id: trimmed,
+  });
+
+  if (sold.error) {
+    return {
+      error: formatLifecycleError(
+        sold.error,
+        'This listing could not be marked as sold.',
+      ),
+    };
+  }
+
+  const row = parseLifecycleRpcStatus(sold.data);
+
+  if (!row || row.status !== 'sold') {
+    return {
+      error: 'This listing could not be marked as sold. Try again.',
+    };
+  }
+
+  return { error: null };
 }
 
 export async function listActiveMarketListings(): Promise<{

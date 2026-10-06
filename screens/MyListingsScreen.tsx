@@ -59,6 +59,7 @@ type Props = {
 type StatusFilter =
   | 'all'
   | 'active'
+  | 'paused'
   | 'draft'
   | 'sold'
   | 'reserved'
@@ -72,6 +73,8 @@ function formatOwnListingStatus(
       return 'Draft';
     case 'active':
       return 'Active';
+    case 'paused':
+      return 'Paused';
     case 'reserved':
       return 'Reserved';
     case 'sold':
@@ -107,6 +110,11 @@ function emptyCopyForFilter(
       return {
         title: 'No active listings',
         body: 'Listings that are live on Market will appear here.',
+      };
+    case 'paused':
+      return {
+        title: 'No paused listings',
+        body: 'Listings you have paused will appear here.',
       };
     case 'draft':
       return {
@@ -208,6 +216,7 @@ export default function MyListingsScreen({
 
   const counts = useMemo(() => {
     let active = 0;
+    let paused = 0;
     let draft = 0;
     let sold = 0;
     let reserved = 0;
@@ -217,6 +226,9 @@ export default function MyListingsScreen({
       switch (item.listing.status) {
         case 'active':
           active += 1;
+          break;
+        case 'paused':
+          paused += 1;
           break;
         case 'draft':
           draft += 1;
@@ -235,6 +247,7 @@ export default function MyListingsScreen({
 
     return {
       active,
+      paused,
       draft,
       sold,
       reserved,
@@ -261,6 +274,12 @@ export default function MyListingsScreen({
         label: `Active · ${counts.active}`,
         count: counts.active,
         accessibilityLabel: `Active listings, ${counts.active}`,
+      },
+      {
+        key: 'paused',
+        label: `Paused · ${counts.paused}`,
+        count: counts.paused,
+        accessibilityLabel: `Paused listings, ${counts.paused}`,
       },
       {
         key: 'draft',

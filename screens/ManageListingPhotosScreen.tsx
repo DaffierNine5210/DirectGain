@@ -147,7 +147,7 @@ export default function ManageListingPhotosScreen({
 
       if (
         message ===
-        'Photos can only be managed on an active listing.'
+        'Photos can only be managed on an active or paused listing.'
       ) {
         setLoadState('unavailable');
         setLoadError(message);
@@ -545,7 +545,7 @@ export default function ManageListingPhotosScreen({
             </Text>
             <Text style={styles.emptyBody}>
               {loadError ??
-                'Photos can only be managed on an active listing.'}
+                'Photos can only be managed on an active or paused listing.'}
             </Text>
           </View>
         ) : loadState === 'error' || !detail ? (
@@ -622,7 +622,7 @@ export default function ManageListingPhotosScreen({
                   accessibilityLabel={
                     canDelete
                       ? 'Remove this photo from the listing'
-                      : 'Remove photo unavailable. An active listing must keep at least one photo.'
+                      : 'Remove photo unavailable. This listing must keep at least one photo.'
                   }
                   disabled={!canDelete}
                   onPress={handleRemoveSelected}
@@ -644,7 +644,7 @@ export default function ManageListingPhotosScreen({
 
                 {photos.length <= 1 ? (
                   <Text style={styles.lastPhoto}>
-                    An active listing must keep at least one photo.
+                    This listing must keep at least one photo.
                   </Text>
                 ) : null}
               </View>

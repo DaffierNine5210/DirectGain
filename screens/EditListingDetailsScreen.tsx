@@ -157,7 +157,10 @@ export default function EditListingDetailsScreen({
       return;
     }
 
-    if (result.listing.listing.status !== 'active') {
+    if (
+      result.listing.listing.status !== 'active' &&
+      result.listing.listing.status !== 'paused'
+    ) {
       setLoadState('unavailable');
       return;
     }
@@ -359,7 +362,7 @@ export default function EditListingDetailsScreen({
             This listing can't be edited
           </Text>
           <Text style={styles.emptyBody}>
-            Only active listings can be edited here.
+            Only active or paused listings can be edited here.
           </Text>
         </View>
       ) : (

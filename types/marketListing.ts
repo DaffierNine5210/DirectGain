@@ -36,6 +36,7 @@ export type MarketListingActiveStatus = 'active';
 export const MARKET_LISTING_STATUSES = [
   'draft',
   'active',
+  'paused',
   'reserved',
   'sold',
   'removed',

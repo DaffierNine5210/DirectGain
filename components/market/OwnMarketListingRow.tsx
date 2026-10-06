@@ -49,6 +49,14 @@ function statusTone(
     };
   }
 
+  if (status === 'paused') {
+    return {
+      color: textColor.muted,
+      backgroundColor: alpha.white05,
+      borderColor: alpha.white10,
+    };
+  }
+
   if (status === 'sold') {
     return {
       color: textColor.secondary,
