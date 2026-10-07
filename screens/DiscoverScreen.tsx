@@ -32,6 +32,10 @@ import DGDiscoverFeedTabs, {
 import DiscoverCreateSection from '../components/discover/DiscoverCreateSection';
 
 import {
+  DISCOVER_JOBS_PREVIEW_LIMIT,
+  type DiscoverJobsPreviewStatus,
+} from '../components/DiscoverJobsPreview';
+import {
   DISCOVER_MARKET_PREVIEW_LIMIT,
   type DiscoverMarketPreviewStatus,
 } from '../components/DiscoverMarketPreview';
@@ -64,7 +68,13 @@ import {
   toMarketFeedCard,
   type MarketFeedCardPresentation,
 } from '../services/market/marketFeedPresentation';
+import { resolveJobCoverPhotos } from '../services/jobs/jobMediaRepository';
+import { listOpenJobs } from '../services/jobs/jobRepository';
 import { listActiveMarketListings } from '../services/market/marketListingsRepository';
+import type {
+  Job,
+  JobCoverPresentation,
+} from '../types/jobs';
 import type { ActiveMarketListingFeedItem } from '../types/marketListing';
 
 import {
@@ -119,6 +129,11 @@ export default function DiscoverScreen({
   );
 
   const [
+    jobsSectionExpanded,
+    setJobsSectionExpanded,
+  ] = useState(true);
+
+  const [
     selectedFeedTab,
     setSelectedFeedTab,
   ] = useState<DiscoverFeedTab>(
@@ -156,7 +171,35 @@ export default function DiscoverScreen({
   const marketHasLoadedRef = useRef(false);
   const marketRequestIdRef = useRef(0);
   const marketInFlightRef = useRef(false);
+  const [
+    jobItems,
+    setJobItems,
+  ] = useState<Job[]>([]);
+
+  const [
+    jobCovers,
+    setJobCovers,
+  ] = useState<Record<string, JobCoverPresentation>>(
+    {},
+  );
+
+  const [
+    jobsError,
+    setJobsError,
+  ] = useState<string | null>(null);
+
+  const [
+    jobsLoading,
+    setJobsLoading,
+  ] = useState(true);
+
   const loadMarketRef = useRef<
+    (mode: 'initial' | 'refresh' | 'silent') => Promise<void>
+  >(async () => {});
+  const jobsHasLoadedRef = useRef(false);
+  const jobsRequestIdRef = useRef(0);
+  const jobsInFlightRef = useRef(false);
+  const loadJobsRef = useRef<
     (mode: 'initial' | 'refresh' | 'silent') => Promise<void>
   >(async () => {});
 
@@ -204,6 +247,73 @@ export default function DiscoverScreen({
 
   loadMarketRef.current = loadMarket;
 
+  const loadJobs = useCallback(
+    async (mode: 'initial' | 'refresh' | 'silent') => {
+      if (mode === 'silent' && jobsInFlightRef.current) {
+        return;
+      }
+
+      const requestId = ++jobsRequestIdRef.current;
+      jobsInFlightRef.current = true;
+
+      if (mode === 'initial') {
+        setJobsLoading(true);
+      }
+
+      const feedResult = await listOpenJobs({
+        offset: 0,
+        limit: DISCOVER_JOBS_PREVIEW_LIMIT,
+      });
+
+      if (
+        requestId !== jobsRequestIdRef.current ||
+        !mountedRef.current
+      ) {
+        if (requestId === jobsRequestIdRef.current) {
+          jobsInFlightRef.current = false;
+        }
+        return;
+      }
+
+      if (feedResult.error) {
+        if (mode !== 'silent') {
+          setJobsError(feedResult.error);
+          setJobItems([]);
+          setJobCovers({});
+        }
+
+        jobsHasLoadedRef.current = true;
+        jobsInFlightRef.current = false;
+        setJobsLoading(false);
+        return;
+      }
+
+      const covers = await resolveJobCoverPhotos(
+        feedResult.jobs.map((job) => job.id),
+      );
+
+      if (
+        requestId !== jobsRequestIdRef.current ||
+        !mountedRef.current
+      ) {
+        if (requestId === jobsRequestIdRef.current) {
+          jobsInFlightRef.current = false;
+        }
+        return;
+      }
+
+      setJobsError(null);
+      setJobItems(feedResult.jobs);
+      setJobCovers(covers);
+      jobsHasLoadedRef.current = true;
+      jobsInFlightRef.current = false;
+      setJobsLoading(false);
+    },
+    [],
+  );
+
+  loadJobsRef.current = loadJobs;
+
   useEffect(() => {
     mountedRef.current = true;
 
@@ -216,12 +326,20 @@ export default function DiscoverScreen({
     void loadMarket('initial');
   }, [loadMarket]);
 
+  useEffect(() => {
+    void loadJobs('initial');
+  }, [loadJobs]);
+
   useFocusEffect(
     useCallback(() => {
       showTabBar();
 
       if (marketHasLoadedRef.current) {
         void loadMarketRef.current('silent');
+      }
+
+      if (jobsHasLoadedRef.current) {
+        void loadJobsRef.current('silent');
       }
     }, [showTabBar]),
   );
@@ -318,6 +436,14 @@ export default function DiscoverScreen({
       ? String(marketItems.length)
       : undefined;
 
+  const jobsStatus: DiscoverJobsPreviewStatus = jobsLoading
+    ? 'loading'
+    : jobsError
+      ? 'error'
+      : jobItems.length === 0
+        ? 'empty'
+        : 'ready';
+
   function navigateTab(
     name: keyof BottomTabParamList,
   ) {
@@ -360,7 +486,10 @@ export default function DiscoverScreen({
     }
 
     setRefreshing(true);
-    await loadMarket('refresh');
+    await Promise.all([
+      loadMarket('refresh'),
+      loadJobs('refresh'),
+    ]);
 
     if (mountedRef.current) {
       setRefreshing(false);
@@ -566,6 +695,24 @@ export default function DiscoverScreen({
         marketBadgeText={marketBadgeText}
         onMarketRetry={() => {
           void loadMarket('initial');
+        }}
+        jobsSectionExpanded={jobsSectionExpanded}
+        onJobsSectionChange={setJobsSectionExpanded}
+        jobsStatus={jobsStatus}
+        jobs={jobItems}
+        jobCovers={jobCovers}
+        jobsErrorMessage={jobsError}
+        onJobsRetry={() => {
+          void loadJobs('initial');
+        }}
+        onJobPress={(jobId) => {
+          navigation.navigate('JobDetail', {
+            jobId,
+          });
+        }}
+        onBrowseJobsPress={() => {
+          void selectionHaptic();
+          navigation.navigate('DiscoverJobs');
         }}
         auctions={
           filteredAuctions

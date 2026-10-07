@@ -3,6 +3,9 @@ import {
   View,
 } from 'react-native';
 
+import DiscoverJobsPreview, {
+  type DiscoverJobsPreviewStatus,
+} from '../DiscoverJobsPreview';
 import DiscoverMarketPreview, {
   type DiscoverMarketPreviewStatus,
 } from '../DiscoverMarketPreview';
@@ -15,6 +18,7 @@ import type {
   DiscoverAuction,
 } from '../../data/discoverMockData';
 import type { MarketFeedCardPresentation } from '../../services/market/marketFeedPresentation';
+import type { Job, JobCoverPresentation } from '../../types/jobs';
 
 import {
   spacing,
@@ -32,6 +36,16 @@ type DiscoverOpportunityFeedProps = {
   marketErrorMessage?: string | null;
   marketBadgeText?: string;
   onMarketRetry: () => void;
+
+  jobsSectionExpanded: boolean;
+  onJobsSectionChange: (expanded: boolean) => void;
+  jobsStatus: DiscoverJobsPreviewStatus;
+  jobs: Job[];
+  jobCovers: Record<string, JobCoverPresentation>;
+  jobsErrorMessage?: string | null;
+  onJobsRetry: () => void;
+  onJobPress: (jobId: string) => void;
+  onBrowseJobsPress: () => void;
 
   auctions: DiscoverAuction[];
 
@@ -66,6 +80,16 @@ export default function DiscoverOpportunityFeed({
   marketErrorMessage,
   marketBadgeText,
   onMarketRetry,
+
+  jobsSectionExpanded,
+  onJobsSectionChange,
+  jobsStatus,
+  jobs,
+  jobCovers,
+  jobsErrorMessage,
+  onJobsRetry,
+  onJobPress,
+  onBrowseJobsPress,
 
   auctions,
 
@@ -126,6 +150,50 @@ export default function DiscoverOpportunityFeed({
             }
             onPress={
               onMarketPress
+            }
+          />
+        </DGExpandableSection>
+      </DGReveal>
+
+      <DGReveal
+        delay={190}
+        duration={430}
+        distance={10}
+        style={
+          styles.sectionSpacing
+        }
+      >
+        <DGExpandableSection
+          eyebrow="Work"
+          title="Open jobs"
+          subtitle="Jobs you can apply for now."
+          icon="briefcase-outline"
+          expanded={jobsSectionExpanded}
+          onExpandedChange={onJobsSectionChange}
+          contentStyle={
+            styles.jobsContent
+          }
+        >
+          <DiscoverJobsPreview
+            status={jobsStatus}
+            jobs={jobs}
+            covers={jobCovers}
+            errorMessage={jobsErrorMessage}
+            onJobPress={onJobPress}
+            onRetry={onJobsRetry}
+          />
+
+          <DGButton
+            title="Find work"
+            icon="arrow-forward"
+            iconPosition="right"
+            variant="outline"
+            fullWidth
+            style={
+              styles.sectionAction
+            }
+            onPress={
+              onBrowseJobsPress
             }
           />
         </DGExpandableSection>
@@ -222,6 +290,10 @@ const styles = StyleSheet.create({
   },
 
   marketContent: {
+    paddingHorizontal: 0,
+  },
+
+  jobsContent: {
     paddingHorizontal: 0,
   },
 
