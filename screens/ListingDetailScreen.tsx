@@ -37,8 +37,8 @@ import OfferComposer, {
 import DGButton from '../components/DGButton';
 
 import type {
-  MarketStackParamList,
-} from '../navigation/MarketStack';
+  MarketListingFlowParamList,
+} from '../navigation/marketListingFlow';
 import { navigateToOwnMyGain } from '../navigation/publicProfile';
 
 import useTabBarVisibility from '../hooks/useTabBarVisibility';
@@ -73,7 +73,7 @@ import {
 
 type Props =
   NativeStackScreenProps<
-    MarketStackParamList,
+    MarketListingFlowParamList,
     'ListingDetail'
   >;
 

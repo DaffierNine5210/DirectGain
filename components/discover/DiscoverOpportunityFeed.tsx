@@ -3,7 +3,9 @@ import {
   View,
 } from 'react-native';
 
-import DiscoverMarketPreview from '../DiscoverMarketPreview';
+import DiscoverMarketPreview, {
+  type DiscoverMarketPreviewStatus,
+} from '../DiscoverMarketPreview';
 import DGButton from '../DGButton';
 import DGExpandableSection from '../DGExpandableSection';
 import DGOpportunityCard from '../DGOpportunityCard';
@@ -12,6 +14,7 @@ import DGReveal from '../DGReveal';
 import type {
   DiscoverAuction,
 } from '../../data/discoverMockData';
+import type { MarketFeedCardPresentation } from '../../services/market/marketFeedPresentation';
 
 import {
   spacing,
@@ -24,7 +27,11 @@ export type DiscoverSectionKey =
   | null;
 
 type DiscoverOpportunityFeedProps = {
-  searchQuery: string;
+  marketStatus: DiscoverMarketPreviewStatus;
+  marketCards: MarketFeedCardPresentation[];
+  marketErrorMessage?: string | null;
+  marketBadgeText?: string;
+  onMarketRetry: () => void;
 
   auctions: DiscoverAuction[];
 
@@ -54,7 +61,11 @@ type DiscoverOpportunityFeedProps = {
 };
 
 export default function DiscoverOpportunityFeed({
-  searchQuery,
+  marketStatus,
+  marketCards,
+  marketErrorMessage,
+  marketBadgeText,
+  onMarketRetry,
 
   auctions,
 
@@ -75,11 +86,11 @@ export default function DiscoverOpportunityFeed({
         distance={10}
       >
         <DGExpandableSection
-          eyebrow="Recommended nearby"
+          eyebrow="On the Market"
           title="Market opportunities"
-          subtitle="Trusted items and local listings selected for you."
+          subtitle="Active listings you can open now."
           icon="storefront-outline"
-          badgeText="143"
+          badgeText={marketBadgeText}
           expanded={
             expandedSection ===
             'market'
@@ -97,12 +108,11 @@ export default function DiscoverOpportunityFeed({
           }
         >
           <DiscoverMarketPreview
-            searchQuery={
-              searchQuery
-            }
-            onListingPress={
-              onListingPress
-            }
+            status={marketStatus}
+            cards={marketCards}
+            errorMessage={marketErrorMessage}
+            onListingPress={onListingPress}
+            onRetry={onMarketRetry}
           />
 
           <DGButton
@@ -224,6 +234,6 @@ const styles = StyleSheet.create({
 
   sectionAction: {
     marginTop:
-      spacing.md,
+      spacing.sm,
   },
 });

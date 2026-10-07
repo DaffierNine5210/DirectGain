@@ -24,7 +24,8 @@ import {
 
 export type MarketListingCardLayout =
   | 'grid'
-  | 'list';
+  | 'list'
+  | 'compact';
 
 export type MarketListingCardProps = {
   id: string;
@@ -97,6 +98,9 @@ export default function MarketListingCard({
   const isListLayout =
     layout === 'list';
 
+  const isCompactLayout =
+    layout === 'compact';
+
   const cover = image ? (
     <DGImage
       source={image}
@@ -110,7 +114,9 @@ export default function MarketListingCard({
       style={
         isListLayout
           ? styles.listImage
-          : styles.gridImage
+          : isCompactLayout
+            ? styles.compactGridImage
+            : styles.gridImage
       }
     />
   ) : (
@@ -118,7 +124,9 @@ export default function MarketListingCard({
       style={
         isListLayout
           ? styles.listEmptyCover
-          : styles.gridEmptyCover
+          : isCompactLayout
+            ? styles.compactGridEmptyCover
+            : styles.gridEmptyCover
       }
     >
       <Ionicons
@@ -549,7 +557,9 @@ export default function MarketListingCard({
           handlePressOut
         }
         style={
-          styles.gridCard
+          isCompactLayout
+            ? styles.compactGridCard
+            : styles.gridCard
         }
       >
         <View
@@ -586,7 +596,9 @@ export default function MarketListingCard({
 
         <View
           style={
-            styles.gridDetails
+            isCompactLayout
+              ? styles.compactGridDetails
+              : styles.gridDetails
           }
         >
           <Text
@@ -596,7 +608,9 @@ export default function MarketListingCard({
               0.84
             }
             style={
-              styles.gridPrice
+              isCompactLayout
+                ? styles.compactGridPrice
+                : styles.gridPrice
             }
           >
             {price}
@@ -605,7 +619,9 @@ export default function MarketListingCard({
           <Text
             numberOfLines={2}
             style={
-              styles.gridTitle
+              isCompactLayout
+                ? styles.compactGridTitle
+                : styles.gridTitle
             }
           >
             {title}
@@ -613,7 +629,9 @@ export default function MarketListingCard({
 
           <View
             style={
-              styles.gridMetaRow
+              isCompactLayout
+                ? styles.compactGridMetaRow
+                : styles.gridMetaRow
             }
           >
             <View
@@ -623,7 +641,7 @@ export default function MarketListingCard({
             >
               <Ionicons
                 name="location"
-                size={12}
+                size={isCompactLayout ? 11 : 12}
                 color={
                   palette.opportunityGreen
                 }
@@ -632,7 +650,9 @@ export default function MarketListingCard({
               <Text
                 numberOfLines={1}
                 style={
-                  styles.locationText
+                  isCompactLayout
+                    ? styles.compactLocationText
+                    : styles.locationText
                 }
               >
                 {distance ||
@@ -692,7 +712,7 @@ export default function MarketListingCard({
             ) : null}
           </View>
 
-          {listedTime ? (
+          {!isCompactLayout && listedTime ? (
             <Text
               numberOfLines={1}
               style={
@@ -765,6 +785,68 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: alpha.white08,
+  },
+
+  compactGridCard: {
+    position: 'relative',
+    width: '100%',
+    overflow: 'hidden',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: alpha.white08,
+    backgroundColor: surface.cardRaised,
+    ...shadow.card,
+  },
+
+  compactGridImage: {
+    width: '100%',
+    borderRadius: 0,
+  },
+
+  compactGridEmptyCover: {
+    width: '100%',
+    aspectRatio: 4 / 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: alpha.white08,
+  },
+
+  compactGridDetails: {
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm,
+  },
+
+  compactGridPrice: {
+    color: palette.opportunityGreen,
+    fontSize: 17,
+    lineHeight: 20,
+    fontWeight: '900',
+    letterSpacing: -0.4,
+  },
+
+  compactGridTitle: {
+    marginTop: 3,
+    color: textColor.primary,
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: '800',
+  },
+
+  compactGridMetaRow: {
+    marginTop: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  compactLocationText: {
+    flex: 1,
+    marginLeft: 4,
+    color: textColor.secondary,
+    fontSize: 10,
+    lineHeight: 13,
+    fontWeight: '700',
   },
 
   listEmptyCover: {

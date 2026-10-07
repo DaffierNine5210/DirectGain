@@ -10,6 +10,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -30,6 +31,10 @@ import DGDiscoverFeedTabs, {
 
 import DiscoverCreateSection from '../components/discover/DiscoverCreateSection';
 
+import {
+  DISCOVER_MARKET_PREVIEW_LIMIT,
+  type DiscoverMarketPreviewStatus,
+} from '../components/DiscoverMarketPreview';
 import DiscoverOpportunityFeed, {
   DiscoverSectionKey,
 } from '../components/discover/DiscoverOpportunityFeed';
@@ -53,6 +58,14 @@ import useTabBarVisibility from '../hooks/useTabBarVisibility';
 import type {
   DiscoverStackParamList,
 } from '../navigation/DiscoverStack';
+
+import {
+  listingMatchesMarketSearch,
+  toMarketFeedCard,
+  type MarketFeedCardPresentation,
+} from '../services/market/marketFeedPresentation';
+import { listActiveMarketListings } from '../services/market/marketListingsRepository';
+import type { ActiveMarketListingFeedItem } from '../types/marketListing';
 
 import {
   openMessagesInbox,
@@ -122,9 +135,94 @@ export default function DiscoverScreen({
     setRefreshing,
   ] = useState(false);
 
+  const [
+    marketItems,
+    setMarketItems,
+  ] = useState<ActiveMarketListingFeedItem[]>(
+    [],
+  );
+
+  const [
+    marketError,
+    setMarketError,
+  ] = useState<string | null>(null);
+
+  const [
+    marketLoading,
+    setMarketLoading,
+  ] = useState(true);
+
+  const mountedRef = useRef(true);
+  const marketHasLoadedRef = useRef(false);
+  const marketRequestIdRef = useRef(0);
+  const marketInFlightRef = useRef(false);
+  const loadMarketRef = useRef<
+    (mode: 'initial' | 'refresh' | 'silent') => Promise<void>
+  >(async () => {});
+
+  const loadMarket = useCallback(
+    async (mode: 'initial' | 'refresh' | 'silent') => {
+      if (mode === 'silent' && marketInFlightRef.current) {
+        return;
+      }
+
+      const requestId = ++marketRequestIdRef.current;
+      marketInFlightRef.current = true;
+
+      if (mode === 'initial') {
+        setMarketLoading(true);
+      }
+
+      const feedResult = await listActiveMarketListings();
+
+      if (
+        requestId !== marketRequestIdRef.current ||
+        !mountedRef.current
+      ) {
+        if (requestId === marketRequestIdRef.current) {
+          marketInFlightRef.current = false;
+        }
+        return;
+      }
+
+      if (feedResult.error) {
+        if (mode !== 'silent') {
+          setMarketError(feedResult.error);
+          setMarketItems([]);
+        }
+      } else {
+        setMarketError(null);
+        setMarketItems(feedResult.listings);
+      }
+
+      marketHasLoadedRef.current = true;
+      marketInFlightRef.current = false;
+      setMarketLoading(false);
+    },
+    [],
+  );
+
+  loadMarketRef.current = loadMarket;
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    void loadMarket('initial');
+  }, [loadMarket]);
+
   useFocusEffect(
     useCallback(() => {
       showTabBar();
+
+      if (marketHasLoadedRef.current) {
+        void loadMarketRef.current('silent');
+      }
     }, [showTabBar]),
   );
 
@@ -181,6 +279,45 @@ export default function DiscoverScreen({
       [selectedFeedTab],
     );
 
+  const marketPreviewCards = useMemo(() => {
+    const matched: MarketFeedCardPresentation[] = [];
+
+    for (const item of marketItems) {
+      const card = toMarketFeedCard(item);
+
+      if (
+        !listingMatchesMarketSearch(
+          card,
+          searchQuery,
+          item,
+        )
+      ) {
+        continue;
+      }
+
+      matched.push(card);
+
+      if (matched.length >= DISCOVER_MARKET_PREVIEW_LIMIT) {
+        break;
+      }
+    }
+
+    return matched;
+  }, [marketItems, searchQuery]);
+
+  const marketStatus: DiscoverMarketPreviewStatus = marketLoading
+    ? 'loading'
+    : marketError
+      ? 'error'
+      : marketPreviewCards.length === 0
+        ? 'empty'
+        : 'ready';
+
+  const marketBadgeText =
+    marketStatus === 'ready' || marketStatus === 'empty'
+      ? String(marketItems.length)
+      : undefined;
+
   function navigateTab(
     name: keyof BottomTabParamList,
   ) {
@@ -217,16 +354,17 @@ export default function DiscoverScreen({
     );
   }
 
-  function handleRefresh() {
+  async function handleRefresh() {
     if (refreshing) {
       return;
     }
 
     setRefreshing(true);
+    await loadMarket('refresh');
 
-    setTimeout(() => {
+    if (mountedRef.current) {
       setRefreshing(false);
-    }, 1000);
+    }
   }
 
   function handleSearchSubmit(
@@ -422,9 +560,13 @@ export default function DiscoverScreen({
       </View>
 
       <DiscoverOpportunityFeed
-        searchQuery={
-          searchQuery
-        }
+        marketStatus={marketStatus}
+        marketCards={marketPreviewCards}
+        marketErrorMessage={marketError}
+        marketBadgeText={marketBadgeText}
+        onMarketRetry={() => {
+          void loadMarket('initial');
+        }}
         auctions={
           filteredAuctions
         }
@@ -442,13 +584,11 @@ export default function DiscoverScreen({
         onListingPress={(
           listingId,
         ) => {
-          console.log(
-            'Selected Discover listing:',
-            listingId,
-          );
-
-          navigateTab(
-            'Market',
+          navigation.navigate(
+            'ListingDetail',
+            {
+              listingId,
+            },
           );
         }}
         onAuctionPress={() => {

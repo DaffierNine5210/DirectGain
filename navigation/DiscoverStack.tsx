@@ -1,6 +1,8 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import DiscoverScreen from '../screens/DiscoverScreen';
+import ConversationScreen from '../screens/ConversationScreen';
+import ListingDetailScreen from '../screens/ListingDetailScreen';
 import ApplyToJobScreen from '../screens/jobs/ApplyToJobScreen';
 import DiscoverJobsScreen from '../screens/jobs/DiscoverJobsScreen';
 import JobApplicantDetailScreen from '../screens/jobs/JobApplicantDetailScreen';
@@ -10,11 +12,13 @@ import LeaveReviewScreen from '../screens/jobs/LeaveReviewScreen';
 import PublicProfileScreen from '../screens/profile/PublicProfileScreen';
 
 import type { JobsFlowParamList } from './jobsFlow';
+import type { MarketListingFlowParamList } from './marketListingFlow';
 
 export type DiscoverStackParamList = {
   DiscoverHome: undefined;
   DiscoverJobs: undefined;
-} & JobsFlowParamList;
+} & JobsFlowParamList
+  & MarketListingFlowParamList;
 
 const Stack =
   createNativeStackNavigator<DiscoverStackParamList>();
@@ -93,6 +97,24 @@ export default function DiscoverStack() {
       <Stack.Screen
         name="PublicProfile"
         component={PublicProfileScreen}
+        options={{
+          animation: 'slide_from_right',
+          gestureDirection: 'horizontal',
+        }}
+      />
+
+      <Stack.Screen
+        name="ListingDetail"
+        component={ListingDetailScreen}
+        options={{
+          animation: 'slide_from_right',
+          gestureDirection: 'horizontal',
+        }}
+      />
+
+      <Stack.Screen
+        name="Conversation"
+        component={ConversationScreen}
         options={{
           animation: 'slide_from_right',
           gestureDirection: 'horizontal',

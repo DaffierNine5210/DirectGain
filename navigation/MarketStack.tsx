@@ -10,7 +10,7 @@ import ManageListingPhotosScreen from '../screens/ManageListingPhotosScreen';
 import SellerProfileScreen from '../screens/SellerProfileScreen';
 import PublicProfileScreen from '../screens/profile/PublicProfileScreen';
 
-import type { PublicProfileParamList } from './publicProfile';
+import type { MarketListingFlowParamList } from './marketListingFlow';
 
 export type MarketStackParamList = {
   MarketHome: undefined;
@@ -29,24 +29,10 @@ export type MarketStackParamList = {
     listingId: string;
   };
 
-  ListingDetail: {
-    listingId: string;
-  };
-
   SellerProfile: {
     sellerId: string;
   };
-
-  Conversation: {
-    conversationId: string;
-
-    listingId?: string;
-
-    intent?:
-      | 'message'
-      | 'offer';
-  };
-} & PublicProfileParamList;
+} & MarketListingFlowParamList;
 
 const Stack =
   createNativeStackNavigator<MarketStackParamList>();
