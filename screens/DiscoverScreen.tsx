@@ -23,12 +23,6 @@ import {
 
 import DGScreen from '../components/layout/DGScreen';
 
-import DGDiscoverFeed from '../components/discover/DGDiscoverFeed';
-
-import DGDiscoverFeedTabs, {
-  DiscoverFeedTab,
-} from '../components/discover/DGDiscoverFeedTabs';
-
 import DiscoverCreateSection from '../components/discover/DiscoverCreateSection';
 
 import {
@@ -43,18 +37,8 @@ import DiscoverOpportunityFeed, {
   DiscoverSectionKey,
 } from '../components/discover/DiscoverOpportunityFeed';
 
-import DiscoverOverviewSection from '../components/discover/DiscoverOverviewSection';
 import DiscoverSearchSection from '../components/discover/DiscoverSearchSection';
 import DiscoverTopSection from '../components/discover/DiscoverTopSection';
-
-import {
-  liveAuctions,
-  regionSummary,
-} from '../data/discoverMockData';
-
-import {
-  getDiscoverFeed,
-} from '../data/selectors/getDiscoverFeed';
 
 import useFocusedUnreadTotal from '../hooks/useFocusedUnreadTotal';
 import { useResolvedProfileAvatar } from '../hooks/useResolvedProfileAvatar';
@@ -124,11 +108,6 @@ export default function DiscoverScreen({
   ] = useState('');
 
   const [
-    filterActive,
-    setFilterActive,
-  ] = useState(false);
-
-  const [
     expandedSection,
     setExpandedSection,
   ] = useState<DiscoverSectionKey>(
@@ -139,13 +118,6 @@ export default function DiscoverScreen({
     jobsSectionExpanded,
     setJobsSectionExpanded,
   ] = useState(true);
-
-  const [
-    selectedFeedTab,
-    setSelectedFeedTab,
-  ] = useState<DiscoverFeedTab>(
-    'for-you',
-  );
 
   const [
     refreshing,
@@ -404,71 +376,48 @@ export default function DiscoverScreen({
     }, [showTabBar]),
   );
 
-  const normalizedSearch =
-    searchQuery
-      .trim()
-      .toLowerCase();
+  const pageFilterActive =
+    searchQuery.trim().length > 0;
 
-  const filteredAuctions =
-    useMemo(() => {
-      if (!normalizedSearch) {
-        return liveAuctions;
+  const loadedMarketPreviews = useMemo(() => {
+    const previews: {
+      item: ActiveMarketListingFeedItem;
+      card: MarketFeedCardPresentation;
+    }[] = [];
+
+    for (const item of marketItems) {
+      previews.push({
+        item,
+        card: toMarketFeedCard(item),
+      });
+
+      if (previews.length >= DISCOVER_MARKET_PREVIEW_LIMIT) {
+        break;
       }
+    }
 
-      return liveAuctions.filter(
-        (auction) =>
-          auction.title
-            .toLowerCase()
-            .includes(
-              normalizedSearch,
-            ) ||
-          auction.sellerName
-            .toLowerCase()
-            .includes(
-              normalizedSearch,
-            ) ||
-          auction.location
-            .toLowerCase()
-            .includes(
-              normalizedSearch,
-            ),
-      );
-    }, [normalizedSearch]);
-
-  const socialFeedItems =
-    useMemo(
-      () =>
-        getDiscoverFeed(
-          selectedFeedTab,
-        ),
-      [selectedFeedTab],
-    );
+    return previews;
+  }, [marketItems]);
 
   const marketPreviewCards = useMemo(() => {
     const matched: MarketFeedCardPresentation[] = [];
 
-    for (const item of marketItems) {
-      const card = toMarketFeedCard(item);
-
+    for (const preview of loadedMarketPreviews) {
       if (
         !listingMatchesMarketSearch(
-          card,
+          preview.card,
           searchQuery,
-          item,
+          preview.item,
         )
       ) {
         continue;
       }
 
-      matched.push(card);
-
-      if (matched.length >= DISCOVER_MARKET_PREVIEW_LIMIT) {
-        break;
-      }
+      matched.push(preview.card);
     }
 
     return matched;
-  }, [marketItems, searchQuery]);
+  }, [loadedMarketPreviews, searchQuery]);
 
   const marketStatus: DiscoverMarketPreviewStatus = marketLoading
     ? 'loading'
@@ -479,15 +428,25 @@ export default function DiscoverScreen({
         : 'ready';
 
   const marketBadgeText =
-    marketStatus === 'ready' || marketStatus === 'empty'
-      ? String(marketItems.length)
+    marketStatus === 'ready'
+      ? String(marketPreviewCards.length)
       : undefined;
+
+  const filteredJobs = useMemo(() => {
+    if (!pageFilterActive) {
+      return jobItems;
+    }
+
+    return jobItems.filter((job) =>
+      jobMatchesDiscoverFilter(job, searchQuery),
+    );
+  }, [jobItems, pageFilterActive, searchQuery]);
 
   const jobsStatus: DiscoverJobsPreviewStatus = jobsLoading
     ? 'loading'
     : jobsError
       ? 'error'
-      : jobItems.length === 0
+      : filteredJobs.length === 0
         ? 'empty'
         : 'ready';
 
@@ -554,22 +513,6 @@ export default function DiscoverScreen({
     }
   }
 
-  function handleSearchSubmit(
-    query: string,
-  ) {
-    const trimmedQuery =
-      query.trim();
-
-    if (!trimmedQuery) {
-      return;
-    }
-
-    Alert.alert(
-      'Local search',
-      `Showing opportunities matching “${trimmedQuery}”.`,
-    );
-  }
-
   function handleExplorePress() {
     void selectionHaptic();
     setExpandedSection('market');
@@ -627,104 +570,10 @@ export default function DiscoverScreen({
 
       <DiscoverSearchSection
         value={searchQuery}
-        filterActive={
-          filterActive
-        }
-        locationName="Sunshine Coast"
-        locationRadius="Within 15 km"
         onChangeText={
           setSearchQuery
         }
-        onFilterPress={() => {
-          setFilterActive(
-            (current) =>
-              !current,
-          );
-        }}
-        onClearFilter={() => {
-          setFilterActive(false);
-        }}
-        onSubmit={
-          handleSearchSubmit
-        }
       />
-
-      <View
-        style={
-          styles.socialFeedSection
-        }
-      >
-        <DGDiscoverFeedTabs
-          selectedTab={
-            selectedFeedTab
-          }
-          onTabChange={
-            setSelectedFeedTab
-          }
-        />
-
-        <View
-          style={
-            styles.socialFeedContent
-          }
-        >
-          <DGDiscoverFeed
-            items={
-              socialFeedItems
-            }
-            onItemPress={(
-              item,
-            ) => {
-              Alert.alert(
-                item.title ??
-                  'Direct Gain',
-                `Open ${item.type} coming next.`,
-              );
-            }}
-            onAuthorPress={(
-              authorId,
-            ) => {
-              Alert.alert(
-                'Gain Profile',
-                `Open profile: ${authorId}`,
-              );
-            }}
-            onLikePress={(
-              item,
-            ) => {
-              Alert.alert(
-                'Like',
-                `Liked ${
-                  item.title ??
-                  'this post'
-                }.`,
-              );
-            }}
-            onCommentPress={(
-              item,
-            ) => {
-              Alert.alert(
-                'Comments',
-                `Comments for ${
-                  item.title ??
-                  'this post'
-                } coming next.`,
-              );
-            }}
-            onSharePress={(
-              item,
-            ) => {
-              Alert.alert(
-                'Share',
-                `Share ${
-                  item.title ??
-                  'this post'
-                }.`,
-              );
-            }}
-          />
-        </View>
-      </View>
 
       <View
         onLayout={(event) => {
@@ -737,13 +586,14 @@ export default function DiscoverScreen({
         marketCards={marketPreviewCards}
         marketErrorMessage={marketError}
         marketBadgeText={marketBadgeText}
+        marketFilterActive={pageFilterActive}
         onMarketRetry={() => {
           void loadMarket('initial');
         }}
         jobsSectionExpanded={jobsSectionExpanded}
         onJobsSectionChange={setJobsSectionExpanded}
         jobsStatus={jobsStatus}
-        jobs={jobItems}
+        jobs={filteredJobs}
         jobCovers={jobCovers}
         jobsErrorMessage={jobsError}
         onJobsRetry={() => {
@@ -758,9 +608,7 @@ export default function DiscoverScreen({
           void selectionHaptic();
           navigation.navigate('DiscoverJobs');
         }}
-        auctions={
-          filteredAuctions
-        }
+        jobsFilterActive={pageFilterActive}
         expandedSection={
           expandedSection
         }
@@ -782,33 +630,8 @@ export default function DiscoverScreen({
             },
           );
         }}
-        onAuctionPress={() => {
-          navigateTab(
-            'Auctions',
-          );
-        }}
-        onAuctionsPress={() => {
-          navigateTab(
-            'Auctions',
-          );
-        }}
       />
       </View>
-
-      <DiscoverOverviewSection
-        regionName="Sunshine Coast"
-        items={regionSummary}
-        gainScore={86}
-        identityVerified
-        professionalVerified
-        communityTrusted
-        expandedSection={
-          expandedSection
-        }
-        onSectionChange={
-          handleSectionChange
-        }
-      />
 
       <DiscoverCreateSection
         onPress={() => {
@@ -825,21 +648,6 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom:
       spacing.xxxl,
-  },
-
-  socialFeedSection: {
-    width: '100%',
-
-    marginTop: spacing.lg,
-
-    paddingHorizontal:
-      spacing.lg,
-  },
-
-  socialFeedContent: {
-    width: '100%',
-
-    marginTop: spacing.md,
   },
 });
 
@@ -884,4 +692,22 @@ function ownAreaLabel(
   return location
     ? `Your area: ${location}`
     : null;
+}
+
+function jobMatchesDiscoverFilter(
+  job: Job,
+  query: string,
+): boolean {
+  const normalized = query.trim().toLowerCase();
+
+  if (!normalized) {
+    return true;
+  }
+
+  return (
+    job.title.toLowerCase().includes(normalized) ||
+    job.categoryLabel.toLowerCase().includes(normalized) ||
+    job.locationLabel.toLowerCase().includes(normalized) ||
+    job.jobTypeLabel.toLowerCase().includes(normalized)
+  );
 }

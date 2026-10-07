@@ -11,12 +11,8 @@ import DiscoverMarketPreview, {
 } from '../DiscoverMarketPreview';
 import DGButton from '../DGButton';
 import DGExpandableSection from '../DGExpandableSection';
-import DGOpportunityCard from '../DGOpportunityCard';
 import DGReveal from '../DGReveal';
 
-import type {
-  DiscoverAuction,
-} from '../../data/discoverMockData';
 import type { MarketFeedCardPresentation } from '../../services/market/marketFeedPresentation';
 import type { Job, JobCoverPresentation } from '../../types/jobs';
 
@@ -46,8 +42,9 @@ type DiscoverOpportunityFeedProps = {
   onJobsRetry: () => void;
   onJobPress: (jobId: string) => void;
   onBrowseJobsPress: () => void;
+  jobsFilterActive?: boolean;
 
-  auctions: DiscoverAuction[];
+  marketFilterActive?: boolean;
 
   expandedSection:
     DiscoverSectionKey;
@@ -66,12 +63,6 @@ type DiscoverOpportunityFeedProps = {
   onListingPress: (
     listingId: string,
   ) => void;
-
-  onAuctionPress: (
-    auction: DiscoverAuction,
-  ) => void;
-
-  onAuctionsPress: () => void;
 };
 
 export default function DiscoverOpportunityFeed({
@@ -90,17 +81,15 @@ export default function DiscoverOpportunityFeed({
   onJobsRetry,
   onJobPress,
   onBrowseJobsPress,
+  jobsFilterActive = false,
 
-  auctions,
+  marketFilterActive = false,
 
   expandedSection,
   onSectionChange,
 
   onMarketPress,
   onListingPress,
-
-  onAuctionPress,
-  onAuctionsPress,
 }: DiscoverOpportunityFeedProps) {
   return (
     <View style={styles.container}>
@@ -135,6 +124,7 @@ export default function DiscoverOpportunityFeed({
             status={marketStatus}
             cards={marketCards}
             errorMessage={marketErrorMessage}
+            filterActive={marketFilterActive}
             onListingPress={onListingPress}
             onRetry={onMarketRetry}
           />
@@ -179,6 +169,7 @@ export default function DiscoverOpportunityFeed({
             jobs={jobs}
             covers={jobCovers}
             errorMessage={jobsErrorMessage}
+            filterActive={jobsFilterActive}
             onJobPress={onJobPress}
             onRetry={onJobsRetry}
           />
@@ -198,80 +189,6 @@ export default function DiscoverOpportunityFeed({
           />
         </DGExpandableSection>
       </DGReveal>
-
-      <DGReveal
-        delay={215}
-        duration={440}
-        distance={10}
-        style={
-          styles.sectionSpacing
-        }
-      >
-        <DGExpandableSection
-          eyebrow="Happening now"
-          title="Live auctions"
-          subtitle="See active bidding without filling your feed."
-          icon="hammer-outline"
-          badgeText={`${auctions.length} LIVE`}
-          expanded={
-            expandedSection ===
-            'auctions'
-          }
-          onExpandedChange={(
-            expanded,
-          ) => {
-            onSectionChange(
-              'auctions',
-              expanded,
-            );
-          }}
-        >
-          <View
-            style={
-              styles.opportunityList
-            }
-          >
-            {auctions.map(
-              (auction) => (
-                <DGOpportunityCard
-                  key={
-                    auction.id
-                  }
-                  type="auction"
-                  title={
-                    auction.title
-                  }
-                  subtitle={`Current bid ${auction.currentBid} · ${auction.bidCount} bids`}
-                  location={`${auction.location} · ${auction.sellerName}`}
-                  badge={
-                    auction.timeRemaining
-                  }
-                  gainScore={
-                    auction.gainScore
-                  }
-                  verified
-                  onPress={() => {
-                    onAuctionPress(
-                      auction,
-                    );
-                  }}
-                />
-              ),
-            )}
-
-            <DGButton
-              title="View Live Auctions"
-              icon="arrow-forward"
-              iconPosition="right"
-              variant="outline"
-              fullWidth
-              onPress={
-                onAuctionsPress
-              }
-            />
-          </View>
-        </DGExpandableSection>
-      </DGReveal>
     </View>
   );
 }
@@ -279,6 +196,7 @@ export default function DiscoverOpportunityFeed({
 const styles = StyleSheet.create({
   container: {
     width: '100%',
+    marginTop: spacing.md,
 
     paddingHorizontal:
       spacing.lg,
@@ -295,13 +213,6 @@ const styles = StyleSheet.create({
 
   jobsContent: {
     paddingHorizontal: 0,
-  },
-
-  opportunityList: {
-    width: '100%',
-
-    gap:
-      spacing.sm,
   },
 
   sectionAction: {

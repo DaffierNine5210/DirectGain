@@ -45,6 +45,7 @@ type DiscoverJobsPreviewProps = {
   jobs: Job[];
   covers: Record<string, JobCoverPresentation>;
   errorMessage?: string | null;
+  filterActive?: boolean;
   onJobPress: (jobId: string) => void;
   onRetry: () => void;
 };
@@ -68,6 +69,7 @@ export default function DiscoverJobsPreview({
   jobs,
   covers,
   errorMessage,
+  filterActive = false,
   onJobPress,
   onRetry,
 }: DiscoverJobsPreviewProps) {
@@ -125,11 +127,15 @@ export default function DiscoverJobsPreview({
     return (
       <View style={styles.messageCard}>
         <Text style={styles.messageTitle}>
-          No open jobs right now
+          {filterActive
+            ? 'No Work matches on this page.'
+            : 'No open jobs right now'}
         </Text>
 
         <Text style={styles.messageBody}>
-          Find work to see jobs as they appear.
+          {filterActive
+            ? 'Clear the filter to see loaded jobs, or find work.'
+            : 'Find work to see jobs as they appear.'}
         </Text>
       </View>
     );

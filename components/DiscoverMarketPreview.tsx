@@ -44,6 +44,7 @@ type DiscoverMarketPreviewProps = {
   status: DiscoverMarketPreviewStatus;
   cards: MarketFeedCardPresentation[];
   errorMessage?: string | null;
+  filterActive?: boolean;
   onListingPress: (listingId: string) => void;
   onRetry: () => void;
 };
@@ -72,6 +73,7 @@ export default function DiscoverMarketPreview({
   status,
   cards,
   errorMessage,
+  filterActive = false,
   onListingPress,
   onRetry,
 }: DiscoverMarketPreviewProps) {
@@ -138,11 +140,15 @@ export default function DiscoverMarketPreview({
     return (
       <View style={styles.messageCard}>
         <Text style={styles.messageTitle}>
-          No active listings right now
+          {filterActive
+            ? 'No Market matches on this page.'
+            : 'No active listings right now'}
         </Text>
 
         <Text style={styles.messageBody}>
-          Browse the Market to see listings as they appear.
+          {filterActive
+            ? 'Clear the filter to see loaded listings, or browse the Market.'
+            : 'Browse the Market to see listings as they appear.'}
         </Text>
       </View>
     );

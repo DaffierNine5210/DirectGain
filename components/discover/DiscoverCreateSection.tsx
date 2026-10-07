@@ -26,8 +26,8 @@ export default function DiscoverCreateSection({
 }: DiscoverCreateSectionProps) {
   return (
     <DGReveal
-      delay={365}
-      duration={470}
+      delay={280}
+      duration={450}
       distance={10}
       style={styles.container}
     >
@@ -38,7 +38,7 @@ export default function DiscoverCreateSection({
         <View style={styles.topRow}>
           <View style={styles.iconContainer}>
             <Ionicons
-              name="arrow-up"
+              name="add"
               size={22}
               color={textColor.inverse}
             />
@@ -46,17 +46,17 @@ export default function DiscoverCreateSection({
 
           <View style={styles.copy}>
             <Text style={styles.eyebrow}>
-              GROW TOGETHER
+              CREATE ON DIRECT GAIN
             </Text>
 
             <Text style={styles.title}>
-              Create an opportunity
+              List or post work
             </Text>
           </View>
         </View>
 
         <Text style={styles.description}>
-          Sell an item, find work, start an auction or share locally.
+          List something for sale or post a job.
         </Text>
 
         <DGButton
@@ -73,7 +73,7 @@ export default function DiscoverCreateSection({
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    marginTop: spacing.lg,
+    marginTop: spacing.xl,
     paddingHorizontal: spacing.lg,
   },
 

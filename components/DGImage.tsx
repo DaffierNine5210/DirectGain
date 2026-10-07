@@ -81,6 +81,17 @@ export default function DGImage({
     new Animated.Value(1),
   ).current;
 
+  const loadedSourceKeyRef = useRef<string | null>(
+    null,
+  );
+
+  const sourceKey = getImageSourceKey(source);
+  const displayedSourceRef = useRef(source);
+
+  if (getImageSourceKey(displayedSourceRef.current) !== sourceKey) {
+    displayedSourceRef.current = source;
+  }
+
   useEffect(() => {
     if (!isLoading || hasError) {
       return;
@@ -114,12 +125,20 @@ export default function DGImage({
   ]);
 
   function handleLoadStart() {
+    if (
+      sourceKey !== null &&
+      sourceKey === loadedSourceKeyRef.current
+    ) {
+      return;
+    }
+
     setIsLoading(true);
     setHasError(false);
     imageOpacity.setValue(0);
   }
 
   function handleLoad() {
+    loadedSourceKeyRef.current = sourceKey;
     setIsLoading(false);
     setHasError(false);
 
@@ -131,6 +150,7 @@ export default function DGImage({
   }
 
   function handleError() {
+    loadedSourceKeyRef.current = null;
     setIsLoading(false);
     setHasError(true);
     imageOpacity.setValue(0);
@@ -184,7 +204,7 @@ export default function DGImage({
     >
       {!hasError ? (
         <Animated.Image
-          source={source}
+          source={displayedSourceRef.current}
           resizeMode={resizeMode}
           accessibilityLabel={accessibilityLabel}
           onLoadStart={handleLoadStart}
@@ -333,6 +353,44 @@ export default function DGImage({
       ) : null}
     </View>
   );
+}
+
+function getImageSourceKey(
+  source: ImageSourcePropType,
+): string | null {
+  if (typeof source === 'number') {
+    return `resource:${source}`;
+  }
+
+  if (Array.isArray(source)) {
+    const first = source[0];
+
+    if (typeof first === 'number') {
+      return `resource:${first}`;
+    }
+
+    if (
+      first &&
+      typeof first === 'object' &&
+      'uri' in first &&
+      typeof first.uri === 'string'
+    ) {
+      return first.uri;
+    }
+
+    return null;
+  }
+
+  if (
+    source &&
+    typeof source === 'object' &&
+    'uri' in source &&
+    typeof source.uri === 'string'
+  ) {
+    return source.uri;
+  }
+
+  return null;
 }
 
 function getAspectRatioStyle(
