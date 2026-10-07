@@ -12,10 +12,7 @@ import DraggableFlatList, {
 } from 'react-native-draggable-flatlist';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 
-import {
-  MARKET_LISTING_MEDIA_MAX,
-  type MarketListingMediaPresentation,
-} from '../../types/marketListing';
+import { MARKET_LISTING_MEDIA_MAX } from '../../types/marketListing';
 
 import {
   alpha,
@@ -26,22 +23,25 @@ import {
   textColor,
 } from '../../theme/designSystem';
 
+export type CreateListingPhotoItem = {
+  id: string;
+  uri: string;
+};
+
 type CreateListingPhotosProps = {
-  draftSaved: boolean;
-  photos: MarketListingMediaPresentation[];
+  photos: CreateListingPhotoItem[];
   disabled: boolean;
   uploading: boolean;
   uploadProgress: { current: number; total: number } | null;
   loadError: string | null;
   onAdd: () => void;
-  onRemove: (photo: MarketListingMediaPresentation) => void;
-  onReorder: (photos: MarketListingMediaPresentation[]) => void;
+  onRemove: (photo: CreateListingPhotoItem) => void;
+  onReorder: (photos: CreateListingPhotoItem[]) => void;
   onRetryLoad: () => void;
   onDragSessionChange?: (active: boolean) => void;
 };
 
 export default function CreateListingPhotos({
-  draftSaved,
   photos,
   disabled,
   uploading,
@@ -55,34 +55,10 @@ export default function CreateListingPhotos({
 }: CreateListingPhotosProps) {
   const remaining = MARKET_LISTING_MEDIA_MAX - photos.length;
   const canAdd =
-    draftSaved &&
     !disabled &&
     !uploading &&
     remaining > 0 &&
     !loadError;
-
-  if (!draftSaved) {
-    return (
-      <View style={styles.wrap}>
-        <Text style={styles.section}>Photos</Text>
-        <View style={styles.lockedCard}>
-          <View style={styles.lockedIcon}>
-            <Ionicons
-              name="images-outline"
-              size={22}
-              color={textColor.muted}
-            />
-          </View>
-          <View style={styles.lockedCopy}>
-            <Text style={styles.lockedTitle}>Photos</Text>
-            <Text style={styles.lockedBody}>
-              Photos are added after the draft is saved.
-            </Text>
-          </View>
-        </View>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.wrap}>
@@ -179,7 +155,7 @@ export default function CreateListingPhotos({
             drag,
             isActive,
             getIndex,
-          }: RenderItemParams<MarketListingMediaPresentation>) => {
+          }: RenderItemParams<CreateListingPhotoItem>) => {
             const index = getIndex() ?? 0;
             const isCover = index === 0;
             const canDrag = !disabled && !uploading;
@@ -202,7 +178,7 @@ export default function CreateListingPhotos({
                     style={styles.frame}
                   >
                     <Image
-                      source={{ uri: item.signedUrl }}
+                      source={{ uri: item.uri }}
                       style={[
                         styles.thumb,
                         isActive && styles.thumbActive,

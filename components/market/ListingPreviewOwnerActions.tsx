@@ -61,12 +61,12 @@ export default function ListingPreviewOwnerActions({
         This is how your listing will appear. It is not on the Market.
       </Text>
       <DGButton
-        title={isPublishing ? 'Listing…' : 'List item'}
+        title={isPublishing ? 'Listing…' : 'List on Market'}
         fullWidth
         disabled={!listEnabled}
         loading={isPublishing}
         onPress={listEnabled ? onListItem : undefined}
-        accessibilityLabel="List item"
+        accessibilityLabel="List on Market"
         accessibilityHint={photoHint}
       />
       <Text style={styles.hint}>{photoHint}</Text>

@@ -63,6 +63,8 @@ import OfferCard, {
   formatMarketOfferAmount,
 } from '../components/messaging/offers/OfferCard';
 
+import formatListingPrice from '../utils/listing/formatListingPrice';
+
 import {
   conversations,
 } from '../data/conversations';
@@ -4936,8 +4938,9 @@ useFocusEffect(
                   styles.contextPrice
                 }
               >
-                {formatMarketOfferAmount(
+                {formatListingPrice(
                   marketListingChrome.price,
+                  'AUD',
                 )}
               </Text>
             ) : marketListingChrome.kind === 'unavailable' ? (

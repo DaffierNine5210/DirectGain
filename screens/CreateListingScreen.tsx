@@ -27,7 +27,9 @@ import DGCard from '../components/DGCard';
 import DGChip from '../components/DGChip';
 import DGHeader from '../components/DGHeader';
 import DGInput from '../components/DGInput';
-import CreateListingPhotos from '../components/market/CreateListingPhotos';
+import CreateListingPhotos, {
+  type CreateListingPhotoItem,
+} from '../components/market/CreateListingPhotos';
 
 import useTabBarVisibility from '../hooks/useTabBarVisibility';
 
@@ -64,6 +66,7 @@ import {
   type MarketListingCondition,
   type MarketListingDraft,
   type MarketListingMediaPresentation,
+  type MarketListingPendingPhoto,
 } from '../types/marketListing';
 
 import {
@@ -81,6 +84,7 @@ import {
   type ListingFormErrors,
   type ListingFormSnapshot,
 } from '../utils/market/listingFormValidation';
+import formatListingPrice from '../utils/listing/formatListingPrice';
 
 type Props = NativeStackScreenProps<
   CreateStackParamList,
@@ -89,6 +93,20 @@ type Props = NativeStackScreenProps<
 
 type FormErrors = ListingFormErrors;
 type FormSnapshot = ListingFormSnapshot;
+
+type ComposerPhoto =
+  | {
+      kind: 'server';
+      id: string;
+      uri: string;
+      media: MarketListingMediaPresentation;
+    }
+  | {
+      kind: 'pending';
+      id: string;
+      uri: string;
+      photo: MarketListingPendingPhoto;
+    };
 
 function emptySnapshot(): FormSnapshot {
   return emptyListingFormSnapshot();
@@ -107,6 +125,37 @@ function snapshotsEqual(
   return listingFormSnapshotsEqual(left, right);
 }
 
+function toDisplayPhotos(
+  photos: ComposerPhoto[],
+): CreateListingPhotoItem[] {
+  return photos.map((photo) => ({
+    id: photo.id,
+    uri: photo.uri,
+  }));
+}
+
+function serverComposerPhoto(
+  media: MarketListingMediaPresentation,
+): ComposerPhoto {
+  return {
+    kind: 'server',
+    id: media.id,
+    uri: media.signedUrl,
+    media,
+  };
+}
+
+function pendingComposerPhoto(
+  photo: MarketListingPendingPhoto,
+): ComposerPhoto {
+  return {
+    kind: 'pending',
+    id: photo.localId,
+    uri: photo.uri,
+    photo,
+  };
+}
+
 export default function CreateListingScreen({
   navigation,
   route,
@@ -115,25 +164,20 @@ export default function CreateListingScreen({
     useTabBarVisibility();
 
   const mountedRef = useRef(true);
-  const savingRef = useRef(false);
+  const previewingRef = useRef(false);
   const uploadingRef = useRef(false);
   const reorderingRef = useRef(false);
   const allowLeaveRef = useRef(false);
   const listingIdRef = useRef<string | null>(null);
-  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
   const persistedRef = useRef<FormSnapshot>(
     emptySnapshot(),
   );
   const formRef = useRef<FormSnapshot>(emptySnapshot());
+  const composerPhotosRef = useRef<ComposerPhoto[]>([]);
 
   const [loadState, setLoadState] = useState<
     'loading' | 'choice' | 'ready' | 'error'
   >('loading');
-  const [successMessage, setSuccessMessage] = useState<string | null>(
-    null,
-  );
   const [resumeDraft, setResumeDraft] =
     useState<MarketListingDraft | null>(null);
   const [resumeDraftCount, setResumeDraftCount] = useState(0);
@@ -144,7 +188,7 @@ export default function CreateListingScreen({
   const [listingId, setListingId] = useState<
     string | null
   >(null);
-  const [saving, setSaving] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [reordering, setReordering] = useState(false);
   const [photosDragging, setPhotosDragging] = useState(false);
@@ -152,8 +196,8 @@ export default function CreateListingScreen({
     current: number;
     total: number;
   } | null>(null);
-  const [photos, setPhotos] = useState<
-    MarketListingMediaPresentation[]
+  const [composerPhotos, setComposerPhotos] = useState<
+    ComposerPhoto[]
   >([]);
   const [photosError, setPhotosError] = useState<string | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -190,6 +234,10 @@ export default function CreateListingScreen({
 
   formRef.current = currentSnapshot;
   listingIdRef.current = listingId;
+  composerPhotosRef.current = composerPhotos;
+
+  const parsedPrice = parseListingPrice(priceText);
+  const isFreePrice = parsedPrice.ok && parsedPrice.amount === 0;
 
   useFocusEffect(
     useCallback(() => {
@@ -219,19 +267,6 @@ export default function CreateListingScreen({
     [],
   );
 
-  const showSuccess = useCallback((message: string) => {
-    if (successTimerRef.current) {
-      clearTimeout(successTimerRef.current);
-    }
-
-    setSuccessMessage(message);
-    successTimerRef.current = setTimeout(() => {
-      if (mountedRef.current) {
-        setSuccessMessage(null);
-      }
-    }, 4200);
-  }, []);
-
   const loadPhotos = useCallback(async (id: string) => {
     const result = await getOwnListingMedia(id);
 
@@ -240,13 +275,16 @@ export default function CreateListingScreen({
     }
 
     if (result.error) {
-      setPhotos([]);
+      setComposerPhotos([]);
+      composerPhotosRef.current = [];
       setPhotosError(result.error);
       return;
     }
 
     setPhotosError(null);
-    setPhotos(result.media);
+    const next = result.media.map(serverComposerPhoto);
+    composerPhotosRef.current = next;
+    setComposerPhotos(next);
   }, []);
 
   const loadBlankForm = useCallback(async () => {
@@ -267,9 +305,9 @@ export default function CreateListingScreen({
     persistedRef.current = next;
     listingIdRef.current = null;
     setListingId(null);
-    setPhotos([]);
+    composerPhotosRef.current = [];
+    setComposerPhotos([]);
     setPhotosError(null);
-    setSuccessMessage(null);
     setResumeDraft(null);
     setResumeDraftCount(0);
     setResumeCoverUrl(null);
@@ -365,10 +403,6 @@ export default function CreateListingScreen({
 
     return () => {
       mountedRef.current = false;
-
-      if (successTimerRef.current) {
-        clearTimeout(successTimerRef.current);
-      }
     };
   }, [loadEditor]);
 
@@ -380,25 +414,32 @@ export default function CreateListingScreen({
           return;
         }
 
-        if (savingRef.current || uploadingRef.current || reorderingRef.current) {
+        if (
+          previewingRef.current ||
+          uploadingRef.current ||
+          reorderingRef.current
+        ) {
           event.preventDefault();
           return;
         }
 
-        if (
-          snapshotsEqual(
-            formRef.current,
-            persistedRef.current,
-          )
-        ) {
+        const formDirty = !snapshotsEqual(
+          formRef.current,
+          persistedRef.current,
+        );
+        const hasPendingPhotos = composerPhotosRef.current.some(
+          (photo) => photo.kind === 'pending',
+        );
+
+        if (!formDirty && !hasPendingPhotos) {
           return;
         }
 
         event.preventDefault();
 
         Alert.alert(
-          'Discard unsaved changes?',
-          'Your latest saved draft stays in Direct Gain. Unsaved edits on this screen will be lost.',
+          'Leave without finishing?',
+          'Unsaved edits and photos still only on this screen will be lost. Any listing already saved in My Listings stays there.',
           [
             {
               text: 'Keep editing',
@@ -424,26 +465,7 @@ export default function CreateListingScreen({
     return validateListingForm(formRef.current);
   }
 
-  async function handleSaveDraft() {
-    if (
-      savingRef.current ||
-      uploadingRef.current ||
-      reorderingRef.current ||
-      loadState !== 'ready'
-    ) {
-      return;
-    }
-
-    Keyboard.dismiss();
-
-    const nextErrors = validate();
-
-    if (nextErrors) {
-      setErrors(nextErrors);
-      return;
-    }
-
-    const snapshot = formRef.current;
+  function listingPayload(snapshot: FormSnapshot) {
     const parsed = parseListingPrice(snapshot.priceText);
 
     if (
@@ -451,10 +473,10 @@ export default function CreateListingScreen({
       !snapshot.condition ||
       !parsed.ok
     ) {
-      return;
+      return null;
     }
 
-    const payload = {
+    return {
       title: snapshot.title,
       description: snapshot.description,
       category: snapshot.category,
@@ -467,64 +489,21 @@ export default function CreateListingScreen({
       suburb: snapshot.suburb,
       state: snapshot.state,
     };
-
-    savingRef.current = true;
-    setSaving(true);
-    setErrors({});
-
-    const existingId = listingIdRef.current;
-    const isFirstSave = !existingId;
-
-    const result = existingId
-      ? await updateOwnDraft(existingId, payload)
-      : await createDraftListing(payload);
-
-    if (!mountedRef.current) {
-      return;
-    }
-
-    savingRef.current = false;
-    setSaving(false);
-
-    if (result.error || !result.listing) {
-      setErrors({
-        form:
-          result.error ??
-          'This listing could not be saved. Try again.',
-      });
-      return;
-    }
-
-    const saved = snapshotFromDraft(result.listing);
-    applySnapshot(saved);
-    persistedRef.current = saved;
-    listingIdRef.current = result.listing.id;
-    setListingId(result.listing.id);
-
-    if (isFirstSave) {
-      setPhotos([]);
-      setPhotosError(null);
-      showSuccess('✓ Draft saved — you can add photos now');
-    } else {
-      showSuccess('✓ Draft saved');
-    }
   }
 
   async function handleAddPhotos() {
-    const currentId = listingIdRef.current;
-
     if (
-      !currentId ||
-      savingRef.current ||
+      previewingRef.current ||
       uploadingRef.current ||
       reorderingRef.current ||
       photosError ||
-      photos.length >= MARKET_LISTING_MEDIA_MAX
+      composerPhotosRef.current.length >= MARKET_LISTING_MEDIA_MAX
     ) {
       return;
     }
 
-    const remaining = MARKET_LISTING_MEDIA_MAX - photos.length;
+    const remaining =
+      MARKET_LISTING_MEDIA_MAX - composerPhotosRef.current.length;
     const picked = await pickAndPrepareMarketListingPhotos(remaining);
 
     if (!mountedRef.current) {
@@ -558,6 +537,27 @@ export default function CreateListingScreen({
       return;
     }
 
+    const currentId = listingIdRef.current;
+
+    if (!currentId) {
+      const next = [
+        ...composerPhotosRef.current,
+        ...picked.photos.map(pendingComposerPhoto),
+      ];
+      composerPhotosRef.current = next;
+      setComposerPhotos(next);
+
+      if (picked.failedCount > 0) {
+        Alert.alert(
+          'Some photos could not be added',
+          picked.failedCount === 1
+            ? 'One selected photo could not be prepared. You can try it again.'
+            : `${picked.failedCount} selected photos could not be prepared. You can try them again.`,
+        );
+      }
+      return;
+    }
+
     uploadingRef.current = true;
     setUploading(true);
 
@@ -581,11 +581,12 @@ export default function CreateListingScreen({
 
       if (result.media) {
         uploaded += 1;
-        setPhotos((current) =>
-          [...current, result.media as MarketListingMediaPresentation].sort(
-            (left, right) => left.sortOrder - right.sortOrder,
-          ),
-        );
+        const next = [
+          ...composerPhotosRef.current,
+          serverComposerPhoto(result.media),
+        ];
+        composerPhotosRef.current = next;
+        setComposerPhotos(next);
       } else {
         failed += 1;
       }
@@ -619,14 +620,51 @@ export default function CreateListingScreen({
     }
   }
 
-  function handleRemovePhoto(photo: MarketListingMediaPresentation) {
-    if (savingRef.current || uploadingRef.current || reorderingRef.current) {
+  function handleRemovePhoto(photo: CreateListingPhotoItem) {
+    if (
+      previewingRef.current ||
+      uploadingRef.current ||
+      reorderingRef.current
+    ) {
+      return;
+    }
+
+    const current = composerPhotosRef.current.find(
+      (item) => item.id === photo.id,
+    );
+
+    if (!current) {
+      return;
+    }
+
+    if (current.kind === 'pending') {
+      Alert.alert(
+        'Remove photo?',
+        'This photo will be removed. It has not been saved yet.',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Remove',
+            style: 'destructive',
+            onPress: () => {
+              const next = composerPhotosRef.current.filter(
+                (item) => item.id !== photo.id,
+              );
+              composerPhotosRef.current = next;
+              setComposerPhotos(next);
+            },
+          },
+        ],
+      );
       return;
     }
 
     Alert.alert(
       'Remove photo?',
-      'This photo will be removed from your draft.',
+      'This photo will be removed from your listing.',
       [
         {
           text: 'Cancel',
@@ -640,7 +678,7 @@ export default function CreateListingScreen({
               uploadingRef.current = true;
               setUploading(true);
 
-              const result = await deleteListingPhoto(photo);
+              const result = await deleteListingPhoto(current.media);
 
               if (!mountedRef.current) {
                 return;
@@ -656,15 +694,28 @@ export default function CreateListingScreen({
                 return;
               }
 
-              const currentId = listingIdRef.current;
-
-              if (currentId) {
-                await loadPhotos(currentId);
-              } else {
-                setPhotos((current) =>
-                  current.filter((item) => item.id !== photo.id),
+              const pending = composerPhotosRef.current.filter(
+                  (item) => item.kind === 'pending',
                 );
-              }
+                const listingId = listingIdRef.current;
+
+                if (listingId) {
+                  await loadPhotos(listingId);
+                  if (pending.length > 0) {
+                    const merged = [
+                      ...composerPhotosRef.current,
+                      ...pending,
+                    ];
+                    composerPhotosRef.current = merged;
+                    setComposerPhotos(merged);
+                  }
+                } else {
+                  const next = composerPhotosRef.current.filter(
+                    (item) => item.id !== photo.id,
+                  );
+                  composerPhotosRef.current = next;
+                  setComposerPhotos(next);
+                }
 
               uploadingRef.current = false;
               setUploading(false);
@@ -680,27 +731,47 @@ export default function CreateListingScreen({
   }
 
   async function handleReorderPhotos(
-    nextPhotos: MarketListingMediaPresentation[],
+    nextPhotos: CreateListingPhotoItem[],
   ) {
-    const currentId = listingIdRef.current;
-
     if (
-      !currentId ||
-      savingRef.current ||
+      previewingRef.current ||
       uploadingRef.current ||
       reorderingRef.current
     ) {
       return;
     }
 
+    const byId = new Map(
+      composerPhotosRef.current.map((photo) => [photo.id, photo]),
+    );
+    const nextComposer: ComposerPhoto[] = [];
+
+    for (const item of nextPhotos) {
+      const current = byId.get(item.id);
+      if (current) {
+        nextComposer.push(current);
+      }
+    }
+
+    composerPhotosRef.current = nextComposer;
+    setComposerPhotos(nextComposer);
+
+    const currentId = listingIdRef.current;
+    const serverIds = nextComposer
+      .filter((photo) => photo.kind === 'server')
+      .map((photo) => photo.id);
+
+    if (
+      !currentId ||
+      nextComposer.some((photo) => photo.kind === 'pending')
+    ) {
+      return;
+    }
+
     reorderingRef.current = true;
     setReordering(true);
-    setPhotos(nextPhotos);
 
-    const result = await reorderListingMedia(
-      currentId,
-      nextPhotos.map((photo) => photo.id),
-    );
+    const result = await reorderListingMedia(currentId, serverIds);
 
     if (!mountedRef.current) {
       return;
@@ -722,20 +793,17 @@ export default function CreateListingScreen({
   }
 
   function handleStartNewListing() {
-    if (savingRef.current || uploadingRef.current || reorderingRef.current) {
+    if (
+      previewingRef.current ||
+      uploadingRef.current ||
+      reorderingRef.current
+    ) {
       return;
     }
 
-    const dirty = !snapshotsEqual(
-      formRef.current,
-      persistedRef.current,
-    );
-
     Alert.alert(
       'Start a new listing?',
-      dirty
-        ? 'Unsaved edits will be discarded. Your previous draft stays saved.'
-        : 'Your current draft stays saved. This form will be cleared.',
+      'Your current unfinished listing stays saved. This screen will be cleared.',
       [
         {
           text: 'Cancel',
@@ -753,53 +821,197 @@ export default function CreateListingScreen({
     );
   }
 
-  function handlePreviewPress() {
-    if (savingRef.current || uploadingRef.current || reorderingRef.current) {
+  async function handlePreviewPress() {
+    if (
+      previewingRef.current ||
+      uploadingRef.current ||
+      reorderingRef.current ||
+      loadState !== 'ready'
+    ) {
       return;
     }
 
-    const currentId = listingIdRef.current;
+    Keyboard.dismiss();
+
+    const nextErrors = validate();
+
+    if (nextErrors) {
+      setErrors(nextErrors);
+      return;
+    }
+
+    if (composerPhotosRef.current.length < 1) {
+      setErrors({
+        form: 'Add at least one photo before previewing.',
+      });
+      return;
+    }
+
+    const snapshot = formRef.current;
+    const payload = listingPayload(snapshot);
+
+    if (!payload) {
+      return;
+    }
+
+    previewingRef.current = true;
+    setPreviewing(true);
+    setErrors({});
+
+    let currentId = listingIdRef.current;
 
     if (!currentId) {
-      return;
+      const created = await createDraftListing(payload);
+
+      if (!mountedRef.current) {
+        return;
+      }
+
+      if (created.error || !created.listing) {
+        previewingRef.current = false;
+        setPreviewing(false);
+        setErrors({
+          form:
+            created.error ??
+            'This listing could not be prepared for preview. Try again.',
+        });
+        return;
+      }
+
+      currentId = created.listing.id;
+      listingIdRef.current = currentId;
+      setListingId(currentId);
+      const saved = snapshotFromDraft(created.listing);
+      applySnapshot(saved);
+      persistedRef.current = saved;
+    } else if (!snapshotsEqual(snapshot, persistedRef.current)) {
+      const updated = await updateOwnDraft(currentId, payload);
+
+      if (!mountedRef.current) {
+        return;
+      }
+
+      if (updated.error || !updated.listing) {
+        previewingRef.current = false;
+        setPreviewing(false);
+        setErrors({
+          form:
+            updated.error ??
+            'This listing could not be updated. Try again.',
+        });
+        return;
+      }
+
+      const saved = snapshotFromDraft(updated.listing);
+      applySnapshot(saved);
+      persistedRef.current = saved;
     }
 
-    if (
-      !snapshotsEqual(
-        formRef.current,
-        persistedRef.current,
-      )
-    ) {
-      Alert.alert(
-        'Save your changes before previewing.',
-        'Save draft first so Preview matches what you will list.',
+    const pendingRows = composerPhotosRef.current
+      .map((photo, index) => ({ photo, index }))
+      .filter((row) => row.photo.kind === 'pending');
+
+    if (pendingRows.length > 0) {
+      setUploadProgress({
+        current: 0,
+        total: pendingRows.length,
+      });
+    }
+
+    let uploadFailed = 0;
+
+    for (let index = 0; index < pendingRows.length; index += 1) {
+      if (!mountedRef.current) {
+        return;
+      }
+
+      const pending = pendingRows[index];
+
+      if (pending.photo.kind !== 'pending') {
+        continue;
+      }
+
+      setUploadProgress({
+        current: index + 1,
+        total: pendingRows.length,
+      });
+
+      const result = await uploadListingPhoto(
+        currentId,
+        pending.photo.photo,
       );
+
+      if (!result.media) {
+        uploadFailed += 1;
+        continue;
+      }
+
+      const next = [...composerPhotosRef.current];
+      next[pending.index] = serverComposerPhoto(result.media);
+      composerPhotosRef.current = next;
+      setComposerPhotos(next);
+    }
+
+    if (!mountedRef.current) {
       return;
     }
 
+    setUploadProgress(null);
+
+    const remainingPending = composerPhotosRef.current.some(
+      (photo) => photo.kind === 'pending',
+    );
+
+    if (uploadFailed > 0 || remainingPending) {
+      previewingRef.current = false;
+      setPreviewing(false);
+      setErrors({
+        form:
+          'Some photos could not be uploaded. Your listing is saved as a draft. Try Preview again.',
+      });
+      return;
+    }
+
+    const orderedIds = composerPhotosRef.current
+      .filter((photo) => photo.kind === 'server')
+      .map((photo) => photo.id);
+
+    if (orderedIds.length > 1) {
+      const reordered = await reorderListingMedia(currentId, orderedIds);
+
+      if (!mountedRef.current) {
+        return;
+      }
+
+      if (reordered.error) {
+        previewingRef.current = false;
+        setPreviewing(false);
+        setErrors({
+          form:
+            'Photos uploaded, but order could not be saved. Try Preview again.',
+        });
+        return;
+      }
+    }
+
+    previewingRef.current = false;
+    setPreviewing(false);
     navigation.navigate('ListingPreview', {
       listingId: currentId,
     });
   }
 
   function handleBackPress() {
-    if (savingRef.current || uploadingRef.current || reorderingRef.current) {
+    if (
+      previewingRef.current ||
+      uploadingRef.current ||
+      reorderingRef.current
+    ) {
       return;
     }
 
     navigation.goBack();
   }
-
-  const formDirty = !snapshotsEqual(
-    currentSnapshot,
-    persistedRef.current,
-  );
-
-  const statusLabel = !listingId
-    ? 'Not saved yet'
-    : formDirty
-      ? 'Unsaved changes'
-      : 'Draft saved';
 
   if (loadState === 'loading') {
     return (
@@ -922,7 +1134,10 @@ export default function CreateListingScreen({
                 {resumeDraft.title}
               </Text>
               <Text style={styles.draftPrice}>
-                {`A$${resumeDraft.price.toFixed(2)}`}
+                {formatListingPrice(
+                  resumeDraft.price,
+                  resumeDraft.currency,
+                )}
               </Text>
               <Text
                 style={styles.draftLocation}
@@ -985,42 +1200,14 @@ export default function CreateListingScreen({
           scrollEnabled={!photosDragging}
         >
           <View style={styles.content}>
-            <View style={styles.statusRow}>
-              <View style={styles.statusDot} />
-              <Text style={styles.statusText}>
-                {statusLabel}
-              </Text>
-            </View>
-
-            {successMessage ? (
-              <View
-                accessibilityLiveRegion="polite"
-                accessibilityRole="text"
-                accessibilityLabel={successMessage}
-                style={styles.successBanner}
-              >
-                <Ionicons
-                  name="checkmark-circle"
-                  size={22}
-                  color={palette.opportunityGreen}
-                />
-                <Text style={styles.successText}>
-                  {successMessage}
-                </Text>
-              </View>
-            ) : null}
-
             <Text style={styles.intro}>
-              {listingId
-                ? 'This listing is saved as a draft. It is not live on the Market.'
-                : 'Save a draft on Direct Gain. Photos can be added after this draft is saved. This listing is not live.'}
+              Preview your listing before it goes on the Market.
             </Text>
 
             <CreateListingPhotos
-              draftSaved={Boolean(listingId)}
-              photos={photos}
-              disabled={saving || uploading || reordering}
-              uploading={uploading || reordering}
+              photos={toDisplayPhotos(composerPhotos)}
+              disabled={previewing || uploading || reordering}
+              uploading={uploading || reordering || previewing}
               uploadProgress={uploadProgress}
               loadError={photosError}
               onAdd={() => {
@@ -1045,7 +1232,7 @@ export default function CreateListingScreen({
               onChangeText={setTitle}
               placeholder="What are you selling?"
               maxLength={LISTING_FORM_MAX_TITLE}
-              editable={!saving}
+              editable={!previewing}
               errorMessage={errors.title}
               autoCapitalize="sentences"
             />
@@ -1059,7 +1246,7 @@ export default function CreateListingScreen({
               multiline
               numberOfLines={6}
               textAlignVertical="top"
-              editable={!saving}
+              editable={!previewing}
               errorMessage={errors.description}
               helperText={
                 errors.description
@@ -1079,7 +1266,7 @@ export default function CreateListingScreen({
                   size="compact"
                   label={value}
                   selected={category === value}
-                  disabled={saving}
+                  disabled={previewing}
                   onPress={() => {
                     setCategory(value);
                   }}
@@ -1097,7 +1284,7 @@ export default function CreateListingScreen({
               onChangeText={setSubcategory}
               placeholder="e.g. Mountain bike, sofa, iPhone"
               maxLength={LISTING_FORM_MAX_SUBCATEGORY}
-              editable={!saving}
+              editable={!previewing}
               errorMessage={errors.subcategory}
               helperText={
                 errors.subcategory
@@ -1115,7 +1302,7 @@ export default function CreateListingScreen({
                   size="compact"
                   label={value}
                   selected={condition === value}
-                  disabled={saving}
+                  disabled={previewing}
                   onPress={() => {
                     setCondition(value);
                   }}
@@ -1135,7 +1322,7 @@ export default function CreateListingScreen({
                   errors.price
                     ? styles.currencyPrefixError
                     : null,
-                  saving
+                  previewing
                     ? styles.currencyPrefixDisabled
                     : null,
                 ]}
@@ -1143,7 +1330,7 @@ export default function CreateListingScreen({
                 <Text
                   style={[
                     styles.currencySymbol,
-                    saving
+                    previewing
                       ? styles.currencySymbolDisabled
                       : null,
                   ]}
@@ -1155,11 +1342,16 @@ export default function CreateListingScreen({
                 <DGInput
                   value={priceText}
                   onChangeText={(value) => {
-                    setPriceText(sanitizeListingPriceInput(value));
+                    const next = sanitizeListingPriceInput(value);
+                    setPriceText(next);
+                    const parsed = parseListingPrice(next);
+                    if (parsed.ok && parsed.amount === 0) {
+                      setAllowsOffers(false);
+                    }
                   }}
                   placeholder="0.00"
                   keyboardType="decimal-pad"
-                  editable={!saving}
+                  editable={!previewing}
                   errorMessage={errors.price}
                   containerStyle={styles.priceInput}
                 />
@@ -1177,7 +1369,7 @@ export default function CreateListingScreen({
               onChangeText={setSuburb}
               placeholder="Suburb"
               maxLength={LISTING_FORM_MAX_SUBURB}
-              editable={!saving}
+              editable={!previewing}
               errorMessage={errors.suburb}
               autoCapitalize="words"
             />
@@ -1187,7 +1379,7 @@ export default function CreateListingScreen({
               onChangeText={setState}
               placeholder="State"
               maxLength={LISTING_FORM_MAX_STATE}
-              editable={!saving}
+              editable={!previewing}
               errorMessage={errors.state}
               autoCapitalize="characters"
             />
@@ -1198,7 +1390,7 @@ export default function CreateListingScreen({
                 size="compact"
                 label="Pickup available"
                 selected={pickupAvailable}
-                disabled={saving}
+                disabled={previewing}
                 onPress={() => {
                   setPickupAvailable((current) => !current);
                 }}
@@ -1208,7 +1400,7 @@ export default function CreateListingScreen({
                 size="compact"
                 label="Delivery available"
                 selected={deliveryAvailable}
-                disabled={saving}
+                disabled={previewing}
                 onPress={() => {
                   setDeliveryAvailable((current) => !current);
                 }}
@@ -1227,8 +1419,12 @@ export default function CreateListingScreen({
                 size="compact"
                 label="Allow offers"
                 selected={allowsOffers}
-                disabled={saving}
+                disabled={previewing || isFreePrice}
                 onPress={() => {
+                  if (isFreePrice) {
+                    return;
+                  }
+
                   setAllowsOffers(true);
                 }}
                 style={styles.chip}
@@ -1237,20 +1433,25 @@ export default function CreateListingScreen({
                 size="compact"
                 label="Fixed price"
                 selected={!allowsOffers}
-                disabled={saving}
+                disabled={previewing}
                 onPress={() => {
                   setAllowsOffers(false);
                 }}
                 style={styles.chip}
               />
             </View>
+            {isFreePrice ? (
+              <Text style={styles.locationHint}>
+                FREE listings do not accept offers.
+              </Text>
+            ) : null}
 
             {listingId ? (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Start new listing"
                 accessibilityHint="Clears this form. Your saved draft is kept."
-                disabled={saving}
+                disabled={previewing}
                 onPress={handleStartNewListing}
                 style={({ pressed }) => [
                   styles.startNew,
@@ -1268,39 +1469,22 @@ export default function CreateListingScreen({
             ) : null}
 
             <DGButton
-              title="Preview listing"
-              variant="outline"
-              fullWidth
-              disabled={
-                !listingId ||
-                saving ||
-                uploading ||
-                reordering
+              title={
+                previewing ? 'Preparing preview' : 'Preview Listing'
               }
-              onPress={handlePreviewPress}
-              style={styles.preview}
-              accessibilityLabel="Preview listing"
-              accessibilityHint={
-                !listingId
-                  ? 'Save a draft before previewing.'
-                  : formDirty
-                    ? 'Save your changes before previewing.'
-                    : 'Opens a preview of this listing.'
-              }
-            />
-
-            <DGButton
-              title={saving ? 'Saving draft' : 'Save draft'}
               fullWidth
-              loading={saving}
-              disabled={saving || uploading || reordering}
+              loading={previewing}
+              disabled={previewing || uploading || reordering}
               onPress={() => {
-                void handleSaveDraft();
+                void handlePreviewPress();
               }}
               style={styles.submit}
               accessibilityLabel={
-                saving ? 'Saving draft' : 'Save draft'
+                previewing
+                  ? 'Preparing preview'
+                  : 'Preview Listing'
               }
+              accessibilityHint="Checks your listing, saves it privately, then opens Preview. It is not listed on Market yet."
             />
           </View>
         </ScrollView>

@@ -81,7 +81,7 @@ export function listingFormSnapshotFromValues(
     state: listing.state,
     pickupAvailable: listing.pickupAvailable,
     deliveryAvailable: listing.deliveryAvailable,
-    allowsOffers: listing.allowsOffers,
+    allowsOffers: listing.price > 0 && listing.allowsOffers,
   };
 }
 
@@ -126,10 +126,18 @@ export function parseListingPrice(
 
   const amount = Number(trimmed);
 
-  if (!Number.isFinite(amount) || amount <= 0) {
+  if (!Number.isFinite(amount)) {
     return {
       ok: false,
-      error: 'Price must be greater than 0.',
+      error:
+        'Enter a valid price with up to two decimal places.',
+    };
+  }
+
+  if (amount < 0) {
+    return {
+      ok: false,
+      error: 'Price cannot be negative.',
     };
   }
 

@@ -519,11 +519,11 @@ function sanitiseDraftInput(
 
   if (
     !Number.isFinite(input.price) ||
-    input.price <= 0
+    input.price < 0
   ) {
     return {
       ok: false,
-      error: 'Enter a price greater than 0.',
+      error: 'Enter a valid price.',
     };
   }
 
@@ -558,7 +558,9 @@ function sanitiseDraftInput(
       subcategory,
       condition: input.condition,
       price: Number(input.price.toFixed(2)),
-      allowsOffers: input.allowsOffers === true,
+      allowsOffers:
+        Number(input.price.toFixed(2)) > 0 &&
+        input.allowsOffers === true,
       pickupAvailable: input.pickupAvailable === true,
       deliveryAvailable: input.deliveryAvailable === true,
       suburb,

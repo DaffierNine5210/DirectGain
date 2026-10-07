@@ -418,6 +418,7 @@ export default function ListingDetailScreen({
     const cta = deriveOfferCta({
       isOwner: loadState.isOwner,
       allowsOffers: loadState.allowsOffers,
+      askingPrice: loadState.askingPrice,
       viewerId: loadState.viewerId,
       viewerOffers,
     });
@@ -553,6 +554,7 @@ export default function ListingDetailScreen({
   const offerCta = deriveOfferCta({
     isOwner: loadState.isOwner,
     allowsOffers: loadState.allowsOffers,
+    askingPrice: loadState.askingPrice,
     viewerId: loadState.viewerId,
     viewerOffers,
   });
@@ -723,6 +725,7 @@ export default function ListingDetailScreen({
 function deriveOfferCta(input: {
   isOwner: boolean;
   allowsOffers: boolean;
+  askingPrice: number;
   viewerId: string | null;
   viewerOffers: ViewerOffersState;
 }): OfferCta {
@@ -780,7 +783,11 @@ function deriveOfferCta(input: {
     };
   }
 
-  if (!input.allowsOffers || viewerId === null) {
+  if (
+    !input.allowsOffers ||
+    input.askingPrice <= 0 ||
+    viewerId === null
+  ) {
     return { kind: 'hidden' };
   }
 

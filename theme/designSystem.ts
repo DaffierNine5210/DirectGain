@@ -49,6 +49,9 @@ export const alpha = {
   green28: 'rgba(158, 246, 90, 0.28)',
   green40: 'rgba(158, 246, 90, 0.40)',
 
+  danger08: 'rgba(255, 119, 119, 0.08)',
+  danger20: 'rgba(255, 119, 119, 0.20)',
+
   white03: 'rgba(255, 255, 255, 0.03)',
   white05: 'rgba(255, 255, 255, 0.05)',
   white08: 'rgba(255, 255, 255, 0.08)',

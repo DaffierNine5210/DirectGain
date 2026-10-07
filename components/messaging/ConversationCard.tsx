@@ -11,6 +11,7 @@ import {
 import ResolvedProfileAvatar from '../profile/ResolvedProfileAvatar';
 
 import { colors } from '../../theme/colors';
+import formatListingPrice from '../../utils/listing/formatListingPrice';
 
 export type ConversationType =
   | 'market'
@@ -85,11 +86,7 @@ function formatPrice(price?: number): string | null {
     return null;
   }
 
-  return new Intl.NumberFormat('en-AU', {
-    style: 'currency',
-    currency: 'AUD',
-    maximumFractionDigits: 0,
-  }).format(price);
+  return formatListingPrice(price, 'AUD');
 }
 
 export default function ConversationCard({

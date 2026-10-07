@@ -117,6 +117,9 @@ export default function EditListingDetailsScreen({
 
   formRef.current = currentSnapshot;
 
+  const parsedPrice = parseListingPrice(priceText);
+  const isFreePrice = parsedPrice.ok && parsedPrice.amount === 0;
+
   const dirty =
     persistedRef.current != null &&
     !listingFormSnapshotsEqual(
@@ -484,7 +487,12 @@ export default function EditListingDetailsScreen({
                 <DGInput
                   value={priceText}
                   onChangeText={(value) => {
-                    setPriceText(sanitizeListingPriceInput(value));
+                    const next = sanitizeListingPriceInput(value);
+                    setPriceText(next);
+                    const parsed = parseListingPrice(next);
+                    if (parsed.ok && parsed.amount === 0) {
+                      setAllowsOffers(false);
+                    }
                   }}
                   placeholder="0.00"
                   keyboardType="decimal-pad"
@@ -553,8 +561,12 @@ export default function EditListingDetailsScreen({
                 size="compact"
                 label="Allow offers"
                 selected={allowsOffers}
-                disabled={saving}
+                disabled={saving || isFreePrice}
                 onPress={() => {
+                  if (isFreePrice) {
+                    return;
+                  }
+
                   setAllowsOffers(true);
                 }}
                 style={styles.chip}
@@ -570,6 +582,11 @@ export default function EditListingDetailsScreen({
                 style={styles.chip}
               />
             </View>
+            {isFreePrice ? (
+              <Text style={styles.locationHint}>
+                FREE listings do not accept offers.
+              </Text>
+            ) : null}
 
             {errors.form ? (
               <Text style={styles.formError}>{errors.form}</Text>

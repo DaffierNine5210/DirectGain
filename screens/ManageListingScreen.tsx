@@ -31,6 +31,7 @@ import {
   reactivateOwnMarketListing,
 } from '../services/market/marketListingsRepository';
 import formatListingPrice from '../utils/listing/formatListingPrice';
+import { ownListingStatusTone } from '../utils/market/ownListingStatusTone';
 
 import type {
   MarketListingStatus,
@@ -70,58 +71,6 @@ function formatOwnListingStatus(
     case 'removed':
       return 'Removed';
   }
-}
-
-function statusTone(status: MarketListingStatus): {
-  color: string;
-  backgroundColor: string;
-  borderColor: string;
-} {
-  if (status === 'active') {
-    return {
-      color: palette.opportunityGreen,
-      backgroundColor: alpha.green08,
-      borderColor: alpha.green20,
-    };
-  }
-
-  if (status === 'paused') {
-    return {
-      color: textColor.muted,
-      backgroundColor: alpha.white05,
-      borderColor: alpha.white10,
-    };
-  }
-
-  if (status === 'sold') {
-    return {
-      color: textColor.secondary,
-      backgroundColor: alpha.white04,
-      borderColor: alpha.white08,
-    };
-  }
-
-  if (status === 'reserved') {
-    return {
-      color: palette.warning,
-      backgroundColor: alpha.white05,
-      borderColor: alpha.white10,
-    };
-  }
-
-  if (status === 'removed') {
-    return {
-      color: textColor.muted,
-      backgroundColor: alpha.white03,
-      borderColor: alpha.white08,
-    };
-  }
-
-  return {
-    color: textColor.secondary,
-    backgroundColor: alpha.white04,
-    borderColor: alpha.white08,
-  };
 }
 
 function dateLabelForListing(
@@ -377,7 +326,7 @@ export default function ManageListingScreen({
         state: listing.state,
       })
     : '';
-  const tone = listing ? statusTone(listing.status) : null;
+  const tone = listing ? ownListingStatusTone(listing.status) : null;
 
   return (
     <SafeAreaView

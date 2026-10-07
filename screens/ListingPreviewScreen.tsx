@@ -75,7 +75,11 @@ function mapPublishErrorToUserCopy(error: string | null): string {
   }
 
   if (lowered.includes('price greater than 0')) {
-    return 'Enter a price greater than 0 before listing.';
+    return 'Enter a valid price before listing.';
+  }
+
+  if (lowered.includes('valid price before listing')) {
+    return 'Enter a valid price before listing.';
   }
 
   if (lowered.includes('photo order')) {
@@ -175,7 +179,7 @@ export default function ListingPreviewScreen({
     }
 
     Alert.alert(
-      'List this item?',
+      'List on Market?',
       'Your listing will become active on Direct Gain. You can’t return it to draft from this screen.',
       [
         {
@@ -183,7 +187,7 @@ export default function ListingPreviewScreen({
           style: 'cancel',
         },
         {
-          text: 'List item',
+          text: 'List on Market',
           onPress: () => {
             void runPublish();
           },
