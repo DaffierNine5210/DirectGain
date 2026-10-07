@@ -1,104 +1,45 @@
-import {
-  StyleSheet,
-} from 'react-native';
+import type { ImageSourcePropType } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import DGHeader from '../DGHeader';
 import DGHeroCard from '../DGHeroCard';
 import DGReveal from '../DGReveal';
-import DiscoverServiceNav from './DiscoverServiceNav';
 
-import {
-  spacing,
-} from '../../theme/designSystem';
+import { spacing } from '../../theme/designSystem';
 
 type DiscoverTopSectionProps = {
-  userName?: string;
-  locationName: string;
-  locationRadius: string;
-
-  opportunityCount: number;
-  listingCount: number;
-  jobCount: number;
-  auctionCount: number;
-
-  notificationCount?: number;
+  greeting: string;
+  locationLabel?: string | null;
+  initials: string;
+  avatarImage?: ImageSourcePropType;
   unreadMessageCount?: number;
-
-  onLocationPress: () => void;
   onMessagesPress: () => void;
-  onNotificationsPress: () => void;
   onExplorePress: () => void;
-  onJobsPress: () => void;
 };
 
 export default function DiscoverTopSection({
-  userName = 'Liam',
-  locationName,
-  locationRadius,
-
-  opportunityCount,
-  listingCount,
-  jobCount,
-  auctionCount,
-
-  notificationCount = 0,
+  greeting,
+  locationLabel,
+  initials,
+  avatarImage,
   unreadMessageCount = 0,
-
-  onLocationPress,
   onMessagesPress,
-  onNotificationsPress,
   onExplorePress,
-  onJobsPress,
 }: DiscoverTopSectionProps) {
+  const area = locationLabel?.trim() || undefined;
+
   return (
     <>
-      <DGReveal
-        delay={0}
-        duration={390}
-        distance={8}
-      >
+      <DGReveal delay={0} duration={390} distance={8}>
         <DGHeader
           showBrand
-          location={`${locationName} · ${locationRadius}`}
-          onLocationPress={
-            onLocationPress
-          }
+          location={area}
           secondaryAction={{
-            icon:
-              'chatbubble-ellipses-outline',
-
-            accessibilityLabel:
-              'Open Direct Gain Inbox',
-
-            onPress:
-              onMessagesPress,
-
-            badgeCount:
-              unreadMessageCount,
+            icon: 'chatbubble-ellipses-outline',
+            accessibilityLabel: 'Open Direct Gain Inbox',
+            onPress: onMessagesPress,
+            badgeCount: unreadMessageCount,
           }}
-          primaryAction={{
-            icon:
-              'notifications-outline',
-
-            accessibilityLabel:
-              'Open notifications',
-
-            badgeCount:
-              notificationCount,
-
-            onPress:
-              onNotificationsPress,
-          }}
-        />
-      </DGReveal>
-
-      <DGReveal
-        delay={35}
-        duration={400}
-        distance={8}
-      >
-        <DiscoverServiceNav
-          onJobsPress={onJobsPress}
         />
       </DGReveal>
 
@@ -109,16 +50,11 @@ export default function DiscoverTopSection({
         style={styles.heroWrapper}
       >
         <DGHeroCard
-          greeting={getGreeting(
-            userName,
-          )}
-          location={locationName}
-          opportunities={
-            opportunityCount
-          }
-          listings={listingCount}
-          jobs={jobCount}
-          auctions={auctionCount}
+          greeting={greeting}
+          supportingCopy="Discover what's available across Direct Gain."
+          initials={initials}
+          avatarImage={avatarImage}
+          ctaTitle="See what's on Direct Gain"
           onPress={onExplorePress}
         />
       </DGReveal>
@@ -126,31 +62,10 @@ export default function DiscoverTopSection({
   );
 }
 
-function getGreeting(
-  userName: string,
-) {
-  const hour =
-    new Date().getHours();
-
-  if (hour < 12) {
-    return `Good Morning, ${userName} 👋`;
-  }
-
-  if (hour < 17) {
-    return `Good Afternoon, ${userName} 👋`;
-  }
-
-  return `Good Evening, ${userName} 👋`;
-}
-
 const styles = StyleSheet.create({
   heroWrapper: {
     width: '100%',
-
-    marginTop:
-      spacing.xs,
-
-    paddingHorizontal:
-      spacing.lg,
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.lg,
   },
 });

@@ -16,11 +16,11 @@ import {
 
 import {
   Alert,
+  ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
 
-import DGDiscoverSkeleton from '../components/DGDiscoverSkeleton';
 import DGScreen from '../components/layout/DGScreen';
 
 import DGDiscoverFeed from '../components/discover/DGDiscoverFeed';
@@ -57,6 +57,7 @@ import {
 } from '../data/selectors/getDiscoverFeed';
 
 import useFocusedUnreadTotal from '../hooks/useFocusedUnreadTotal';
+import { useResolvedProfileAvatar } from '../hooks/useResolvedProfileAvatar';
 import useTabBarVisibility from '../hooks/useTabBarVisibility';
 
 import type {
@@ -71,11 +72,17 @@ import {
 import { resolveJobCoverPhotos } from '../services/jobs/jobMediaRepository';
 import { listOpenJobs } from '../services/jobs/jobRepository';
 import { listActiveMarketListings } from '../services/market/marketListingsRepository';
+import {
+  formatProfileLocation,
+  profileInitials,
+} from '../services/profile/profileAdapter';
+import { getOwnProfile } from '../services/profile/profileRepository';
 import type {
   Job,
   JobCoverPresentation,
 } from '../types/jobs';
 import type { ActiveMarketListingFeedItem } from '../types/marketListing';
+import type { DirectGainProfile } from '../types/profile';
 
 import {
   openMessagesInbox,
@@ -141,14 +148,16 @@ export default function DiscoverScreen({
   );
 
   const [
-    loading,
-    setLoading,
-  ] = useState(true);
-
-  const [
     refreshing,
     setRefreshing,
   ] = useState(false);
+
+  const [
+    ownProfile,
+    setOwnProfile,
+  ] = useState<DirectGainProfile | null>(
+    null,
+  );
 
   const [
     marketItems,
@@ -202,6 +211,14 @@ export default function DiscoverScreen({
   const loadJobsRef = useRef<
     (mode: 'initial' | 'refresh' | 'silent') => Promise<void>
   >(async () => {});
+  const profileHasLoadedRef = useRef(false);
+  const profileRequestIdRef = useRef(0);
+  const profileInFlightRef = useRef(false);
+  const loadProfileRef = useRef<
+    (mode: 'initial' | 'refresh' | 'silent') => Promise<void>
+  >(async () => {});
+  const scrollViewRef = useRef<ScrollView>(null);
+  const opportunityOffsetYRef = useRef(0);
 
   const loadMarket = useCallback(
     async (mode: 'initial' | 'refresh' | 'silent') => {
@@ -314,6 +331,41 @@ export default function DiscoverScreen({
 
   loadJobsRef.current = loadJobs;
 
+  const loadProfile = useCallback(
+    async (mode: 'initial' | 'refresh' | 'silent') => {
+      if (mode === 'silent' && profileInFlightRef.current) {
+        return;
+      }
+
+      const requestId = ++profileRequestIdRef.current;
+      profileInFlightRef.current = true;
+
+      const result = await getOwnProfile();
+
+      if (
+        requestId !== profileRequestIdRef.current ||
+        !mountedRef.current
+      ) {
+        if (requestId === profileRequestIdRef.current) {
+          profileInFlightRef.current = false;
+        }
+        return;
+      }
+
+      if (result.profile) {
+        setOwnProfile(result.profile);
+      } else if (mode === 'initial') {
+        setOwnProfile(null);
+      }
+
+      profileHasLoadedRef.current = true;
+      profileInFlightRef.current = false;
+    },
+    [],
+  );
+
+  loadProfileRef.current = loadProfile;
+
   useEffect(() => {
     mountedRef.current = true;
 
@@ -330,6 +382,10 @@ export default function DiscoverScreen({
     void loadJobs('initial');
   }, [loadJobs]);
 
+  useEffect(() => {
+    void loadProfile('initial');
+  }, [loadProfile]);
+
   useFocusEffect(
     useCallback(() => {
       showTabBar();
@@ -341,21 +397,12 @@ export default function DiscoverScreen({
       if (jobsHasLoadedRef.current) {
         void loadJobsRef.current('silent');
       }
+
+      if (profileHasLoadedRef.current) {
+        void loadProfileRef.current('silent');
+      }
     }, [showTabBar]),
   );
-
-  useEffect(() => {
-    const loadingTimer = setTimeout(
-      () => {
-        setLoading(false);
-      },
-      1200,
-    );
-
-    return () => {
-      clearTimeout(loadingTimer);
-    };
-  }, []);
 
   const normalizedSearch =
     searchQuery
@@ -444,6 +491,25 @@ export default function DiscoverScreen({
         ? 'empty'
         : 'ready';
 
+  const {
+    imageUri: ownAvatarUri,
+  } = useResolvedProfileAvatar(
+    ownProfile?.avatarPath,
+  );
+
+  const greeting = timeOfDayGreeting(
+    greetingFirstName(ownProfile?.displayName),
+  );
+
+  const locationLabel = ownAreaLabel(
+    ownProfile?.suburb ?? null,
+    ownProfile?.state ?? null,
+  );
+
+  const heroInitials = ownProfile
+    ? profileInitials(ownProfile.displayName)
+    : 'DG';
+
   function navigateTab(
     name: keyof BottomTabParamList,
   ) {
@@ -455,15 +521,6 @@ export default function DiscoverScreen({
         name,
       );
     }
-  }
-
-  function showComingSoon(
-    feature: string,
-  ) {
-    Alert.alert(
-      feature,
-      `${feature} will be connected in a future Direct Gain release.`,
-    );
   }
 
   function handleSectionChange(
@@ -489,6 +546,7 @@ export default function DiscoverScreen({
     await Promise.all([
       loadMarket('refresh'),
       loadJobs('refresh'),
+      loadProfile('refresh'),
     ]);
 
     if (mountedRef.current) {
@@ -512,20 +570,22 @@ export default function DiscoverScreen({
     );
   }
 
-  if (loading) {
-    return (
-      <DGScreen
-        scrollable
-        contentContainerStyle={
-          styles.loadingContent
-        }
-        onScroll={
-          updateFromScroll
-        }
-      >
-        <DGDiscoverSkeleton />
-      </DGScreen>
-    );
+  function handleExplorePress() {
+    void selectionHaptic();
+    setExpandedSection('market');
+    setJobsSectionExpanded(true);
+
+    requestAnimationFrame(() => {
+      const y = Math.max(
+        0,
+        opportunityOffsetYRef.current - 8,
+      );
+
+      scrollViewRef.current?.scrollTo({
+        y,
+        animated: true,
+      });
+    });
   }
 
   return (
@@ -533,27 +593,23 @@ export default function DiscoverScreen({
       refreshing={refreshing}
       onRefresh={handleRefresh}
       onScroll={updateFromScroll}
+      scrollViewRef={scrollViewRef}
       contentContainerStyle={
         styles.content
       }
     >
       <DiscoverTopSection
-        userName="Liam"
-        locationName="Sunshine Coast"
-        locationRadius="Within 15 km"
-        opportunityCount={143}
-        listingCount={143}
-        jobCount={17}
-        auctionCount={8}
-        notificationCount={3}
+        greeting={greeting}
+        locationLabel={locationLabel}
+        initials={heroInitials}
+        avatarImage={
+          ownAvatarUri
+            ? { uri: ownAvatarUri }
+            : undefined
+        }
         unreadMessageCount={
           unreadMessageCount
         }
-        onLocationPress={() => {
-          showComingSoon(
-            'Location settings',
-          );
-        }}
         onMessagesPress={() => {
           if (
             !openMessagesInbox(
@@ -566,25 +622,7 @@ export default function DiscoverScreen({
             );
           }
         }}
-        onNotificationsPress={() => {
-          showComingSoon(
-            'Notifications',
-          );
-        }}
-        onExplorePress={() => {
-          setExpandedSection(
-            'market',
-          );
-
-          void selectionHaptic();
-        }}
-        onJobsPress={() => {
-          void selectionHaptic();
-
-          navigation.navigate(
-            'DiscoverJobs',
-          );
-        }}
+        onExplorePress={handleExplorePress}
       />
 
       <DiscoverSearchSection
@@ -688,6 +726,12 @@ export default function DiscoverScreen({
         </View>
       </View>
 
+      <View
+        onLayout={(event) => {
+          opportunityOffsetYRef.current =
+            event.nativeEvent.layout.y;
+        }}
+      >
       <DiscoverOpportunityFeed
         marketStatus={marketStatus}
         marketCards={marketPreviewCards}
@@ -749,6 +793,7 @@ export default function DiscoverScreen({
           );
         }}
       />
+      </View>
 
       <DiscoverOverviewSection
         regionName="Sunshine Coast"
@@ -796,9 +841,47 @@ const styles = StyleSheet.create({
 
     marginTop: spacing.md,
   },
-
-  loadingContent: {
-    paddingBottom:
-      spacing.xxxl,
-  },
 });
+
+function timeOfDayGreeting(
+  firstName: string | null,
+): string {
+  const hour = new Date().getHours();
+  const part =
+    hour < 12
+      ? 'Good morning'
+      : hour < 17
+        ? 'Good afternoon'
+        : 'Good evening';
+
+  if (!firstName) {
+    return part;
+  }
+
+  return `${part}, ${firstName}`;
+}
+
+function greetingFirstName(
+  displayName: string | null | undefined,
+): string | null {
+  const first = displayName
+    ?.trim()
+    .split(/\s+/)
+    .filter(Boolean)[0];
+
+  return first ?? null;
+}
+
+function ownAreaLabel(
+  suburb: string | null,
+  state: string | null,
+): string | null {
+  const location = formatProfileLocation(
+    suburb,
+    state,
+  );
+
+  return location
+    ? `Your area: ${location}`
+    : null;
+}

@@ -1,5 +1,6 @@
 import {
   ReactNode,
+  type RefObject,
   useMemo,
 } from 'react';
 import {
@@ -39,6 +40,7 @@ type DGScreenProps = {
 
   contentContainerStyle?: StyleProp<ViewStyle>;
   style?: StyleProp<ViewStyle>;
+  scrollViewRef?: RefObject<ScrollView | null>;
 
   showTopGlow?: boolean;
   showBottomGlow?: boolean;
@@ -56,6 +58,7 @@ export default function DGScreen({
 
   contentContainerStyle,
   style,
+  scrollViewRef,
 
   showTopGlow = true,
   showBottomGlow = true,
@@ -160,6 +163,7 @@ export default function DGScreen({
       {background}
 
       <ScrollView
+        ref={scrollViewRef}
         showsVerticalScrollIndicator={
           false
         }
