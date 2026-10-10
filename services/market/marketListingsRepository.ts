@@ -2805,22 +2805,26 @@ export async function getActiveMarketListing(
 ): Promise<{
   listing: MarketListingActive | null;
   error: string | null;
+  unavailable: boolean;
 }> {
   const trimmed = listingId.trim().toLowerCase();
 
   if (!isUuid(trimmed)) {
     return {
       listing: null,
-      error: "Couldn't load this listing.",
+      error: null,
+      unavailable: true,
     };
   }
 
-  const auth = await requireUserId();
+  const sessionResult = await supabase.auth.getSession();
+  const sessionUserId = sessionResult.data.session?.user?.id;
 
-  if (!auth.ok) {
+  if (!sessionUserId || !isUuid(sessionUserId)) {
     return {
       listing: null,
-      error: auth.error,
+      error: 'Sign in to view this listing.',
+      unavailable: false,
     };
   }
 
@@ -2832,19 +2836,36 @@ export async function getActiveMarketListing(
     .maybeSingle();
 
   if (loaded.error) {
+    const queryMessage = (loaded.error.message ?? '').toLowerCase();
+    const networkFailure =
+      queryMessage.includes('network') ||
+      queryMessage.includes('fetch');
+
     return {
       listing: null,
-      error: formatMarketReadError(
-        loaded.error,
-        "Couldn't load this listing.",
-      ),
+      error: networkFailure
+        ? 'Check your connection and try again.'
+        : formatMarketReadError(
+            loaded.error,
+            "Couldn't load this listing.",
+          ),
+      unavailable: false,
     };
   }
 
-  if (!loaded.data || !isMarketListingRow(loaded.data)) {
+  if (!loaded.data) {
+    return {
+      listing: null,
+      error: null,
+      unavailable: true,
+    };
+  }
+
+  if (!isMarketListingRow(loaded.data)) {
     return {
       listing: null,
       error: "Couldn't load this listing.",
+      unavailable: false,
     };
   }
 
@@ -2854,12 +2875,14 @@ export async function getActiveMarketListing(
     return {
       listing: null,
       error: "Couldn't load this listing.",
+      unavailable: false,
     };
   }
 
   return {
     listing,
     error: null,
+    unavailable: false,
   };
 }
 

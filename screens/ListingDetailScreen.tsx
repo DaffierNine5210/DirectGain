@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import type {
   NativeStackScreenProps,
@@ -21,6 +22,8 @@ import {
   Text,
   View,
 } from 'react-native';
+
+import DGHeader from '../components/DGHeader';
 
 import ListingActionBar, {
   type ListingOfferAction,
@@ -64,7 +67,12 @@ import {
 } from '../services/profile/profileRepository';
 
 import { colors } from '../theme/colors';
-import { palette } from '../theme/designSystem';
+import {
+  iconSize,
+  palette,
+  spacing,
+  textColor,
+} from '../theme/designSystem';
 import type { MarketOfferRecord } from '../types/MarketOffer';
 import {
   normaliseMarketOfferMessage,
@@ -79,6 +87,7 @@ type Props =
 
 type LoadState =
   | { kind: 'loading' }
+  | { kind: 'unavailable' }
   | { kind: 'error'; message: string }
   | {
       kind: 'ready';
@@ -134,6 +143,8 @@ export default function ListingDetailScreen({
     index: 0,
   });
   const mountedRef = useRef(true);
+  const requestIdRef = useRef(0);
+  const isFirstFocusRef = useRef(true);
   const lastKnownOffersRef = useRef<{
     viewerId: string | null;
     offers: MarketOfferRecord[];
@@ -217,21 +228,48 @@ export default function ListingDetailScreen({
     [listingId],
   );
 
-  const loadDetail = useCallback(async () => {
-    setLoadState({ kind: 'loading' });
-    setViewerOffers({ kind: 'idle' });
+  function clearListingSession() {
     lastKnownOffersRef.current = null;
+    setViewerOffers({ kind: 'idle' });
     setComposerOpen(false);
     setSubmittingOffer(false);
     setSubmitError(null);
+    setPhotoViewer({
+      visible: false,
+      index: 0,
+    });
+  }
+
+  function goBackFromListing() {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+
+    navigation.getParent()?.navigate('Market' as never);
+  }
+
+  const loadDetail = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
+
+    setLoadState({ kind: 'loading' });
+    clearListingSession();
 
     const listingResult = await getActiveMarketListing(listingId);
 
-    if (listingResult.error || !listingResult.listing) {
-      if (!mountedRef.current) {
-        return;
-      }
+    if (
+      requestId !== requestIdRef.current ||
+      !mountedRef.current
+    ) {
+      return;
+    }
 
+    if (listingResult.unavailable) {
+      setLoadState({ kind: 'unavailable' });
+      return;
+    }
+
+    if (listingResult.error || !listingResult.listing) {
       setLoadState({
         kind: 'error',
         message:
@@ -255,7 +293,10 @@ export default function ListingDetailScreen({
       getAuthenticatedUserId(),
     ]);
 
-    if (!mountedRef.current) {
+    if (
+      requestId !== requestIdRef.current ||
+      !mountedRef.current
+    ) {
       return;
     }
 
@@ -267,7 +308,10 @@ export default function ListingDetailScreen({
       profileResult.profile?.avatarPath ?? null,
     );
 
-    if (!mountedRef.current) {
+    if (
+      requestId !== requestIdRef.current ||
+      !mountedRef.current
+    ) {
       return;
     }
 
@@ -301,24 +345,66 @@ export default function ListingDetailScreen({
     });
   }, [listingId, loadViewerOffers]);
 
+  const revalidateActiveListing = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
+    const listingResult = await getActiveMarketListing(listingId);
+
+    if (
+      requestId !== requestIdRef.current ||
+      !mountedRef.current
+    ) {
+      return;
+    }
+
+    if (listingResult.unavailable) {
+      clearListingSession();
+      setLoadState({ kind: 'unavailable' });
+      return;
+    }
+
+    if (listingResult.error || !listingResult.listing) {
+      const current = loadStateRef.current;
+
+      if (current.kind === 'ready' || current.kind === 'unavailable') {
+        return;
+      }
+
+      setLoadState({
+        kind: 'error',
+        message:
+          listingResult.error ??
+          "Couldn't load this listing.",
+      });
+      return;
+    }
+
+    const current = loadStateRef.current;
+
+    if (current.kind === 'ready') {
+      void loadViewerOffers({
+        isOwner: current.isOwner,
+        viewerId: current.viewerId,
+        preserveKnown: true,
+      });
+      return;
+    }
+
+    void loadDetail();
+  }, [listingId, loadDetail, loadViewerOffers]);
+
   useEffect(() => {
     void loadDetail();
   }, [loadDetail]);
 
   useFocusEffect(
     useCallback(() => {
-      const current = loadStateRef.current;
-
-      if (current.kind !== 'ready') {
+      if (isFirstFocusRef.current) {
+        isFirstFocusRef.current = false;
         return;
       }
 
-      void loadViewerOffers({
-        isOwner: current.isOwner,
-        viewerId: current.viewerId,
-        preserveKnown: true,
-      });
-    }, [loadViewerOffers]),
+      void revalidateActiveListing();
+    }, [revalidateActiveListing]),
   );
 
   async function handleSharePress() {
@@ -519,27 +605,70 @@ export default function ListingDetailScreen({
     );
   }
 
+  if (loadState.kind === 'unavailable') {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <DGHeader
+          showBackButton
+          onBackPress={goBackFromListing}
+        />
+        <View style={styles.centered}>
+          <View style={styles.unavailableIcon}>
+            <Ionicons
+              name="storefront-outline"
+              size={iconSize.xl}
+              color={textColor.muted}
+            />
+          </View>
+          <Text style={styles.errorTitle}>
+            This listing isn't available
+          </Text>
+          <Text style={styles.errorBody}>
+            This listing may have been changed or is no longer available to view.
+          </Text>
+          <View style={styles.actionGroup}>
+            <View>
+              <DGButton
+                title="Back"
+                variant="ghost"
+                onPress={goBackFromListing}
+              />
+            </View>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (loadState.kind === 'error') {
     return (
       <SafeAreaView style={styles.safeArea}>
+        <DGHeader
+          showBackButton
+          onBackPress={goBackFromListing}
+        />
         <View style={styles.centered}>
           <Text style={styles.errorTitle}>
             Couldn't load listing
           </Text>
           <Text style={styles.errorBody}>{loadState.message}</Text>
-          <DGButton
-            title="Retry"
-            onPress={() => {
-              void loadDetail();
-            }}
-          />
-          <DGButton
-            title="Back"
-            variant="ghost"
-            onPress={() => {
-              navigation.goBack();
-            }}
-          />
+          <View style={styles.actionGroup}>
+            <View>
+              <DGButton
+                title="Retry"
+                onPress={() => {
+                  void loadDetail();
+                }}
+              />
+            </View>
+            <View>
+              <DGButton
+                title="Back"
+                variant="ghost"
+                onPress={goBackFromListing}
+              />
+            </View>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -567,7 +696,7 @@ export default function ListingDetailScreen({
         <ListingHeroGallery
           images={detail.images}
           showFavourite={false}
-          onBackPress={() => navigation.goBack()}
+          onBackPress={goBackFromListing}
           onSharePress={() => {
             void handleSharePress();
           }}
@@ -967,6 +1096,23 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontWeight: '600',
     textAlign: 'center',
+  },
+
+  actionGroup: {
+    marginTop: spacing.xxs,
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: 8,
+  },
+
+  unavailableIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    marginBottom: spacing.xxs,
   },
 
   offerStateCopy: {
