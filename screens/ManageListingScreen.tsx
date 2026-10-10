@@ -536,7 +536,11 @@ export default function ManageListingScreen({
                 <ManageListingActionRow
                   icon="pricetag-outline"
                   title="View Offers"
-                  unavailable
+                  onPress={() => {
+                    navigation.navigate('ListingOffers', {
+                      listingId: listing.id,
+                    });
+                  }}
                 />
               </View>
 

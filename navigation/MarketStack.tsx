@@ -5,6 +5,7 @@ import ListingDetailScreen from '../screens/ListingDetailScreen';
 import MarketScreen from '../screens/MarketScreen';
 import MyListingsScreen from '../screens/MyListingsScreen';
 import ManageListingScreen from '../screens/ManageListingScreen';
+import ListingOffersScreen from '../screens/ListingOffersScreen';
 import EditListingDetailsScreen from '../screens/EditListingDetailsScreen';
 import ManageListingPhotosScreen from '../screens/ManageListingPhotosScreen';
 import SellerProfileScreen from '../screens/SellerProfileScreen';
@@ -18,6 +19,10 @@ export type MarketStackParamList = {
   MyListings: undefined;
 
   ManageListing: {
+    listingId: string;
+  };
+
+  ListingOffers: {
     listingId: string;
   };
 
@@ -80,6 +85,20 @@ export default function MarketStack() {
         name="ManageListing"
         component={
           ManageListingScreen
+        }
+        options={{
+          animation:
+            'slide_from_right',
+
+          gestureDirection:
+            'horizontal',
+        }}
+      />
+
+      <Stack.Screen
+        name="ListingOffers"
+        component={
+          ListingOffersScreen
         }
         options={{
           animation:
