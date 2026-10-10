@@ -43,7 +43,10 @@ import {
   getViewerListingRegion,
   listActiveMarketListings,
 } from '../services/market/marketListingsRepository';
-import type { ActiveMarketListingFeedItem } from '../types/marketListing';
+import type {
+  ActiveMarketListingFeedItem,
+  ViewerListingRegion,
+} from '../types/marketListing';
 
 import {
   alpha,
@@ -51,7 +54,6 @@ import {
   motion,
   palette,
   radius,
-  shadow,
   spacing,
   surface,
   textColor,
@@ -63,7 +65,6 @@ type Props = NativeStackScreenProps<
   'MarketHome'
 >;
 
-type MarketTab = 'forYou' | 'nearby';
 type MarketLayout = 'grid' | 'list';
 
 type CategoryItem = {
@@ -160,24 +161,9 @@ export default function MarketScreen({
   ] = useState('All');
 
   const [
-    selectedTab,
-    setSelectedTab,
-  ] = useState<MarketTab>('forYou');
-
-  const [
     layoutMode,
     setLayoutMode,
   ] = useState<MarketLayout>('grid');
-
-  const [
-    filterActive,
-    setFilterActive,
-  ] = useState(false);
-
-  const [
-    favouriteIds,
-    setFavouriteIds,
-  ] = useState<string[]>([]);
 
   const [feedItems, setFeedItems] =
     useState<ActiveMarketListingFeedItem[]>(
@@ -185,7 +171,7 @@ export default function MarketScreen({
     );
 
   const [regionLabel, setRegionLabel] =
-    useState('Your area');
+    useState<string | null>(null);
 
   const [loadError, setLoadError] =
     useState<string | null>(null);
@@ -254,7 +240,7 @@ export default function MarketScreen({
       }
 
       setRegionLabel(
-        formatViewerRegionLabel(region),
+        marketViewerAreaLabel(region),
       );
 
       if (feedResult.error) {
@@ -323,30 +309,6 @@ export default function MarketScreen({
       ? skeletonItems
       : filteredListings;
 
-  function toggleFavourite(
-    listingId: string,
-  ) {
-    setFavouriteIds(
-      currentIds => {
-        if (
-          currentIds.includes(
-            listingId,
-          )
-        ) {
-          return currentIds.filter(
-            id =>
-              id !== listingId,
-          );
-        }
-
-        return [
-          ...currentIds,
-          listingId,
-        ];
-      },
-    );
-  }
-
   function handleRefresh() {
     if (refreshing || loading) {
       return;
@@ -373,11 +335,6 @@ export default function MarketScreen({
   function renderListing(
     item: MarketFeedCardPresentation,
   ) {
-    const isFavourite =
-      favouriteIds.includes(
-        item.id,
-      );
-
     return (
       <View
         style={
@@ -395,9 +352,6 @@ export default function MarketScreen({
           listedTime={
             item.listedTime
           }
-          favourite={
-            isFavourite
-          }
           imageCount={
             item.imageCount
           }
@@ -410,23 +364,6 @@ export default function MarketScreen({
                 listingId:
                   item.id,
               },
-            );
-          }}
-          onFavouritePress={() => {
-            toggleFavourite(
-              item.id,
-            );
-          }}
-          onMessagePress={() => {
-            Alert.alert(
-              'Message seller',
-              'Open this listing to message the seller.',
-            );
-          }}
-          onOfferPress={() => {
-            Alert.alert(
-              'Offers',
-              'Offers will be connected in a later Market step.',
             );
           }}
         />
@@ -519,7 +456,7 @@ export default function MarketScreen({
           <View>
             <DGHeader
               title="Market"
-              location={regionLabel}
+              location={regionLabel ?? undefined}
               style={styles.marketHeader}
               topRowStyle={
                 styles.marketTitleRow
@@ -527,12 +464,6 @@ export default function MarketScreen({
               locationStyle={
                 styles.marketLocation
               }
-              onLocationPress={() => {
-                Alert.alert(
-                  'Market location',
-                  'Location is based on your profile suburb and state. Distance filters will be connected later.',
-                );
-              }}
               secondaryAction={{
                 icon:
                   'chatbubble-ellipses-outline',
@@ -577,7 +508,7 @@ export default function MarketScreen({
                       styles.compactEyebrow
                     }
                   >
-                    LOCAL MARKET
+                    MARKET
                   </Text>
 
                   <Text
@@ -585,27 +516,7 @@ export default function MarketScreen({
                       styles.compactTitle
                     }
                   >
-                    Buy and sell nearby
-                  </Text>
-                </View>
-
-                <View
-                  style={
-                    styles.localStatusBadge
-                  }
-                >
-                  <View
-                    style={
-                      styles.localStatusDot
-                    }
-                  />
-
-                  <Text
-                    style={
-                      styles.localStatusText
-                    }
-                  >
-                    LOCAL
+                    Active listings
                   </Text>
                 </View>
               </View>
@@ -616,16 +527,7 @@ export default function MarketScreen({
                   setSearchQuery
                 }
                 placeholder="Search listings"
-                showFilter
-                filterActive={
-                  filterActive
-                }
-                onFilterPress={() => {
-                  Alert.alert(
-                    'Filters',
-                    'Search and category filters are available on this screen. More filters will be connected later.',
-                  );
-                }}
+                showFilter={false}
                 onSubmit={() => {
                   Keyboard.dismiss();
                 }}
@@ -633,179 +535,6 @@ export default function MarketScreen({
                   styles.searchBar
                 }
               />
-
-              {filterActive ? (
-                <View
-                  style={
-                    styles.filterNotice
-                  }
-                >
-                  <View
-                    style={
-                      styles.filterNoticeIcon
-                    }
-                  >
-                    <Ionicons
-                      name="options-outline"
-                      size={16}
-                      color={
-                        palette.opportunityGreen
-                      }
-                    />
-                  </View>
-
-                  <View
-                    style={
-                      styles.filterNoticeCopy
-                    }
-                  >
-                    <Text
-                      style={
-                        styles.filterNoticeTitle
-                      }
-                    >
-                      Local filters
-                    </Text>
-
-                    <Text
-                      style={
-                        styles.filterNoticeDescription
-                      }
-                    >
-                      Search and category are available now. More filters will be connected later.
-                    </Text>
-                  </View>
-
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Clear market filters"
-                    onPress={() => {
-                      setFilterActive(
-                        false,
-                      );
-                    }}
-                    style={({
-                      pressed,
-                    }) => [
-                      styles.clearFilterButton,
-                      pressed &&
-                        styles.pressed,
-                    ]}
-                  >
-                    <Text
-                      style={
-                        styles.clearFilterText
-                      }
-                    >
-                      Clear
-                    </Text>
-                  </Pressable>
-                </View>
-              ) : null}
-
-              <View
-                style={
-                  styles.marketTabs
-                }
-              >
-                <Pressable
-                  accessibilityRole="tab"
-                  accessibilityState={{
-                    selected:
-                      selectedTab ===
-                      'forYou',
-                  }}
-                  onPress={() => {
-                    setSelectedTab(
-                      'forYou',
-                    );
-                  }}
-                  style={({
-                    pressed,
-                  }) => [
-                    styles.marketTab,
-
-                    selectedTab ===
-                      'forYou' &&
-                      styles.marketTabSelected,
-
-                    pressed &&
-                      styles.pressed,
-                  ]}
-                >
-                  <Ionicons
-                    name="sparkles-outline"
-                    size={16}
-                    color={
-                      selectedTab ===
-                      'forYou'
-                        ? textColor.inverse
-                        : textColor.muted
-                    }
-                  />
-
-                  <Text
-                    style={[
-                      styles.marketTabText,
-
-                      selectedTab ===
-                        'forYou' &&
-                        styles.marketTabTextSelected,
-                    ]}
-                  >
-                    For You
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  accessibilityRole="tab"
-                  accessibilityState={{
-                    selected:
-                      selectedTab ===
-                      'nearby',
-                  }}
-                  onPress={() => {
-                    setSelectedTab(
-                      'nearby',
-                    );
-                  }}
-                  style={({
-                    pressed,
-                  }) => [
-                    styles.marketTab,
-
-                    selectedTab ===
-                      'nearby' &&
-                      styles.marketTabSelected,
-
-                    pressed &&
-                      styles.pressed,
-                  ]}
-                >
-                  <Ionicons
-                    name="location-outline"
-                    size={16}
-                    color={
-                      selectedTab ===
-                      'nearby'
-                        ? textColor.inverse
-                        : textColor.muted
-                    }
-                  />
-
-                  <Text
-                    style={[
-                      styles.marketTabText,
-
-                      selectedTab ===
-                        'nearby' &&
-                        styles.marketTabTextSelected,
-                    ]}
-                  >
-                    Nearby
-                  </Text>
-                </Pressable>
-              </View>
 
               <FlatList
                 horizontal
@@ -858,12 +587,7 @@ export default function MarketScreen({
                     }
                   >
                     <Ionicons
-                      name={
-                        selectedTab ===
-                        'nearby'
-                          ? 'location-outline'
-                          : 'sparkles-outline'
-                      }
+                      name="storefront-outline"
                       size={17}
                       color={
                         palette.opportunityGreen
@@ -1083,10 +807,6 @@ export default function MarketScreen({
                   setSelectedCategory(
                     'All',
                   );
-
-                  setFilterActive(
-                    false,
-                  );
                 }}
               />
             </View>
@@ -1236,185 +956,8 @@ const styles = StyleSheet.create({
     letterSpacing: -0.35,
   },
 
-  localStatusBadge: {
-    minHeight: 28,
-
-    paddingHorizontal:
-      spacing.sm,
-
-    borderRadius:
-      radius.pill,
-
-    borderWidth: 1,
-
-    borderColor:
-      alpha.green16,
-
-    backgroundColor:
-      alpha.green06,
-
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  localStatusDot: {
-    width: 6,
-    height: 6,
-
-    marginRight: 6,
-
-    borderRadius: 3,
-
-    backgroundColor:
-      palette.opportunityGreen,
-  },
-
-  localStatusText: {
-    color:
-      palette.opportunityGreen,
-
-    fontSize: 8,
-    lineHeight: 11,
-
-    fontWeight: '900',
-
-    letterSpacing: 0.8,
-  },
-
   searchBar: {
     marginTop: spacing.xxs,
-  },
-
-  filterNotice: {
-    minHeight: 58,
-
-    marginTop: spacing.xs,
-
-    paddingHorizontal:
-      spacing.sm,
-
-    paddingVertical:
-      spacing.xs,
-
-    borderRadius: radius.md,
-
-    borderWidth: 1,
-
-    borderColor:
-      alpha.green16,
-
-    backgroundColor:
-      surface.cardSoft,
-
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  filterNoticeIcon: {
-    width: 34,
-    height: 34,
-
-    borderRadius: radius.sm,
-
-    backgroundColor:
-      alpha.green08,
-
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  filterNoticeCopy: {
-    flex: 1,
-    marginLeft: spacing.sm,
-  },
-
-  filterNoticeTitle: {
-    color: textColor.primary,
-
-    fontSize: 11,
-    fontWeight: '900',
-  },
-
-  filterNoticeDescription: {
-    marginTop: 2,
-
-    color: textColor.muted,
-
-    fontSize: 9,
-    fontWeight: '600',
-  },
-
-  clearFilterButton: {
-    minHeight: 32,
-
-    paddingHorizontal:
-      spacing.sm,
-
-    borderRadius: radius.sm,
-
-    backgroundColor:
-      alpha.green08,
-
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  clearFilterText: {
-    color:
-      palette.opportunityGreen,
-
-    fontSize: 10,
-    fontWeight: '900',
-  },
-
-  marketTabs: {
-    marginTop: spacing.xs,
-
-    padding: spacing.xxs,
-
-    borderRadius: radius.lg,
-
-    borderWidth: 1,
-
-    borderColor:
-      alpha.white08,
-
-    backgroundColor:
-      surface.cardSoft,
-
-    flexDirection: 'row',
-  },
-
-  marketTab: {
-    flex: 1,
-
-    minHeight: 42,
-
-    borderRadius: radius.md,
-
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  marketTabSelected: {
-    backgroundColor:
-      palette.opportunityGreen,
-
-    ...shadow.greenSoft,
-  },
-
-  marketTabText: {
-    marginLeft: spacing.xs,
-
-    color: textColor.muted,
-
-    fontSize: 11,
-    fontWeight: '800',
-  },
-
-  marketTabTextSelected: {
-    color: textColor.inverse,
   },
 
   categoryList: {
@@ -1639,3 +1182,15 @@ const styles = StyleSheet.create({
     ],
   },
 });
+
+function marketViewerAreaLabel(
+  region: ViewerListingRegion,
+): string | null {
+  const location = formatViewerRegionLabel(region);
+
+  if (location === 'Your area') {
+    return null;
+  }
+
+  return `Your area: ${location}`;
+}

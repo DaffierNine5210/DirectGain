@@ -24,7 +24,7 @@ type Props = {
   showShare?: boolean;
 
   onBackPress: () => void;
-  onFavouritePress: () => void;
+  onFavouritePress?: () => void;
   onSharePress: () => void;
   onPhotoPress?: (index: number) => void;
 };
@@ -210,7 +210,7 @@ export default function ListingHeroGallery({
               styles.rightActions
             }
           >
-            {showFavourite ? (
+            {showFavourite && onFavouritePress ? (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={

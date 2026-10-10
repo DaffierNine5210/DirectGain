@@ -104,7 +104,7 @@ export default function MarketListingCard({
   const cover = image ? (
     <DGImage
       source={image}
-      aspectRatio="portrait"
+      aspectRatio={isListLayout ? 'square' : 'portrait'}
       cornerRadius="large"
       favourite={favourite}
       onFavouritePress={onFavouritePress}
@@ -259,25 +259,23 @@ export default function MarketListingCard({
               styles.listContent
             }
           >
-            <View>
-              <Text
-                numberOfLines={1}
-                style={
-                  styles.listPrice
-                }
-              >
-                {price}
-              </Text>
+            <Text
+              numberOfLines={1}
+              style={
+                styles.listPrice
+              }
+            >
+              {price}
+            </Text>
 
-              <Text
-                numberOfLines={2}
-                style={
-                  styles.listTitle
-                }
-              >
-                {title}
-              </Text>
-            </View>
+            <Text
+              numberOfLines={2}
+              style={
+                styles.listTitle
+              }
+            >
+              {title}
+            </Text>
 
             <View
               style={
@@ -449,18 +447,20 @@ export default function MarketListingCard({
             </View>
             ) : null}
 
+            {onMessagePress || onOfferPress ? (
             <View
               style={
                 styles.listActions
               }
             >
+              {onMessagePress ? (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Message seller"
                 onPress={event => {
                   event.stopPropagation();
 
-                  onMessagePress?.();
+                  onMessagePress();
                 }}
                 style={({
                   pressed,
@@ -487,14 +487,16 @@ export default function MarketListingCard({
                   Message
                 </Text>
               </Pressable>
+              ) : null}
 
+              {onOfferPress ? (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`Make an offer on ${title}`}
                 onPress={event => {
                   event.stopPropagation();
 
-                  onOfferPress?.();
+                  onOfferPress();
                 }}
                 style={({
                   pressed,
@@ -513,7 +515,9 @@ export default function MarketListingCard({
                   Make offer
                 </Text>
               </Pressable>
+              ) : null}
             </View>
+            ) : null}
           </View>
 
           <Animated.View
@@ -852,7 +856,6 @@ const styles = StyleSheet.create({
   listEmptyCover: {
     width: '100%',
     height: '100%',
-    minHeight: 182,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: alpha.white08,
@@ -1094,6 +1097,8 @@ const styles = StyleSheet.create({
 
     flexDirection: 'row',
 
+    alignItems: 'center',
+
     overflow: 'hidden',
 
     ...shadow.card,
@@ -1102,9 +1107,13 @@ const styles = StyleSheet.create({
   listImageArea: {
     position: 'relative',
 
-    width: 126,
+    width: '38%',
 
-    minHeight: 182,
+    minWidth: 118,
+
+    maxWidth: 148,
+
+    aspectRatio: 1,
 
     borderRadius:
       radius.lg,
@@ -1158,8 +1167,7 @@ const styles = StyleSheet.create({
     paddingLeft:
       spacing.md,
 
-    justifyContent:
-      'space-between',
+    justifyContent: 'center',
   },
 
   listPrice: {

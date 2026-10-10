@@ -126,7 +126,6 @@ export default function ListingDetailScreen({
   const [composerOpen, setComposerOpen] = useState(false);
   const [submittingOffer, setSubmittingOffer] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [isFavourite, setIsFavourite] = useState(false);
   const [photoViewer, setPhotoViewer] = useState<{
     visible: boolean;
     index: number;
@@ -321,10 +320,6 @@ export default function ListingDetailScreen({
       });
     }, [loadViewerOffers]),
   );
-
-  function handleFavouritePress() {
-    setIsFavourite((current) => !current);
-  }
 
   async function handleSharePress() {
     if (loadState.kind !== 'ready') {
@@ -571,9 +566,8 @@ export default function ListingDetailScreen({
       >
         <ListingHeroGallery
           images={detail.images}
-          favourite={isFavourite}
+          showFavourite={false}
           onBackPress={() => navigation.goBack()}
-          onFavouritePress={handleFavouritePress}
           onSharePress={() => {
             void handleSharePress();
           }}
